@@ -1,0 +1,8 @@
+/* System typography keeps page loads private and avoids third-party font requests. */
+@font-face {
+  font-family: "Shotlog Sans";
+  src: local("Helvetica Neue");
+  font-style: normal;
+  font-weight: 100 900;
+  font-display: swap;
+}

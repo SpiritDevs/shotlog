@@ -1,0 +1,37 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <meta name="theme-color" content="#F4F1EA" />
+    <title>shotlog — Show the bug. Keep the context.</title>
+    <meta name="description" content="In-app support reports for React. An annotated screenshot, a Diagnostic Trail, and the context to understand what happened. Delivered through your backend." />
+    <link rel="canonical" href="https://shotlog.dev/" />
+    <link rel="icon" type="image/svg+xml" href="/icon.svg" />
+    <meta property="og:type" content="website" />
+    <meta property="og:site_name" content="shotlog" />
+    <meta property="og:title" content="shotlog — Show the bug. Keep the context." />
+    <meta property="og:description" content="In-app support reports for React. An annotated screenshot, a Diagnostic Trail, and the context to understand what happened. Delivered through your backend." />
+    <meta property="og:url" content="https://shotlog.dev/" />
+    <meta property="og:image" content="https://shotlog.dev/og.png" />
+    <meta property="og:image:width" content="1200" />
+    <meta property="og:image:height" content="630" />
+    <meta property="og:image:alt" content="shotlog. Show the bug. Keep the context. In-app support reports for React." />
+    <meta name="twitter:card" content="summary_large_image" />
+    <meta name="twitter:title" content="shotlog — Show the bug. Keep the context." />
+    <meta name="twitter:description" content="In-app support reports for React. An annotated screenshot, a Diagnostic Trail, and the context to understand what happened. Delivered through your backend." />
+    <meta name="twitter:image" content="https://shotlog.dev/og.png" />
+    <script>
+      (() => {
+        let theme;
+        try { theme = localStorage.getItem("shotlog-site-theme"); } catch {}
+        document.documentElement.dataset.theme = theme === "light" || theme === "dark" ? theme : matchMedia("(prefers-color-scheme: dark)").matches ? "dark" : "light";
+      })();
+    </script>
+  </head>
+  <body>
+    <div id="root"></div>
+    <noscript><main><h1>Show the bug. Keep the context.</h1><p>shotlog is a React library for in-app support reports.</p><p>Install with <code>npm i shotlog</code>.</p><a href="/docs/">Read the documentation</a><p>Enable JavaScript to try the browser-only demo.</p></main></noscript>
+    <script type="module" src="/src/main.tsx"></script>
+  </body>
+</html>
