@@ -7,6 +7,7 @@ export default defineConfig({
     "src/node.ts",
     "src/ses.ts",
     "src/smtp.ts",
+    "src/uploadfile.ts",
   ],
   format: ["esm"],
   target: "es2022",

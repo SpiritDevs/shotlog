@@ -33,6 +33,10 @@
     "./smtp": {
       "types": "./dist/smtp.d.ts",
       "default": "./dist/smtp.js"
+    },
+    "./uploadfile": {
+      "types": "./dist/uploadfile.d.ts",
+      "default": "./dist/uploadfile.js"
     }
   },
   "publishConfig": {
@@ -71,6 +75,7 @@
     }
   },
   "devDependencies": {
+    "@uploadfile/core": "0.2.0",
     "@aws-sdk/client-sesv2": "^3.1141.0",
     "@types/mailparser": "^3.4.6",
     "@types/nodemailer": "^8.0.2",

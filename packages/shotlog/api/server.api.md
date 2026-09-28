@@ -339,6 +339,19 @@ export interface Size {
 }
 
 // @public
+export interface StorageAdapter {
+    readonly name: string;
+    upload(png: Uint8Array, info: {
+        id: string;
+        filename: string;
+        signal: AbortSignal;
+    }): Promise<{
+        url: string;
+        key: string;
+    }>;
+}
+
+// @public
 export interface SupportHandlerConfig {
     readonly authorize?: (request: Request) => AuthorizeResult | Promise<AuthorizeResult>;
     readonly delivery: DeliveryConfig;
@@ -422,7 +435,9 @@ export interface VerifyWebhookSignatureOptions {
 
 // @public
 export interface WebhookConfig {
+    readonly screenshotMode?: "base64" | "upload";
     readonly secret: string;
+    readonly storage?: StorageAdapter;
     readonly timeoutMs?: number;
     readonly url: string;
 }

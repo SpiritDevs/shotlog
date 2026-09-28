@@ -5,6 +5,7 @@ import type { WebhookConfig } from "./config.js";
 import { Delivery } from "./delivery.js";
 import { inlineScreenshot, type ParsedScreenshot } from "./multipart.js";
 import { signWebhook } from "./signature.js";
+import { uploadScreenshot } from "./storage.js";
 
 export function webhookLayer(config: WebhookConfig) {
   return Layer.succeed(Delivery, {
@@ -12,9 +13,13 @@ export function webhookLayer(config: WebhookConfig) {
       log: SupportLogSubmission,
       screenshot?: ParsedScreenshot,
     ) {
-      const body = JSON.stringify(
-        screenshot ? { ...log, screenshot: inlineScreenshot(screenshot) } : log,
-      );
+      // Prepared once after the handler's dedupe check, outside webhook retries.
+      const image = screenshot
+        ? config.screenshotMode === "upload" && config.storage
+          ? yield* uploadScreenshot(config.storage, log.id, screenshot)
+          : inlineScreenshot(screenshot)
+        : undefined;
+      const body = JSON.stringify(image ? { ...log, screenshot: image } : log);
       const attempt = Effect.gen(function* () {
         const signature = yield* signWebhook(body, config.secret);
         const response = yield* Effect.tryPromise({
