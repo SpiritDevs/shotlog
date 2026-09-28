@@ -27,6 +27,7 @@ export function storeLayer(external?: ShotlogStore) {
     });
   }
 
+  const maxEntries = 10_000;
   const entries = new Map<string, { value: number; expiresAt: number }>();
   let nextExpiry = Infinity;
   const prune = (now: number) => {
@@ -49,6 +50,11 @@ export function storeLayer(external?: ShotlogStore) {
     ) {
       const now = yield* Clock.currentTimeMillis;
       prune(now);
+      if (!entries.has(key) && entries.size >= maxEntries) {
+        // Bounded memory under key churn (e.g. rotating IPs): drop the oldest entry.
+        const oldest = entries.keys().next().value;
+        if (oldest !== undefined) entries.delete(oldest);
+      }
       const entry = entries.get(key) ?? {
         value: 0,
         expiresAt: now + ttl * 1000,

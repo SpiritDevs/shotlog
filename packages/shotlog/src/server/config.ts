@@ -61,7 +61,8 @@ export interface ShotlogStore {
 }
 
 /**
- * Fixed-window limits applied independently to client IP and reporter.id when present.
+ * Fixed-window limits applied independently per client IP and per authenticated reporter
+ * (the `reporterId` returned by `authorize`).
  * @example
  * ```ts
  * const rateLimit: RateLimitConfig = { max: 5, windowSeconds: 600 };
@@ -86,7 +87,19 @@ export interface RateLimitConfig {
 export interface SupportHandlerLimits {
   /** Maximum PNG bytes. Defaults to 5 MiB. */
   readonly screenshotBytes?: number;
+  /**
+   * Requests processed at once by this handler instance. Extra requests get RateLimited
+   * (retry in 5 s) before their body is read, bounding memory. Defaults to 16.
+   */
+  readonly concurrentRequests?: number;
 }
+
+/**
+ * What `authorize` may return. `reporterId` should come from your session, not the request
+ * body; it keys the per-reporter rate limit so one user can't exhaust another's.
+ * @public
+ */
+export type AuthorizeResult = boolean | { readonly reporterId: string };
 
 /**
  * Server-side Relay Endpoint configuration.
@@ -104,17 +117,26 @@ export interface SupportHandlerConfig {
   readonly delivery: DeliveryConfig;
   /**
    * Runs before reading the body. Return false for 403, or throw Unauthorized / Forbidden.
+   * Return `{ reporterId }` to also rate-limit per authenticated user.
    * Unexpected throws are logged and produce a generic 500. Omission warns once at creation.
    */
-  readonly authorize?: (request: Request) => boolean | Promise<boolean>;
+  readonly authorize?: (
+    request: Request,
+  ) => AuthorizeResult | Promise<AuthorizeResult>;
   /** Defaults to 5 requests per 600 seconds; false disables both IP and reporter limits. */
   readonly rateLimit?: false | RateLimitConfig;
   /**
-   * Overrides IP resolution. By default: first x-forwarded-for entry, x-real-ip,
-   * cf-connecting-ip, then the socket address supplied by toNodeHandler. Forwarded headers
-   * are trustworthy only behind a trusted proxy. Without an IP, per-IP limits are skipped.
+   * Overrides IP resolution. By default, requests adapted by `toNodeHandler` use the socket
+   * address (see `trustProxy`); other runtimes use platform headers (cf-connecting-ip,
+   * x-real-ip, then the first x-forwarded-for entry). Without an IP, per-IP limits are skipped.
    */
   readonly getClientIp?: (request: Request) => string | undefined;
+  /**
+   * With `toNodeHandler` behind a reverse proxy, set true to read the client IP from
+   * forwarded headers instead of the proxy's socket address. Defaults to false, because
+   * without a proxy those headers are client-controlled.
+   */
+  readonly trustProxy?: boolean;
   /** Defaults to lazy-expiring in-memory storage, protecting only this handler instance. */
   readonly store?: ShotlogStore;
   /** Screenshot and total streaming body limits. */

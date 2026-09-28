@@ -347,22 +347,25 @@ test("limits the first forwarded IP before parsing and sends Retry-After", async
   expect(fetchStub).toHaveBeenCalledOnce();
 });
 
-test("limits reporter IDs independently across client IPs", async () => {
-  const handle = handler({ rateLimit: { max: 1 } });
-  const first = { ...submission(), reporter: { id: "reporter-1" } };
-  const second = { ...submission(2), reporter: { id: "reporter-1" } };
-  expect(
-    (await handle(request(first, undefined, { "x-real-ip": "192.0.2.1" })))
-      .status,
-  ).toBe(200);
-  expect(
-    (
-      await handle(
-        request(second, undefined, { "cf-connecting-ip": "192.0.2.2" }),
-      )
-    ).status,
-  ).toBe(429);
-  expect(fetchStub).toHaveBeenCalledOnce();
+test("limits the authenticated reporter across IPs and ignores body-supplied reporter ids", async () => {
+  const session = { current: "user-1" };
+  const handle = handler({
+    rateLimit: { max: 1 },
+    authorize: () => ({ reporterId: session.current }),
+  });
+  const send = (n: number, ip: string, reporterId: string) =>
+    handle(
+      request({ ...submission(n), reporter: { id: reporterId } }, undefined, {
+        "cf-connecting-ip": ip,
+      }),
+    );
+  expect((await send(1, "192.0.2.1", "user-1")).status).toBe(200);
+  // Same session from another IP is limited.
+  expect((await send(2, "192.0.2.2", "user-1")).status).toBe(429);
+  // Naming user-1 in the body doesn't touch user-2's limit.
+  session.current = "user-2";
+  expect((await send(3, "192.0.2.3", "user-1")).status).toBe(200);
+  expect(fetchStub).toHaveBeenCalledTimes(2);
 });
 
 test("honors the IP override and defaults to five requests when rateLimit is omitted", async () => {
@@ -490,4 +493,32 @@ test("timeouts abort each stalled webhook attempt", async () => {
   expect(response.status).toBe(502);
   expect(signals).toHaveLength(3);
   expect(signals.every((signal) => signal.aborted)).toBe(true);
+});
+
+test("rejects work beyond concurrentRequests before reading the body", async () => {
+  let release = () => {};
+  fetchStub.mockImplementation(
+    () =>
+      new Promise((resolve) => {
+        release = () => resolve(new Response(null, { status: 204 }));
+      }),
+  );
+  const handle = handler({ limits: { concurrentRequests: 1 } });
+  const first = handle(request(submission(1)));
+  await vi.waitFor(() => expect(fetchStub).toHaveBeenCalledOnce());
+  const busy = await handle(request(submission(2)));
+  expect(busy.status).toBe(429);
+  expect(busy.headers.get("retry-after")).toBe("5");
+  release();
+  expect((await first).status).toBe(200);
+  fetchStub.mockImplementation(async () => new Response(null, { status: 204 }));
+  expect((await handle(request(submission(3)))).status).toBe(200);
+});
+
+test.each([
+  { limits: { screenshotBytes: Number.NaN } },
+  { limits: { concurrentRequests: 0 } },
+  { rateLimit: { max: Number.POSITIVE_INFINITY } },
+])("rejects invalid numeric config at creation: %j", (overrides) => {
+  expect(() => handler(overrides)).toThrow(TypeError);
 });

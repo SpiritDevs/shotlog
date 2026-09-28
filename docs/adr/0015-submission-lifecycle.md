@@ -6,7 +6,14 @@
 1. **Support Log ID.**
    - A UUID is generated in the browser when the Report Card opens.
    - A short readable form (e.g. `SL-7F3K`) is shown on success and included in the email subject (`[Bug] SL-7F3K · Save button does nothing`), the email body, and the webhook JSON.
-2. **Safe retries.** The Relay Endpoint remembers recently delivered IDs and ignores repeats, so a retry after a timeout never delivers twice. The ID store is swappable, like the rate-limit store (ADR-0008).
+2. **Safe retries, at-least-once delivery.**
+   - The Relay Endpoint remembers delivered IDs **per channel** and ignores repeats, so a Reporter's retry doesn't normally deliver twice.
+   - The pending ID is saved with the draft, so a retry after a page reload is deduped too. Editing after a failure starts a new ID.
+   - Exactly-once delivery is not achievable, for two reasons:
+     - A receiver may accept a webhook but the response gets lost.
+     - Two instances may receive the same ID at the same moment.
+   - Delivery is therefore **at least once**. Receivers dedupe on `x-shotlog-id` / `log.id`.
+   - The ID store is swappable, like the rate-limit store (ADR-0008).
 3. **Drafts.**
    - The Type and Description survive closing the card: in memory while the page is open, and in `sessionStorage` if the page reloads.
    - The Screenshot is kept **in memory only**. It's never persisted, because of its size and because it may contain sensitive data.

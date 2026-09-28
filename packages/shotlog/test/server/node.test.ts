@@ -1,5 +1,6 @@
 import { createServer } from "node:http";
 import { afterEach, expect, test, vi } from "vitest";
+import { socketAddresses } from "../../src/internal/socket.js";
 import { toNodeHandler } from "../../src/node.js";
 import { createSupportHandler } from "../../src/server.js";
 import { png, request } from "./fixtures.js";
@@ -28,7 +29,7 @@ test("streams a real node:http multipart request and Fetch response, including r
   const server = createServer(
     toNodeHandler(async (input) => {
       receivedUrl = input.url;
-      socketAddress = input.headers.get("x-shotlog-socket-address");
+      socketAddress = socketAddresses.get(input) ?? null;
       const response = await support(input);
       response.headers.append("set-cookie", "first=1; Path=/");
       response.headers.append("set-cookie", "second=2; Path=/");
@@ -42,7 +43,7 @@ test("streams a real node:http multipart request and Fetch response, including r
       throw new Error("No listening address");
     const source = request(undefined, new Blob([png], { type: "image/png" }), {
       authorization: "Bearer session",
-      "x-shotlog-socket-address": "198.51.100.1",
+      "x-forwarded-for": "198.51.100.1",
     });
     const url = `http://127.0.0.1:${address.port}/support?source=node`;
     const init: RequestInit & { duplex: "half" } = {
@@ -59,7 +60,7 @@ test("streams a real node:http multipart request and Fetch response, including r
       "second=2; Path=/",
     ]);
     expect(receivedUrl).toBe(url);
-    // A client-supplied copy must be replaced by the real socket address.
+    // The socket address travels outside headers; a spoofed forwarded header can't replace it.
     expect(socketAddress).toBe("127.0.0.1");
     expect(webhook).toHaveBeenCalledOnce();
   })().finally(

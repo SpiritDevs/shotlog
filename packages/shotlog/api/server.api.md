@@ -5,6 +5,11 @@
 ```ts
 
 // @public
+export type AuthorizeResult = boolean | {
+    readonly reporterId: string;
+};
+
+// @public
 export interface ConsoleEntry {
     readonly at: string;
     // (undocumented)
@@ -374,16 +379,18 @@ export interface SmtpOptions {
 
 // @public
 export interface SupportHandlerConfig {
-    readonly authorize?: (request: Request) => boolean | Promise<boolean>;
+    readonly authorize?: (request: Request) => AuthorizeResult | Promise<AuthorizeResult>;
     readonly delivery: DeliveryConfig;
     readonly getClientIp?: (request: Request) => string | undefined;
     readonly limits?: SupportHandlerLimits;
     readonly rateLimit?: false | RateLimitConfig;
     readonly store?: ShotlogStore;
+    readonly trustProxy?: boolean;
 }
 
 // @public
 export interface SupportHandlerLimits {
+    readonly concurrentRequests?: number;
     readonly screenshotBytes?: number;
 }
 

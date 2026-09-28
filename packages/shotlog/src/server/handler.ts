@@ -6,6 +6,7 @@ import {
   Unauthorized,
 } from "../internal/errors.js";
 import { runPublic } from "../internal/runtime.js";
+import { socketAddresses } from "../internal/socket.js";
 import { errorResponse, type SubmitSuccessBody } from "../internal/wire.js";
 import type { SupportLogSubmission } from "../types.js";
 import type { SupportHandlerConfig } from "./config.js";
@@ -36,19 +37,21 @@ const authorizeRequest = Effect.fn("authorizeSupportRequest")(function* (
     }),
   );
   if (!allowed) return yield* new Forbidden({});
+  return typeof allowed === "object" ? allowed.reporterId : undefined;
 });
 
-/** Set by toNodeHandler from the socket; any client-supplied copy is discarded there. */
-export const socketAddressHeader = "x-shotlog-socket-address";
-
-function clientIp(request: Request): string | undefined {
+function forwardedIp(request: Request): string | undefined {
   return (
-    request.headers.get("x-forwarded-for")?.split(",", 1)[0]?.trim() ||
-    request.headers.get("x-real-ip")?.trim() ||
     request.headers.get("cf-connecting-ip")?.trim() ||
-    request.headers.get(socketAddressHeader)?.trim() ||
+    request.headers.get("x-real-ip")?.trim() ||
+    request.headers.get("x-forwarded-for")?.split(",", 1)[0]?.trim() ||
     undefined
   );
+}
+
+function positive(name: string, value: number | undefined): void {
+  if (value !== undefined && !(Number.isFinite(value) && value > 0))
+    throw new TypeError(`shotlog: ${name} must be a positive finite number`);
 }
 
 function respondToFailure(
@@ -89,8 +92,8 @@ function defectResponse(
  * Create a Fetch-standard Relay Endpoint with authorization, bounded multipart parsing,
  * rate limits, per-channel deduplication, and Email / signed Webhook delivery.
  * Successful channel deliveries expire after 24 hours.
- * Concurrent copies are coalesced within this handler; shared stores remember completed
- * deliveries across instances but cannot lock simultaneous deliveries across instances.
+ * Delivery is at least once: a lost response, or two instances receiving the same ID at
+ * the same moment, can deliver twice. Receivers should dedupe on `x-shotlog-id` / `log.id`.
  * @example
  * ```ts
  * export const POST = createSupportHandler({
@@ -107,7 +110,21 @@ export function createSupportHandler(
     console.warn(
       "shotlog: no authorize hook configured; the Relay Endpoint accepts unauthenticated reports",
     );
+  positive("limits.screenshotBytes", config.limits?.screenshotBytes);
+  positive("limits.concurrentRequests", config.limits?.concurrentRequests);
+  if (config.rateLimit) {
+    positive("rateLimit.max", config.rateLimit.max);
+    positive("rateLimit.windowSeconds", config.rateLimit.windowSeconds);
+  }
+  positive("delivery.webhook.timeoutMs", config.delivery.webhook?.timeoutMs);
   const screenshotBytes = config.limits?.screenshotBytes ?? 5 * 1024 * 1024;
+  const concurrentRequests = config.limits?.concurrentRequests ?? 16;
+  const clientIp = (request: Request) =>
+    config.getClientIp
+      ? config.getClientIp(request)
+      : config.trustProxy
+        ? forwardedIp(request)
+        : (socketAddresses.get(request) ?? forwardedIp(request));
   const services = storeLayer(config.store);
   const channel = config.delivery.email ? "email" : "webhook";
   const channels = [
@@ -167,9 +184,11 @@ export function createSupportHandler(
     if (request.method !== "POST")
       return new Response(null, { status: 405, headers: { allow: "POST" } });
     yield* checkRequest(request, screenshotBytes);
-    if (config.authorize) yield* authorizeRequest(request, config.authorize);
+    const reporterId = config.authorize
+      ? yield* authorizeRequest(request, config.authorize)
+      : undefined;
     if (config.rateLimit !== false) {
-      const ip = (config.getClientIp ?? clientIp)(request)?.trim();
+      const ip = clientIp(request)?.trim();
       // One shared bucket for every IP-less request would throttle all users together.
       if (ip) yield* checkRateLimit("ip", ip, config.rateLimit ?? {});
       else warnNoIp();
@@ -178,13 +197,9 @@ export function createSupportHandler(
       request,
       screenshotBytes,
     );
-    if (config.rateLimit !== false && submission.reporter?.id !== undefined) {
-      yield* checkRateLimit(
-        "reporter",
-        submission.reporter.id,
-        config.rateLimit ?? {},
-      );
-    }
+    // Only an authenticated id: a body-supplied reporter.id would let anyone exhaust another user's limit.
+    if (config.rateLimit !== false && reporterId !== undefined)
+      yield* checkRateLimit("reporter", reporterId, config.rateLimit ?? {});
     const duplicate = yield* deliverOnce(submission, screenshot);
     const body: SubmitSuccessBody = {
       ok: true,
@@ -195,13 +210,26 @@ export function createSupportHandler(
     return Response.json(body);
   });
 
-  return (request) =>
-    runPublic(
-      handle(request).pipe(
-        Effect.catchAllDefect((error) =>
-          Effect.sync(() => defectResponse(error, channel)),
+  // Admission control before the body is read: per-request limits alone don't bound memory
+  // when many large submissions arrive while deliveries are slow.
+  let active = 0;
+  return async (request) => {
+    if (active >= concurrentRequests)
+      return errorResponse(
+        new Public.RateLimited(5, "The Relay Endpoint is busy"),
+      );
+    active += 1;
+    try {
+      return await runPublic(
+        handle(request).pipe(
+          Effect.catchAllDefect((error) =>
+            Effect.sync(() => defectResponse(error, channel)),
+          ),
+          Effect.provide(services),
         ),
-        Effect.provide(services),
-      ),
-    ).catch((error: unknown) => respondToFailure(error, channel));
+      ).catch((error: unknown) => respondToFailure(error, channel));
+    } finally {
+      active -= 1;
+    }
+  };
 }

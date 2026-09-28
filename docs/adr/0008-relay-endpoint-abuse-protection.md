@@ -14,8 +14,13 @@ The Server Helper applies these protections.
 3. **Schema validation.** The payload is validated on the server, and anything that doesn't match is rejected.
 
 **On by default, can be overridden:**
-4. **`authorize(request)` hook.** The Host App plugs in its own session or role check.
-5. **Rate limiting.** Limited per IP and per `reporter.id` (default 5 per 10 minutes), using in-memory storage. Multi-instance deployments can plug in their own store (e.g. Redis).
+4. **`authorize(request)` hook.** The Host App plugs in its own session or role check. It can return `{ reporterId }` from the session; that authenticated ID, never the body's `reporter.id`, keys the per-reporter limit.
+5. **Rate limiting.**
+   - Limited per IP and per authenticated reporter (default 5 per 10 minutes).
+   - The in-memory store is capped at 10k keys. Multi-instance deployments can plug in their own store (e.g. Redis).
+   - With `toNodeHandler`, the IP is the socket address, carried outside headers so clients can't spoof it. Set `trustProxy` to use forwarded headers behind a proxy.
+   - Other runtimes use platform headers.
+6. **Concurrency cap.** Default 16 requests in flight per instance, checked before the body is read. Extra requests get a 5 s RateLimited, which bounds memory.
 
 The Server Helper logs a warning at startup if no `authorize` hook is configured.
 
