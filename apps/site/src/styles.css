@@ -214,18 +214,102 @@ pre,
   align-items: center;
 }
 .install {
+  position: relative;
   display: flex;
   align-items: center;
-  gap: 15px;
+  gap: 12px;
   border: 1px solid var(--line);
   background: var(--surface);
-  padding: 6px 9px 6px 18px;
+  padding: 6px;
   min-height: 50px;
   font-size: 14px;
-  border-radius: 7px;
+  border-radius: 10px;
 }
-.install > span {
-  color: var(--muted);
+.install code {
+  padding-right: 4px;
+}
+.manager {
+  position: relative;
+}
+.manager-trigger {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  min-height: 36px;
+  padding: 0 10px 0 12px;
+  border: 0;
+  border-radius: 6px;
+  background: var(--soft);
+  color: inherit;
+  font: inherit;
+  font-size: 13px;
+  cursor: pointer;
+}
+.manager-trigger svg {
+  width: 12px;
+  height: 12px;
+  fill: none;
+  stroke: currentColor;
+  stroke-width: 1.6;
+  transition: transform 150ms ease;
+}
+.manager-trigger[aria-expanded="true"] svg {
+  transform: rotate(180deg);
+}
+.manager-trigger:hover {
+  background: var(--line);
+}
+.manager-menu {
+  position: absolute;
+  z-index: 10;
+  top: calc(100% + 8px);
+  left: 0;
+  display: grid;
+  min-width: 112px;
+  padding: 4px;
+  border: 1px solid var(--line);
+  border-radius: 10px;
+  background: var(--surface);
+  box-shadow:
+    0 12px 32px #0000001f,
+    0 2px 6px #00000014;
+  animation: manager-in 140ms ease-out;
+}
+.manager-menu button {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 8px 10px;
+  border: 0;
+  border-radius: 6px;
+  background: transparent;
+  color: inherit;
+  font: inherit;
+  font-size: 13px;
+  text-align: left;
+  cursor: pointer;
+}
+.manager-menu button:hover,
+.manager-menu button:focus-visible {
+  background: var(--soft);
+  outline: none;
+}
+.manager-menu button[aria-checked="true"]::after {
+  content: "✓";
+  color: var(--annotation);
+}
+@keyframes manager-in {
+  from {
+    opacity: 0;
+    transform: translateY(-4px);
+  }
+}
+.install-divider {
+  align-self: stretch;
+  width: 1px;
+  margin: 4px 0;
+  background: var(--line);
 }
 .copy-button {
   display: inline-flex;
@@ -244,9 +328,8 @@ pre,
   background: var(--soft);
 }
 .install .copy-button {
-  border-left: 1px solid var(--line);
-  border-radius: 0;
-  margin-left: 15px;
+  border-radius: 6px;
+  padding: 9px;
 }
 .install .copy-button span {
   position: absolute;
@@ -1431,11 +1514,7 @@ pre,
   .install {
     font-size: 12px;
     min-height: 46px;
-    padding-left: 13px;
-    gap: 10px;
-  }
-  .install .copy-button {
-    margin-left: 2px;
+    gap: 8px;
   }
   .hero-actions .text-link {
     font-size: 12px;

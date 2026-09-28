@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect, useId, useRef, useState } from "react";
 
 export type Theme = "light" | "dark";
 
@@ -156,5 +156,144 @@ export function Scribble({ className = "" }: { className?: string }) {
     >
       <path d="M238 15C184-5 67 4 24 35C-39 82 86 112 204 92C286 78 320 23 241 12C172 1 91 4 47 25" />
     </svg>
+  );
+}
+
+const managers = [
+  { id: "npm", command: "npm i shotlog" },
+  { id: "pnpm", command: "pnpm add shotlog" },
+  { id: "yarn", command: "yarn add shotlog" },
+  { id: "bun", command: "bun add shotlog" },
+] as const;
+type Manager = (typeof managers)[number];
+const managerKey = "shotlog-site:package-manager";
+const managerEvent = "shotlog-site:package-manager";
+const find = (id: string | null): Manager =>
+  managers.find((manager) => manager.id === id) ?? managers[0];
+
+/** The chosen package manager, remembered and shared by every install snippet on the page. */
+export function usePackageManager(): [Manager, (id: Manager["id"]) => void] {
+  const [manager, setManager] = useState<Manager>(() => {
+    try {
+      return find(localStorage.getItem(managerKey));
+    } catch {
+      return managers[0];
+    }
+  });
+  useEffect(() => {
+    const sync = () => {
+      try {
+        setManager(find(localStorage.getItem(managerKey)));
+      } catch {
+        /* Storage unavailable: keep the current choice. */
+      }
+    };
+    window.addEventListener(managerEvent, sync);
+    return () => window.removeEventListener(managerEvent, sync);
+  }, []);
+  const choose = (id: Manager["id"]) => {
+    setManager(find(id));
+    try {
+      localStorage.setItem(managerKey, id);
+      window.dispatchEvent(new Event(managerEvent));
+    } catch {
+      /* Storage unavailable: this snippet still updates. */
+    }
+  };
+  return [manager, choose];
+}
+
+export function InstallCommand() {
+  const [manager, choose] = usePackageManager();
+  const [open, setOpen] = useState(false);
+  const root = useRef<HTMLDivElement>(null);
+  const trigger = useRef<HTMLButtonElement>(null);
+  const menuId = useId();
+  useEffect(() => {
+    if (!open) return;
+    const outside = (event: PointerEvent) => {
+      if (!root.current?.contains(event.target as Node)) setOpen(false);
+    };
+    document.addEventListener("pointerdown", outside);
+    root.current
+      ?.querySelector<HTMLButtonElement>('[aria-checked="true"]')
+      ?.focus();
+    return () => document.removeEventListener("pointerdown", outside);
+  }, [open]);
+  const pick = (id: Manager["id"]) => {
+    choose(id);
+    setOpen(false);
+    trigger.current?.focus();
+  };
+  return (
+    <div className="install" ref={root}>
+      <div className="manager">
+        <button
+          ref={trigger}
+          type="button"
+          className="manager-trigger"
+          aria-haspopup="menu"
+          aria-expanded={open}
+          aria-controls={menuId}
+          aria-label={`Package manager: ${manager.id}`}
+          onClick={() => setOpen((value) => !value)}
+          onKeyDown={(event) => {
+            if (event.key === "ArrowDown") {
+              event.preventDefault();
+              setOpen(true);
+            }
+          }}
+        >
+          {manager.id}
+          <svg viewBox="0 0 12 12" aria-hidden="true">
+            <path d="m3 4.5 3 3 3-3" />
+          </svg>
+        </button>
+        {open && (
+          <div
+            id={menuId}
+            className="manager-menu"
+            role="menu"
+            tabIndex={-1}
+            onKeyDown={(event) => {
+              const items = Array.from(
+                event.currentTarget.querySelectorAll<HTMLButtonElement>(
+                  "button",
+                ),
+              );
+              const index = items.indexOf(
+                document.activeElement as HTMLButtonElement,
+              );
+              if (event.key === "Escape") {
+                event.preventDefault();
+                setOpen(false);
+                trigger.current?.focus();
+              } else if (event.key === "ArrowDown" || event.key === "ArrowUp") {
+                event.preventDefault();
+                const step = event.key === "ArrowDown" ? 1 : -1;
+                items[(index + step + items.length) % items.length]?.focus();
+              } else if (event.key === "Tab") {
+                setOpen(false);
+              }
+            }}
+          >
+            {managers.map((option) => (
+              <button
+                key={option.id}
+                type="button"
+                role="menuitemradio"
+                aria-checked={option.id === manager.id}
+                onClick={() => pick(option.id)}
+              >
+                {option.id}
+              </button>
+            ))}
+          </div>
+        )}
+      </div>
+      <code>{manager.command}</code>
+      <span className="install-divider" aria-hidden="true" />
+      <CopyButton value={manager.command} label="Copy install command" />
+    </div>
   );
 }

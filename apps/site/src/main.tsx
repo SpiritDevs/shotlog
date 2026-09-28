@@ -1,7 +1,14 @@
 import snippets from "virtual:snippets";
 import { lazy, Suspense } from "react";
 import { createRoot } from "react-dom/client";
-import { CopyButton, Footer, Header, Scribble, useTheme } from "./ui";
+import {
+  Footer,
+  Header,
+  InstallCommand,
+  Scribble,
+  usePackageManager,
+  useTheme,
+} from "./ui";
 import "./styles.css";
 
 const Demo = lazy(() => import("./Demo"));
@@ -46,14 +53,7 @@ function App() {
                 An annotated screenshot. The trail behind it. One useful report.
               </p>
               <div className="hero-actions">
-                <div className="install">
-                  <span aria-hidden="true">$</span>
-                  <code>npm i shotlog</code>
-                  <CopyButton
-                    value="npm i shotlog"
-                    label="Copy install command"
-                  />
-                </div>
+                <InstallCommand />
                 <a
                   className="text-link"
                   href="/docs/#quick-start-nextjs-app-router"
@@ -342,7 +342,7 @@ function App() {
             <a className="button button-ink" href="/docs/#install">
               Read the docs <span aria-hidden="true">↗</span>
             </a>
-            <code>npm i shotlog</code>
+            <ClosingInstall />
           </div>
           <p>React ≥18 · TypeScript · Your backend</p>
         </section>
@@ -354,3 +354,8 @@ function App() {
 
 const root = document.getElementById("root");
 if (root) createRoot(root).render(<App />);
+
+function ClosingInstall() {
+  const [manager] = usePackageManager();
+  return <code>{manager.command}</code>;
+}
