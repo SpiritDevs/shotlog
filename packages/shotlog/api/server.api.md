@@ -16,6 +16,14 @@ export interface ConsoleEntry {
 }
 
 // @public
+export function createSupportHandler(config: SupportHandlerConfig): (request: Request) => Promise<Response>;
+
+// @public
+export type DeliveryConfig = {
+    readonly webhook: WebhookConfig;
+};
+
+// @public
 export class DeliveryFailed extends Error {
     constructor(channel: "email" | "webhook", message?: string, options?: ErrorOptions);
     // (undocumented)
@@ -119,6 +127,12 @@ export class ProviderNotInstalled extends Error {
 }
 
 // @public
+export interface RateLimitConfig {
+    readonly max?: number;
+    readonly windowSeconds?: number;
+}
+
+// @public
 export class RateLimited extends Error {
     constructor(retryAfterSeconds: number, message?: string, options?: ErrorOptions);
     // (undocumented)
@@ -164,11 +178,32 @@ export interface ScreenshotInfo {
 export type ShotlogError = Unauthorized | Forbidden | RateLimited | PayloadTooLarge | ValidationFailed | DeliveryFailed | UploadFailed | Offline | ProviderNotInstalled | UnsupportedRuntime;
 
 // @public
+export interface ShotlogStore {
+    get(key: string): Promise<number | undefined>;
+    increment(key: string, ttlSeconds: number): Promise<number>;
+}
+
+// @public
 export interface Size {
     // (undocumented)
     readonly height: number;
     // (undocumented)
     readonly width: number;
+}
+
+// @public
+export interface SupportHandlerConfig {
+    readonly authorize?: (request: Request) => boolean | Promise<boolean>;
+    readonly delivery: DeliveryConfig;
+    readonly getClientIp?: (request: Request) => string | undefined;
+    readonly limits?: SupportHandlerLimits;
+    readonly rateLimit?: false | RateLimitConfig;
+    readonly store?: ShotlogStore;
+}
+
+// @public
+export interface SupportHandlerLimits {
+    readonly screenshotBytes?: number;
 }
 
 // @public
@@ -223,6 +258,24 @@ export class ValidationFailed extends Error {
     readonly issues: readonly string[];
     // (undocumented)
     readonly _tag = "ValidationFailed";
+}
+
+// @public
+export function verifyWebhookSignature(options: VerifyWebhookSignatureOptions): Promise<boolean>;
+
+// @public
+export interface VerifyWebhookSignatureOptions {
+    readonly header: string | null;
+    readonly payload: string;
+    readonly secret: string;
+    readonly toleranceSeconds?: number;
+}
+
+// @public
+export interface WebhookConfig {
+    readonly secret: string;
+    readonly timeoutMs?: number;
+    readonly url: string;
 }
 
 // (No @packageDocumentation comment for this package)

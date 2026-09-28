@@ -4,6 +4,9 @@
 
 ```ts
 
+import { IncomingMessage } from 'node:http';
+import { ServerResponse } from 'node:http';
+
 // @public
 export interface ConsoleEntry {
     readonly at: string;
@@ -194,6 +197,9 @@ export interface SupportLog {
 
 // @public
 export type SupportLogSubmission = Omit<SupportLog, "screenshot">;
+
+// @public
+export function toNodeHandler(handler: (request: Request) => Promise<Response>): (req: IncomingMessage, res: ServerResponse) => void;
 
 // @public
 export class Unauthorized extends Error {
