@@ -1,5 +1,16 @@
 # shotlog
 
+## 1.1.0
+
+### Minor Changes
+
+- Slack delivery, Capture in 5 seconds, and truer page captures.
+
+  - `delivery.slack` posts each report as one Block Kit message through a bot token and shares the Screenshot in its thread. Send every report to one `channel`, map Types to channels (`{ Bug: "#bugs", Idea: "#ideas" }`), or leave a Type unmapped so the Reporter picks from a "Slack channel" dropdown. The server accepts only channels it offered. The Relay Endpoint now answers `GET` with those options, behind the Authorize Hook.
+  - `DeliveryFailed.channel` can be `"slack"`.
+  - "Capture in 5 seconds" in the screenshot menu counts down with the card out of the way, so a menu or hover state can be captured. Esc or Cancel stops it. New labels: `captureDelayed`, `countdown`, `cancelCountdown`, `slackChannel`, `slackNoChannels`.
+  - Page Render keeps live form state: selects, textareas, and changed checkboxes and radios render as they are on screen.
+
 ## 1.0.0
 
 ### Major Changes
@@ -13,12 +24,10 @@
   - Pending report IDs retained for safe retries and per-channel relay deduplication.
   - Environment, Host Context, and a bounded Diagnostic Trail with an Included Details preview.
   - Page Render, Screen Capture, and image paste/upload with one optional Screenshot.
-  - Capture in 5 seconds: a countdown that moves the card aside so menus and hover states can be captured.
   - Full-viewport Annotation Editor with shapes, arrows, text, crop, undo, and baked-in redaction.
   - Fetch-standard server handler and streaming Node adapter for framework integration.
   - Authorization hooks, rate limits, schema validation, and bounded multipart requests.
   - Resend, Amazon SES, and SMTP email delivery, plus signed webhooks.
-  - Slack delivery: one Block Kit message per report with the Screenshot in its thread, to a fixed channel, a channel per Type, or one the Reporter picks.
   - Base64 screenshots or storage uploads with inline fallback and an optional UploadFile adapter.
   - Versioned JSON Schema, plain TypeScript public APIs, and separate client/server exports.
   - ESM-only distribution; Node ≥20.19 for Node deployments and React / React DOM ≥18 for the client.
