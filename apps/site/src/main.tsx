@@ -75,14 +75,8 @@ function App() {
         <section
           id="demo"
           className="demo-section container"
-          aria-labelledby="demo-title"
+          aria-label="Live demo"
         >
-          <div className="section-label">
-            <h2 id="demo-title">THE LIVE DEMO</h2>
-            <span className="mono">
-              <span className="status-dot" /> YOUR BROWSER. YOUR REPORT.
-            </span>
-          </div>
           <Suspense
             fallback={
               <div className="demo-loading" role="status">
