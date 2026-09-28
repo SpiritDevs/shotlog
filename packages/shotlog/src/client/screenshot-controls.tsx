@@ -5,7 +5,11 @@ import {
   imageToPng,
   supportsScreenCapture,
 } from "./capture.js";
+import type { EditableScreenshot } from "./editor/index.js";
 import type { ShotlogLabels } from "./types.js";
+
+// Weak keys follow the provider's in-memory attachment lifetime, including card reopen.
+const editableScreenshots = new WeakMap<Blob, EditableScreenshot>();
 
 interface ScreenshotControlsProps {
   readonly host: HTMLElement;
@@ -34,12 +38,14 @@ export function ScreenshotControls({
   const pending = useRef(false);
   const wasBusy = useRef(false);
   const mounted = useRef(false);
+  const editorAbort = useRef<AbortController | null>(null);
   const screenSupported = supportsScreenCapture();
 
   useEffect(() => {
     mounted.current = true;
     return () => {
       mounted.current = false;
+      editorAbort.current?.abort();
       onBusyChange(false);
     };
   }, [onBusyChange]);
@@ -59,12 +65,28 @@ export function ScreenshotControls({
     return () => URL.revokeObjectURL(url);
   }, [screenshot]);
 
-  // M4 hand-off: insert `const edited = await edit(blob)` here before attaching.
   const attachScreenshot = useCallback(
     async (blob: Blob) => {
-      if (mounted.current) onChange(blob);
+      const controller = new AbortController();
+      editorAbort.current = controller;
+      const { editScreenshot } = await import("./editor/index.js");
+      if (!mounted.current || controller.signal.aborted) return;
+      const previous = editableScreenshots.get(blob);
+      const edited = await editScreenshot(
+        previous?.original ?? blob,
+        host,
+        labels,
+        controller.signal,
+        previous?.scene,
+      );
+      editorAbort.current = null;
+      if (mounted.current && edited) {
+        editableScreenshots.delete(blob);
+        editableScreenshots.set(edited.blob, edited);
+        onChange(edited.blob);
+      }
     },
-    [onChange],
+    [host, labels, onChange],
   );
 
   const capture = useCallback(
@@ -127,8 +149,21 @@ export function ScreenshotControls({
               ref={trigger}
               type="button"
               disabled={locked || busy}
+              onClick={() =>
+                void capture(
+                  () => Promise.resolve(screenshot),
+                  labels.editorFailed,
+                )
+              }
+            >
+              {labels.editScreenshot}
+            </button>
+            <button
+              type="button"
+              disabled={locked || busy}
               onClick={() => {
                 setError("");
+                editableScreenshots.delete(screenshot);
                 onChange(undefined);
               }}
             >
