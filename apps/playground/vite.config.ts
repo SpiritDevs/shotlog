@@ -15,4 +15,6 @@ export default defineConfig({
     ],
     dedupe: ["react", "react-dom"],
   },
+  // Lets the Playground be shared through a Cloudflare quick tunnel.
+  server: { allowedHosts: [".trycloudflare.com"] },
 });
