@@ -1,18 +1,20 @@
-import { Context, Effect, Layer, Schedule } from "effect";
+import { Effect, Layer, Schedule } from "effect";
 import { DeliveryFailed } from "../internal/errors.js";
-import type { SupportLog } from "../types.js";
+import type { SupportLogSubmission } from "../types.js";
 import type { WebhookConfig } from "./config.js";
+import { Delivery } from "./delivery.js";
+import { inlineScreenshot, type ParsedScreenshot } from "./multipart.js";
 import { signWebhook } from "./signature.js";
-
-export class Delivery extends Context.Tag("shotlog/Delivery")<
-  Delivery,
-  { readonly deliver: (log: SupportLog) => Effect.Effect<void, DeliveryFailed> }
->() {}
 
 export function webhookLayer(config: WebhookConfig) {
   return Layer.succeed(Delivery, {
-    deliver: Effect.fn("deliverWebhook")(function* (log: SupportLog) {
-      const body = JSON.stringify(log);
+    deliver: Effect.fn("deliverWebhook")(function* (
+      log: SupportLogSubmission,
+      screenshot?: ParsedScreenshot,
+    ) {
+      const body = JSON.stringify(
+        screenshot ? { ...log, screenshot: inlineScreenshot(screenshot) } : log,
+      );
       const attempt = Effect.gen(function* () {
         const signature = yield* signWebhook(body, config.secret);
         const response = yield* Effect.tryPromise({

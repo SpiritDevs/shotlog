@@ -9,7 +9,10 @@ export function Inbox({
     return (
       <div className="panel empty-state">
         <h2>No Support Logs yet</h2>
-        <p>Open the report card or fire a burst to see signed webhooks here.</p>
+        <p>
+          Open the report card or fire a burst to see emails and signed webhooks
+          here.
+        </p>
         <a href="#/">Go to Home →</a>
       </div>
     );
@@ -18,6 +21,60 @@ export function Inbox({
   return (
     <ol className="inbox-list" aria-label="Received Support Logs">
       {entries.map((entry) => {
+        if (entry.kind === "email") {
+          return (
+            <li key={entry.id}>
+              <article className="panel inbox-entry">
+                <div className="entry-heading">
+                  <h2>{entry.subject}</h2>
+                  <span className="muted">email</span>
+                </div>
+                <dl className="report-details">
+                  <dt>From</dt>
+                  <dd>{entry.from}</dd>
+                  <dt>To</dt>
+                  <dd>{entry.to}</dd>
+                  <dt>Reply-To</dt>
+                  <dd>{entry.replyTo || "—"}</dd>
+                  <dt>Received</dt>
+                  <dd>
+                    <time dateTime={entry.receivedAt}>
+                      {new Date(entry.receivedAt).toLocaleString()}
+                    </time>
+                  </dd>
+                </dl>
+                <iframe
+                  title={`Email: ${entry.subject}`}
+                  sandbox=""
+                  srcDoc={entry.html}
+                  style={{
+                    width: "100%",
+                    height: 680,
+                    border: "1px solid #d1d5db",
+                    background: "white",
+                  }}
+                />
+                <details className="raw-json">
+                  <summary>Plain text and attachments</summary>
+                  <pre>{entry.text}</pre>
+                  <ul>
+                    {entry.attachments.map((attachment, index) => (
+                      <li
+                        key={`${attachment.filename}-${attachment.contentId ?? index}`}
+                      >
+                        {attachment.filename} · {attachment.contentType} ·{" "}
+                        {attachment.size} bytes
+                        {attachment.contentId
+                          ? ` · CID: ${attachment.contentId}`
+                          : ""}
+                      </li>
+                    ))}
+                  </ul>
+                </details>
+              </article>
+            </li>
+          );
+        }
         const log = entry.supportLog;
         const screenshot = log.screenshot;
         const image = screenshot

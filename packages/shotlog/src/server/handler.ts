@@ -1,4 +1,4 @@
-import { Deferred, Effect, Layer } from "effect";
+import { Deferred, Effect, Either } from "effect";
 import * as Public from "../errors.js";
 import {
   Forbidden,
@@ -9,14 +9,15 @@ import { runPublic } from "../internal/runtime.js";
 import { errorResponse, type SubmitSuccessBody } from "../internal/wire.js";
 import type { SupportLogSubmission } from "../types.js";
 import type { SupportHandlerConfig } from "./config.js";
+import { Delivery } from "./delivery.js";
+import { emailLayer } from "./email.js";
 import {
   checkRequest,
-  inlineScreenshot,
   type ParsedScreenshot,
   parseSubmission,
 } from "./multipart.js";
 import { checkRateLimit, Store, storeLayer } from "./store.js";
-import { Delivery, webhookLayer } from "./webhook.js";
+import { webhookLayer } from "./webhook.js";
 
 const authorizeRequest = Effect.fn("authorizeSupportRequest")(function* (
   request: Request,
@@ -50,7 +51,10 @@ function clientIp(request: Request): string | undefined {
   );
 }
 
-function respondToFailure(error: unknown): Response {
+function respondToFailure(
+  error: unknown,
+  channel: "email" | "webhook",
+): Response {
   if (
     error instanceof Public.Unauthorized ||
     error instanceof Public.Forbidden ||
@@ -61,14 +65,17 @@ function respondToFailure(error: unknown): Response {
   ) {
     return errorResponse(error);
   }
-  return defectResponse(error);
+  return defectResponse(error, channel);
 }
 
-function defectResponse(error: unknown): Response {
+function defectResponse(
+  error: unknown,
+  channel: "email" | "webhook",
+): Response {
   console.error("shotlog: unexpected Relay Endpoint failure", error);
   const response = errorResponse(
     new Public.DeliveryFailed(
-      "webhook",
+      channel,
       "The Support Log could not be processed",
     ),
   );
@@ -80,7 +87,8 @@ function defectResponse(error: unknown): Response {
 
 /**
  * Create a Fetch-standard Relay Endpoint with authorization, bounded multipart parsing,
- * rate limits, deduplication, and signed Webhook delivery. Successful IDs expire after 24 hours.
+ * rate limits, per-channel deduplication, and Email / signed Webhook delivery.
+ * Successful channel deliveries expire after 24 hours.
  * Concurrent copies are coalesced within this handler; shared stores remember completed
  * deliveries across instances but cannot lock simultaneous deliveries across instances.
  * @example
@@ -100,10 +108,16 @@ export function createSupportHandler(
       "shotlog: no authorize hook configured; the Relay Endpoint accepts unauthenticated reports",
     );
   const screenshotBytes = config.limits?.screenshotBytes ?? 5 * 1024 * 1024;
-  const services = Layer.merge(
-    storeLayer(config.store),
-    webhookLayer(config.delivery.webhook),
-  );
+  const services = storeLayer(config.store);
+  const channel = config.delivery.email ? "email" : "webhook";
+  const channels = [
+    ...(config.delivery.email
+      ? [{ name: "email", layer: emailLayer(config.delivery.email) }]
+      : []),
+    ...(config.delivery.webhook
+      ? [{ name: "webhook", layer: webhookLayer(config.delivery.webhook) }]
+      : []),
+  ];
   let warnedNoIp = false;
   const warnNoIp = () => {
     if (warnedNoIp) return;
@@ -123,16 +137,24 @@ export function createSupportHandler(
     inFlight.set(submission.id, pending);
     return yield* Effect.gen(function* () {
       const store = yield* Store;
-      const key = `shotlog:delivered:${submission.id}`;
-      if ((yield* store.get(key)) !== undefined) return true;
-      const delivery = yield* Delivery;
-      yield* delivery.deliver(
-        screenshot
-          ? { ...submission, screenshot: inlineScreenshot(screenshot) }
-          : submission,
+      // Capture each channel's failure so a failed send never interrupts the other channel.
+      const results = yield* Effect.forEach(
+        channels,
+        ({ name, layer }) =>
+          Effect.gen(function* () {
+            const key = `shotlog:delivered:${submission.id}:${name}`;
+            if ((yield* store.get(key)) !== undefined) return true;
+            const delivery = yield* Delivery;
+            yield* delivery.deliver(submission, screenshot);
+            yield* store.increment(key, 24 * 60 * 60);
+            return false;
+          }).pipe(Effect.provide(layer), Effect.either),
+        { concurrency: "unbounded" },
       );
-      yield* store.increment(key, 24 * 60 * 60);
-      return false;
+      for (const result of results) {
+        if (Either.isLeft(result)) return yield* Effect.fail(result.left);
+      }
+      return results.every((result) => Either.isRight(result) && result.right);
     }).pipe(
       Effect.onExit((exit) => Deferred.done(pending, exit)),
       Effect.ensuring(Effect.sync(() => inFlight.delete(submission.id))),
@@ -177,9 +199,9 @@ export function createSupportHandler(
     runPublic(
       handle(request).pipe(
         Effect.catchAllDefect((error) =>
-          Effect.sync(() => defectResponse(error)),
+          Effect.sync(() => defectResponse(error, channel)),
         ),
         Effect.provide(services),
       ),
-    ).catch(respondToFailure);
+    ).catch((error: unknown) => respondToFailure(error, channel));
 }

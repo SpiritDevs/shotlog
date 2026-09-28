@@ -24,5 +24,23 @@ export interface WebhookEntry {
   readonly supportLog: SupportLog;
 }
 
-// Extend this union with EmailEntry when the SMTP catcher is added.
-export type InboxEntry = WebhookEntry;
+export interface EmailEntry {
+  readonly kind: "email";
+  readonly id: string;
+  readonly subject: string;
+  readonly from: string;
+  readonly to: string;
+  readonly replyTo: string;
+  /** CID images have been replaced with data URLs by the local catcher. */
+  readonly html: string;
+  readonly text: string;
+  readonly attachments: readonly {
+    readonly filename: string;
+    readonly contentType: string;
+    readonly size: number;
+    readonly contentId?: string;
+  }[];
+  readonly receivedAt: string;
+}
+
+export type InboxEntry = WebhookEntry | EmailEntry;

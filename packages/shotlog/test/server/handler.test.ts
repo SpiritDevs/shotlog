@@ -430,7 +430,7 @@ test("uses a supplied store for both limits and completed dedupe across handler 
     duplicate: true,
   });
   expect(store.increment).toHaveBeenCalledWith(
-    `shotlog:delivered:${submission().id}`,
+    `shotlog:delivered:${submission().id}:webhook`,
     86400,
   );
   expect(store.increment).toHaveBeenCalledWith(
