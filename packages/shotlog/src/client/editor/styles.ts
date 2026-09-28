@@ -36,4 +36,13 @@ export const editorStyles = `
 @keyframes sl-card-in { from { opacity: 0; transform: translate(var(--_fx, 0px), var(--_fy, 0px)) scale(var(--_fsx, 0.96), var(--_fsy, 0.96)); } 35% { opacity: 1; } }
 @keyframes sl-card-out { 45% { opacity: 1; } to { opacity: 0; transform: translate(var(--_fx, 0px), var(--_fy, 0px)) scale(var(--_fsx, 0.96), var(--_fsy, 0.96)); } }
 @media (max-width: 600px) { .sl-editor-card { inset: 8px; padding: 8px; gap: 8px; } .sl-editor-tools { gap: 5px; } .sl-editor-tools button { width: 36px; height: 36px; } .sl-editor-footer { padding: 8px; } }
+.sl-confirm-backdrop { position: absolute; inset: 0; z-index: 2; display: grid; place-items: center; padding: 16px; border-radius: inherit; background: var(--shotlog-backdrop, #00000059); animation: sl-confirm-fade 160ms ease-out; }
+.sl-confirm { width: min(360px, 100%); padding: 20px; border-radius: 16px; background: var(--shotlog-surface, var(--_surface)); color: var(--shotlog-text, var(--_text)); box-shadow: 0 24px 64px #00000040, 0 2px 8px #0000001f; animation: sl-confirm-in 200ms cubic-bezier(0.2, 0.9, 0.3, 1.2); }
+.sl-confirm p { margin: 0 0 20px; font-size: 15px; font-weight: 600; line-height: 1.4; }
+.sl-confirm-actions { display: flex; justify-content: flex-end; gap: 8px; }
+.sl-editor button.sl-danger { background: var(--shotlog-danger, #d92d20); color: #ffffff; font-weight: 600; }
+.sl-editor button.sl-danger:hover:not(:disabled) { background: var(--shotlog-danger, #d92d20); filter: brightness(1.08); }
+@keyframes sl-confirm-fade { from { opacity: 0; } }
+@keyframes sl-confirm-in { from { opacity: 0; transform: translateY(8px) scale(0.96); } }
+@media (prefers-reduced-motion: reduce) { .sl-confirm-backdrop, .sl-confirm { animation: none; } }
 `;

@@ -56,6 +56,8 @@ export const defaultLabels: ShotlogLabels = {
   editorSaving: "Saving…",
   editorFailed: "Couldn’t save this screenshot. Try again.",
   editorDiscardChanges: "Discard your annotation changes?",
+  editorKeepEditing: "Keep editing",
+  editorDiscard: "Discard",
   editorTools: "Annotation tools",
   editorStyle: "Annotation style",
   editorCanvas:

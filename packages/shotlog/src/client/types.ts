@@ -72,6 +72,10 @@ export interface ShotlogLabels {
   readonly editorFailed: string;
   /** Confirmation before discarding edits. */
   readonly editorDiscardChanges: string;
+  /** Dismisses the discard confirmation and returns to the editor. */
+  readonly editorKeepEditing: string;
+  /** Confirms discarding the annotation changes. */
+  readonly editorDiscard: string;
   /** Tool toolbar accessible name. */
   readonly editorTools: string;
   /** Style controls accessible name. */

@@ -204,12 +204,14 @@ export interface ShotlogLabels {
     readonly editorCanvas: string;
     readonly editorCrop: string;
     readonly editorCropHint: string;
+    readonly editorDiscard: string;
     readonly editorDiscardChanges: string;
     readonly editorDone: string;
     readonly editorFailed: string;
     readonly editorFreehand: string;
     readonly editorGreen: string;
     readonly editorHighlighter: string;
+    readonly editorKeepEditing: string;
     readonly editorMedium: string;
     readonly editorOval: string;
     readonly editorRectangle: string;

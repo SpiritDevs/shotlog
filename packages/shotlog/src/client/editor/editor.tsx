@@ -135,6 +135,17 @@ export function Editor({ image, initial, labels, origin, onFinish }: Props) {
   const [history, setHistory] = useState(() => historyFor(initial));
   const [preview, setPreview] = useState<Scene | null>(null);
   const [tool, setTool] = useState<Tool>("select");
+  const [confirming, setConfirming] = useState(false);
+  const confirmRef = useRef<HTMLDivElement>(null);
+  const cancelButton = useRef<HTMLButtonElement>(null);
+  // Keeping work is the safe default for Enter.
+  useEffect(() => {
+    if (confirming) confirmRef.current?.querySelector("button")?.focus();
+  }, [confirming]);
+  const keepEditing = () => {
+    setConfirming(false);
+    cancelButton.current?.focus();
+  };
   const [selected, setSelected] = useState<string>();
   const [styles, setStyles] = useState<Partial<Record<Tool, Style>>>({});
   const [cropDraft, setCropDraft] = useState<Rect | null>(null);
@@ -228,7 +239,8 @@ export function Editor({ image, initial, labels, origin, onFinish }: Props) {
       JSON.stringify(withText()) !== JSON.stringify(initial) ||
       cropDraft !== null ||
       preview !== null;
-    if (!dirty || window.confirm(labels.editorDiscardChanges)) close(undefined);
+    if (dirty) setConfirming(true);
+    else close(undefined);
   };
   const done = async () => {
     if (savingRef.current || closingRef.current) return;
@@ -324,6 +336,24 @@ export function Editor({ image, initial, labels, origin, onFinish }: Props) {
     }
     if (event.isComposing) return;
     const target = event.composedPath()[0];
+    if (confirming) {
+      // Only the discard dialog is live: Esc backs out, Tab stays in it, buttons act natively.
+      if (event.key === "Escape") {
+        event.preventDefault();
+        keepEditing();
+      } else if (event.key === "Tab") {
+        const buttons = Array.from(
+          confirmRef.current?.querySelectorAll<HTMLButtonElement>("button") ??
+            [],
+        );
+        const index = buttons.indexOf(target as HTMLButtonElement);
+        event.preventDefault();
+        buttons[
+          (index + (event.shiftKey ? -1 : 1) + buttons.length) % buttons.length
+        ]?.focus();
+      }
+      return;
+    }
     const typing =
       target instanceof HTMLElement &&
       (target.matches("input, textarea, select") || target.isContentEditable);
@@ -652,7 +682,12 @@ export function Editor({ image, initial, labels, origin, onFinish }: Props) {
       >
         <header className="sl-editor-header">
           <h2 id={`${id}-title`}>{labels.editorTitle}</h2>
-          <button type="button" disabled={saving} onClick={cancel}>
+          <button
+            ref={cancelButton}
+            type="button"
+            disabled={saving}
+            onClick={cancel}
+          >
             {labels.editorCancel}
           </button>
           <button
@@ -1004,6 +1039,31 @@ export function Editor({ image, initial, labels, origin, onFinish }: Props) {
             </button>
           </fieldset>
         </footer>
+        {confirming && (
+          <div className="sl-confirm-backdrop">
+            <div
+              ref={confirmRef}
+              className="sl-confirm"
+              role="alertdialog"
+              aria-modal="true"
+              aria-labelledby={`${id}-discard`}
+            >
+              <p id={`${id}-discard`}>{labels.editorDiscardChanges}</p>
+              <div className="sl-confirm-actions">
+                <button type="button" onClick={keepEditing}>
+                  {labels.editorKeepEditing}
+                </button>
+                <button
+                  type="button"
+                  className="sl-danger"
+                  onClick={() => close(undefined)}
+                >
+                  {labels.editorDiscard}
+                </button>
+              </div>
+            </div>
+          </div>
+        )}
         <div
           className={`sl-editor-status${error ? " sl-editor-error" : ""}`}
           role="status"
