@@ -17,6 +17,7 @@ export const editorStyles = `
 .sl-editor-image { position: relative; flex: none; box-shadow: 0 3px 18px #0003; line-height: 0; }
 .sl-editor canvas { display: block; touch-action: none; cursor: crosshair; }
 .sl-editor canvas[data-select="true"] { cursor: default; }
+.sl-editor canvas[data-tool="text"] { cursor: text; }
 .sl-editor textarea.sl-editor-text { position: absolute; display: block; margin: 0; min-height: 0; min-width: 0; border: 0; outline: 0; resize: none; overflow: hidden; white-space: pre; box-shadow: 0 0 0 1.5px #ffffffb3, 0 0 0 3px #6366f1; font-family: system-ui, sans-serif; font-weight: 600; line-height: 1.25; }
 .sl-editor-footer { align-self: center; max-width: 100%; display: flex; flex-direction: column; align-items: center; gap: 10px; padding: 10px 12px; border: 1px solid var(--shotlog-border, var(--_line)); border-radius: 16px; background: var(--shotlog-surface, var(--_surface)); box-shadow: 0 4px 16px #0000001a; }
 .sl-editor .sl-editor-style { margin: 0; padding: 0; }

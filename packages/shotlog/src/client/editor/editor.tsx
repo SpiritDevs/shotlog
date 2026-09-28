@@ -721,6 +721,7 @@ export function Editor({ image, initial, labels, origin, onFinish }: Props) {
               tabIndex={0}
               aria-label={labels.editorCanvas}
               data-select={tool === "select"}
+              data-tool={tool}
               onPointerDown={(event) => {
                 if (saving || closing || event.button !== 0 || gesture.current)
                   return;
