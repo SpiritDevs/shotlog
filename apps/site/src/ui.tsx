@@ -159,56 +159,25 @@ export function Scribble({ className = "" }: { className?: string }) {
   );
 }
 
-const managers = [
+const installCommands = [
   { id: "npm", command: "npm i shotlog" },
   { id: "pnpm", command: "pnpm add shotlog" },
   { id: "yarn", command: "yarn add shotlog" },
   { id: "bun", command: "bun add shotlog" },
 ] as const;
-type Manager = (typeof managers)[number];
-const managerKey = "shotlog-site:package-manager";
-const managerEvent = "shotlog-site:package-manager";
-const find = (id: string | null): Manager =>
-  managers.find((manager) => manager.id === id) ?? managers[0];
 
-/** The chosen package manager, remembered and shared by every install snippet on the page. */
-export function usePackageManager(): [Manager, (id: Manager["id"]) => void] {
-  const [manager, setManager] = useState<Manager>(() => {
-    try {
-      return find(localStorage.getItem(managerKey));
-    } catch {
-      return managers[0];
-    }
-  });
-  useEffect(() => {
-    const sync = () => {
-      try {
-        setManager(find(localStorage.getItem(managerKey)));
-      } catch {
-        /* Storage unavailable: keep the current choice. */
-      }
-    };
-    window.addEventListener(managerEvent, sync);
-    return () => window.removeEventListener(managerEvent, sync);
-  }, []);
-  const choose = (id: Manager["id"]) => {
-    setManager(find(id));
-    try {
-      localStorage.setItem(managerKey, id);
-      window.dispatchEvent(new Event(managerEvent));
-    } catch {
-      /* Storage unavailable: this snippet still updates. */
-    }
-  };
-  return [manager, choose];
-}
-
+/** Shows the npm command; the copy icon opens a menu to copy it for any package manager. */
 export function InstallCommand() {
-  const [manager, choose] = usePackageManager();
   const [open, setOpen] = useState(false);
+  const [status, setStatus] = useState("");
   const root = useRef<HTMLDivElement>(null);
   const trigger = useRef<HTMLButtonElement>(null);
   const menuId = useId();
+  useEffect(() => {
+    if (!status) return;
+    const timer = setTimeout(() => setStatus(""), 2000);
+    return () => clearTimeout(timer);
+  }, [status]);
   useEffect(() => {
     if (!open) return;
     const outside = (event: PointerEvent) => {
@@ -216,26 +185,34 @@ export function InstallCommand() {
     };
     document.addEventListener("pointerdown", outside);
     root.current
-      ?.querySelector<HTMLButtonElement>('[aria-checked="true"]')
+      ?.querySelector<HTMLButtonElement>('[role="menuitem"]')
       ?.focus();
     return () => document.removeEventListener("pointerdown", outside);
   }, [open]);
-  const pick = (id: Manager["id"]) => {
-    choose(id);
+  const copy = async (id: string, command: string) => {
     setOpen(false);
     trigger.current?.focus();
+    try {
+      await navigator.clipboard.writeText(command);
+      setStatus(`Copied ${id} command`);
+    } catch {
+      setStatus("Select text to copy");
+    }
   };
   return (
     <div className="install" ref={root}>
-      <div className="manager">
+      <span aria-hidden="true">$</span>
+      <code>npm i shotlog</code>
+      <span className="install-divider" aria-hidden="true" />
+      <div className="copy-menu">
         <button
           ref={trigger}
           type="button"
-          className="manager-trigger"
+          className="copy-button"
           aria-haspopup="menu"
           aria-expanded={open}
           aria-controls={menuId}
-          aria-label={`Package manager: ${manager.id}`}
+          aria-label={status || "Copy install command"}
           onClick={() => setOpen((value) => !value)}
           onKeyDown={(event) => {
             if (event.key === "ArrowDown") {
@@ -244,16 +221,24 @@ export function InstallCommand() {
             }
           }}
         >
-          {manager.id}
-          <svg viewBox="0 0 12 12" aria-hidden="true">
-            <path d="m3 4.5 3 3 3-3" />
-          </svg>
+          {status ? (
+            <svg viewBox="0 0 20 20" aria-hidden="true">
+              <path d="m5 10.5 3.2 3L15 6.5" />
+            </svg>
+          ) : (
+            <svg viewBox="0 0 20 20" aria-hidden="true">
+              <rect x="7" y="7" width="9" height="10" rx="2" />
+              <path d="M12 7V5a2 2 0 0 0-2-2H5a2 2 0 0 0-2 2v6a2 2 0 0 0 2 2h2" />
+            </svg>
+          )}
+          <span aria-live="polite">{status}</span>
         </button>
         {open && (
           <div
             id={menuId}
-            className="manager-menu"
+            className="copy-menu-list"
             role="menu"
+            aria-label="Copy install command for"
             tabIndex={-1}
             onKeyDown={(event) => {
               const items = Array.from(
@@ -277,23 +262,20 @@ export function InstallCommand() {
               }
             }}
           >
-            {managers.map((option) => (
+            {installCommands.map(({ id, command }) => (
               <button
-                key={option.id}
+                key={id}
                 type="button"
-                role="menuitemradio"
-                aria-checked={option.id === manager.id}
-                onClick={() => pick(option.id)}
+                role="menuitem"
+                onClick={() => void copy(id, command)}
               >
-                {option.id}
+                <span>{id}</span>
+                <code>{command}</code>
               </button>
             ))}
           </div>
         )}
       </div>
-      <code>{manager.command}</code>
-      <span className="install-divider" aria-hidden="true" />
-      <CopyButton value={manager.command} label="Copy install command" />
     </div>
   );
 }

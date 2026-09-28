@@ -1,14 +1,7 @@
 import snippets from "virtual:snippets";
 import { lazy, Suspense } from "react";
 import { createRoot } from "react-dom/client";
-import {
-  Footer,
-  Header,
-  InstallCommand,
-  Scribble,
-  usePackageManager,
-  useTheme,
-} from "./ui";
+import { Footer, Header, InstallCommand, Scribble, useTheme } from "./ui";
 import "./styles.css";
 
 const Demo = lazy(() => import("./Demo"));
@@ -342,7 +335,7 @@ function App() {
             <a className="button button-ink" href="/docs/#install">
               Read the docs <span aria-hidden="true">↗</span>
             </a>
-            <ClosingInstall />
+            <code>npm i shotlog</code>
           </div>
           <p>React ≥18 · TypeScript · Your backend</p>
         </section>
@@ -354,8 +347,3 @@ function App() {
 
 const root = document.getElementById("root");
 if (root) createRoot(root).render(<App />);
-
-function ClosingInstall() {
-  const [manager] = usePackageManager();
-  return <code>{manager.command}</code>;
-}

@@ -220,52 +220,24 @@ pre,
   gap: 12px;
   border: 1px solid var(--line);
   background: var(--surface);
-  padding: 6px;
+  padding: 6px 6px 6px 18px;
   min-height: 50px;
   font-size: 14px;
   border-radius: 10px;
 }
-.install code {
-  padding-right: 4px;
+.install > span:first-child {
+  color: var(--muted);
 }
-.manager {
+.copy-menu {
   position: relative;
 }
-.manager-trigger {
-  display: inline-flex;
-  align-items: center;
-  gap: 6px;
-  min-height: 36px;
-  padding: 0 10px 0 12px;
-  border: 0;
-  border-radius: 6px;
-  background: var(--soft);
-  color: inherit;
-  font: inherit;
-  font-size: 13px;
-  cursor: pointer;
-}
-.manager-trigger svg {
-  width: 12px;
-  height: 12px;
-  fill: none;
-  stroke: currentColor;
-  stroke-width: 1.6;
-  transition: transform 150ms ease;
-}
-.manager-trigger[aria-expanded="true"] svg {
-  transform: rotate(180deg);
-}
-.manager-trigger:hover {
-  background: var(--line);
-}
-.manager-menu {
+.copy-menu-list {
   position: absolute;
   z-index: 10;
   top: calc(100% + 8px);
-  left: 0;
+  right: 0;
   display: grid;
-  min-width: 112px;
+  min-width: 220px;
   padding: 4px;
   border: 1px solid var(--line);
   border-radius: 10px;
@@ -273,13 +245,13 @@ pre,
   box-shadow:
     0 12px 32px #0000001f,
     0 2px 6px #00000014;
-  animation: manager-in 140ms ease-out;
+  animation: copy-menu-in 140ms ease-out;
 }
-.manager-menu button {
+.copy-menu-list button {
   display: flex;
   align-items: center;
   justify-content: space-between;
-  gap: 12px;
+  gap: 16px;
   padding: 8px 10px;
   border: 0;
   border-radius: 6px;
@@ -290,16 +262,16 @@ pre,
   text-align: left;
   cursor: pointer;
 }
-.manager-menu button:hover,
-.manager-menu button:focus-visible {
+.copy-menu-list button code {
+  color: var(--muted);
+  font-size: 12px;
+}
+.copy-menu-list button:hover,
+.copy-menu-list button:focus-visible {
   background: var(--soft);
   outline: none;
 }
-.manager-menu button[aria-checked="true"]::after {
-  content: "✓";
-  color: var(--annotation);
-}
-@keyframes manager-in {
+@keyframes copy-menu-in {
   from {
     opacity: 0;
     transform: translateY(-4px);
@@ -338,15 +310,18 @@ pre,
   overflow: hidden;
   clip-path: inset(50%);
 }
-.install .copy-button:focus span {
-  position: absolute;
+.install .copy-button span:not(:empty) {
+  top: calc(100% + 8px);
+  right: 0;
   width: auto;
   height: auto;
   clip-path: none;
-  transform: translateY(43px);
-  padding: 6px;
-  background: var(--surface);
-  box-shadow: 0 1px 3px var(--line);
+  white-space: nowrap;
+  padding: 6px 10px;
+  border-radius: 6px;
+  background: var(--ink);
+  color: var(--surface);
+  font-size: 12px;
 }
 .text-link {
   font-size: 14px;
