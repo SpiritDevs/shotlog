@@ -35,7 +35,8 @@
     "schema:generate": "tsx scripts/generate-schema.ts"
   },
   "dependencies": {
-    "effect": "^3.22.0"
+    "effect": "^3.22.0",
+    "modern-screenshot": "^4.7.0"
   },
   "peerDependencies": {
     "react": ">=18",

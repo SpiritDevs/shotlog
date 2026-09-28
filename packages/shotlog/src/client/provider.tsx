@@ -22,6 +22,7 @@ import { captureEnvironment } from "./environment.js";
 import { type IncludedContext, IncludedDetails } from "./included-details.js";
 import { defaultLabels, errorMessage } from "./labels.js";
 import { type Draft, ReportCard } from "./report-card.js";
+import { ScreenshotControls } from "./screenshot-controls.js";
 import { matchesShortcut } from "./shortcut.js";
 import { styles } from "./styles.js";
 import { submitReport } from "./submit.js";
@@ -99,6 +100,9 @@ export function ShotlogProvider({
     type: types[0] ?? "Bug",
     description: "",
   });
+  // Screenshots never enter the persisted text draft.
+  const [screenshot, setScreenshot] = useState<Blob>();
+  const [capturing, setCapturing] = useState(false);
   const [loaded, setLoaded] = useState(false);
   const [status, setStatus] = useState<Status>({ tag: "idle" });
   // Kept with the draft so a retry after a lost response, even after a reload, reuses the
@@ -230,7 +234,8 @@ export function ShotlogProvider({
     ? draft.type
     : (types[0] ?? "Bug");
   const submit = async () => {
-    if (sending.current || !enabled || status.tag === "sent") return;
+    if (sending.current || capturing || !enabled || status.tag === "sent")
+      return;
     const current = ensureIdentity();
     persist(draft);
     sending.current = true;
@@ -267,9 +272,10 @@ export function ShotlogProvider({
     }
     let result: ShotlogSubmitResult;
     try {
-      if (endpoint !== undefined) result = await submitReport(endpoint, log);
+      if (endpoint !== undefined)
+        result = await submitReport(endpoint, log, screenshot);
       else {
-        await onSubmit({ log });
+        await onSubmit({ log, ...(screenshot ? { screenshot } : {}) });
         result = { id: log.id, shortId: log.shortId, duplicate: false };
       }
     } catch (cause) {
@@ -283,6 +289,7 @@ export function ShotlogProvider({
     }
     sending.current = false;
     identity.current = null;
+    setScreenshot(undefined);
     setDraft({ type: types[0] ?? "Bug", description: "" });
     setStatus({ tag: "sent", result });
     onSubmitted?.(result);
@@ -333,6 +340,22 @@ export function ShotlogProvider({
                 state={status.tag}
                 message={message}
                 opener={opener.current}
+                capturing={capturing}
+                screenshotControls={
+                  <ScreenshotControls
+                    host={root.host as HTMLElement}
+                    screenshot={screenshot}
+                    labels={labels}
+                    locked={status.tag === "sending" || status.tag === "sent"}
+                    onBusyChange={setCapturing}
+                    onChange={(next) => {
+                      if (status.tag === "error") identity.current = null;
+                      setScreenshot(next);
+                      // Persist the changed identity, never the image.
+                      persist(draft);
+                    }}
+                  />
+                }
                 includedDetails={
                   <IncludedDetails
                     labels={labels}

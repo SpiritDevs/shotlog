@@ -171,6 +171,9 @@ export type ShotlogError = Unauthorized | Forbidden | RateLimited | PayloadTooLa
 // @public
 export interface ShotlogLabels {
     readonly bug: string;
+    readonly capturePage: string;
+    readonly captureScreen: string;
+    readonly capturingScreenshot: string;
     readonly close: string;
     readonly consoleEntries: string;
     readonly deliveryFailed: string;
@@ -186,17 +189,25 @@ export interface ShotlogLabels {
     readonly environment: string;
     readonly forbidden: string;
     readonly idea: string;
+    readonly imageFailed: string;
     readonly includedDetails: (consoleCount: number, networkCount: number) => string;
     readonly launcher: string;
     readonly metadata: string;
     readonly networkEntries: string;
     readonly offline: string;
+    readonly pageCaptureFailed: string;
+    readonly pageCaptureFailedWithoutScreen: string;
     readonly payloadTooLarge: string;
     readonly providerNotInstalled: string;
     readonly question: string;
     readonly rateLimited: (minutes: number) => string;
+    readonly removeScreenshot: string;
     readonly reporter: string;
     readonly retry: string;
+    readonly screenCaptureFailed: string;
+    readonly screenshot: string;
+    readonly screenshotOptions: string;
+    readonly screenshotPreview: string;
     readonly sending: string;
     readonly sent: (shortId: string) => string;
     readonly submit: string;
@@ -205,6 +216,7 @@ export interface ShotlogLabels {
     readonly unauthorized: string;
     readonly unsupportedRuntime: string;
     readonly uploadFailed: string;
+    readonly uploadImage: string;
     readonly validationFailed: string;
 }
 
