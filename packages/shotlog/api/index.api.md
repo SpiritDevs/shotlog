@@ -261,6 +261,7 @@ export interface ShotlogLabels {
     readonly screenshotPreview: string;
     readonly sending: string;
     readonly sent: (shortId: string) => string;
+    readonly sentTitle: string;
     readonly submit: string;
     readonly title: string;
     readonly type: string;

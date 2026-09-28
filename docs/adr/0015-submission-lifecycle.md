@@ -24,7 +24,7 @@
    - The client allows **60 seconds total** to send the request and read its response, using an AbortController and a cleared JavaScript timer. A stalled relay becomes an Offline failure with Retry available.
    - After parsing, the default Webhook delivery budget is **10 seconds for storage + 3 × 10 seconds for HTTP attempts + 600 ms backoff**. Email runs in parallel. The client budget leaves room for normal upload/response overhead; slow incoming bodies, larger configured webhook timeouts, or custom Email Providers can exceed it.
 5. **Success.**
-   - The card shows "Sent ✓ · SL-7F3K" and closes itself after about 3 seconds.
+   - The card shrinks to a compact "Report sent · Reference SL-7F3K" state and closes itself after about 3 seconds, unless the pointer or a visible keyboard focus is holding it open.
    - The draft is cleared.
    - The `onSubmitted(result)` callback fires.
 6. **Failure.**

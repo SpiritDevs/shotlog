@@ -5,6 +5,7 @@ import {
   useCallback,
   useEffect,
   useId,
+  useLayoutEffect,
   useRef,
 } from "react";
 import {
@@ -83,7 +84,9 @@ export function ReportCard({
   const card = useRef<HTMLDivElement | null>(null);
   const description = useRef<HTMLTextAreaElement>(null);
   const resizing = useRef<Resizing | null>(null);
+  const before = useRef<CardSize | null>(null);
   const locked = state === "sending" || state === "sent";
+  const sent = state === "sent";
   const corner = resizeCorner(position);
 
   // Runs during commit, before first paint, so the morph's first frame matches the Launcher.
@@ -187,6 +190,73 @@ export function ReportCard({
       dialog.querySelector<HTMLButtonElement>("button")?.focus();
   }, [locked]);
 
+  // On success the card shrinks toward its anchor, from the size it had (including a chosen
+  // size) to the compact content. Inline sizes drive the transition and are dropped after it.
+  useLayoutEffect(() => {
+    const dialog = card.current;
+    if (!dialog) return;
+    const now = { width: dialog.offsetWidth, height: dialog.offsetHeight };
+    // Every state before success measures, so the last one is the size just before it.
+    if (state !== "sent") {
+      before.current = now;
+      return;
+    }
+    const from = before.current;
+    if (!from || (from.width === now.width && from.height === now.height))
+      return;
+    const settle = () => {
+      dialog.style.removeProperty("width");
+      dialog.style.removeProperty("height");
+    };
+    const onEnd = (event: TransitionEvent) => {
+      if (event.target === dialog && event.propertyName === "height") settle();
+    };
+    dialog.style.width = `${from.width}px`;
+    dialog.style.height = `${from.height}px`;
+    dialog.getBoundingClientRect();
+    dialog.style.width = `${now.width}px`;
+    dialog.style.height = `${now.height}px`;
+    dialog.addEventListener("transitionend", onEnd);
+    return () => {
+      dialog.removeEventListener("transitionend", onEnd);
+      settle();
+    };
+  }, [state]);
+
+  // Success closes the card by itself. A mouse resting on it, or a visible keyboard focus
+  // inside it, holds the card open; touch has no hover and closes on time. Enter and leave
+  // events track the pointer, since :hover can lag behind them while the card shrinks away.
+  useEffect(() => {
+    const dialog = card.current;
+    if (!dialog || !sent || closing) return;
+    let timer: ReturnType<typeof setTimeout> | undefined;
+    let hovered =
+      matchMedia("(hover: hover)").matches && dialog.matches(":hover");
+    const sync = () => {
+      clearTimeout(timer);
+      timer =
+        hovered || dialog.querySelector(":focus-visible")
+          ? undefined
+          : setTimeout(onClose, 3000);
+    };
+    const onPointer = (event: PointerEvent) => {
+      hovered = event.type === "pointerenter" && event.pointerType !== "touch";
+      sync();
+    };
+    sync();
+    dialog.addEventListener("pointerenter", onPointer);
+    dialog.addEventListener("pointerleave", onPointer);
+    dialog.addEventListener("focusin", sync);
+    dialog.addEventListener("focusout", sync);
+    return () => {
+      clearTimeout(timer);
+      dialog.removeEventListener("pointerenter", onPointer);
+      dialog.removeEventListener("pointerleave", onPointer);
+      dialog.removeEventListener("focusin", sync);
+      dialog.removeEventListener("focusout", sync);
+    };
+  }, [sent, closing, onClose]);
+
   /** The default size is the floor: measured with the chosen size removed, once per gesture. */
   const limitsFor = (dialog: HTMLDivElement): SizeLimits => {
     const width = dialog.style.getPropertyValue("--_card-w"),
@@ -232,6 +302,7 @@ export function ReportCard({
         aria-labelledby={`${id}-title`}
         tabIndex={-1}
         data-corner={corner}
+        data-sent={sent || undefined}
         style={sizeStyle}
       >
         <div className="heading">
@@ -257,6 +328,7 @@ export function ReportCard({
         <button
           className="resize"
           type="button"
+          hidden={sent}
           aria-label={labels.resizeCard}
           title={labels.resizeCard}
           onPointerDown={(event) => {
@@ -332,7 +404,7 @@ export function ReportCard({
         </button>
         <div className="card-body">
           <form
-            hidden={state === "sent"}
+            hidden={sent}
             onSubmit={(event) => {
               event.preventDefault();
               if (!draft.description.trim()) {
@@ -407,7 +479,7 @@ export function ReportCard({
                   : labels.submit}
             </button>
           </form>
-          {state === "sent" && (
+          {sent && (
             <div className="success-mark" aria-hidden="true">
               <svg viewBox="0 0 48 48" aria-hidden="true" focusable="false">
                 <circle cx="24" cy="24" r="22" fill="none" />
@@ -424,7 +496,14 @@ export function ReportCard({
             aria-live="polite"
             aria-atomic="true"
           >
-            {message}
+            {sent ? (
+              <>
+                <span className="sent-title">{labels.sentTitle}</span>{" "}
+                <span className="sent-ref">{message}</span>
+              </>
+            ) : (
+              message
+            )}
           </div>
         </div>
       </div>

@@ -211,8 +211,8 @@ test("lost response survives reload and Submit deduplicates both channels", asyn
   await expect(
     card(page)
       .getByRole("status")
-      .filter({ hasText: `Sent ✓ · ${deliveredShortId}` }),
-  ).toHaveText(`Sent ✓ · ${deliveredShortId}`);
+      .filter({ hasText: `Reference ${deliveredShortId}` }),
+  ).toHaveText(`Report sent Reference ${deliveredShortId}`);
   const entries = await inbox(request);
   // Dual-channel delivery means one webhook and one email for this Support Log.
   expect(entries).toHaveLength(2);

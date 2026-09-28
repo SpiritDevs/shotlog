@@ -10,7 +10,8 @@ import type { JsonValue, Reporter, SupportLogSubmission } from "../types.js";
  * import type { ShotlogLabels } from "shotlog";
  * const labels: Partial<ShotlogLabels> = {
  *   submit: "Envoyer",
- *   sent: (shortId) => `Envoyé ✓ · ${shortId}`,
+ *   sentTitle: "Rapport envoyé",
+ *   sent: (shortId) => `Référence ${shortId}`,
  * };
  * ```
  * @public
@@ -177,7 +178,9 @@ export interface ShotlogLabels {
   readonly retry: string;
   /** Sending button and live announcement. */
   readonly sending: string;
-  /** Success announcement, including the readable Support Log ID. */
+  /** Success title, shown under the drawn check mark. */
+  readonly sentTitle: string;
+  /** Success reference line with the readable Support Log ID; announced together with the title. */
   readonly sent: (shortId: string) => string;
   /** Accessible name of the card's resize handle. */
   readonly resizeCard: string;

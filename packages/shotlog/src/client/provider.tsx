@@ -274,12 +274,6 @@ export function ShotlogProvider({
   }, [draft, loaded, status.tag, persist]);
 
   useEffect(() => {
-    if (status.tag !== "sent") return;
-    const timer = setTimeout(close, 3000);
-    return () => clearTimeout(timer);
-  }, [status, close]);
-
-  useEffect(() => {
     if (!enabled || !shortcut) return;
     const onKeyDown = (event: KeyboardEvent) => {
       if (event.defaultPrevented || event.repeat || event.isComposing) return;

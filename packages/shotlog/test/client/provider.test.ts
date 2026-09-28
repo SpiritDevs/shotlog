@@ -62,6 +62,12 @@ vi.mock("react", async (importOriginal) => ({
   useEffect: (effect: EffectCallback, deps: DependencyList | undefined) => {
     hooks.memo(() => hooks.effects.push(effect), deps);
   },
+  useLayoutEffect: (
+    effect: EffectCallback,
+    deps: DependencyList | undefined,
+  ) => {
+    hooks.memo(() => hooks.effects.push(effect), deps);
+  },
 }));
 vi.mock("react-dom", () => ({ createPortal: (child: ReactNode) => child }));
 vi.mock("../../src/client/environment.js", () => ({

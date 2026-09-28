@@ -163,6 +163,13 @@ button:disabled { opacity: var(--shotlog-disabled-opacity, 0.55); }
 [data-position="bottom-center"] :is(.launcher, .card) { inset: auto 0 var(--_offset) 0; margin-inline: auto; transform-origin: 50% 100%; }
 [data-position="center"] :is(.launcher, .card) { inset: 0; margin: auto; transform-origin: 50% 50%; }
 .overlay[data-state="closing"] .card { animation: card-close 200ms var(--_ease-in) both; }
+/* Success: the card settles to its compact content, shrinking toward its anchor. */
+.card[data-sent] {
+  width: min(var(--shotlog-card-width, 384px), 296px);
+  min-height: 0;
+  transition: width 440ms var(--_ease-out), height 440ms var(--_ease-out);
+}
+.card[data-sent] .card-body { justify-content: center; }
 /* Without a Launcher to morph from, the card scales and fades from its anchor. */
 [data-mode="programmatic"] .card { animation-name: card-open-anchor; }
 [data-mode="programmatic"] .overlay[data-state="closing"] .card { animation-name: card-close-anchor; }
@@ -428,8 +435,18 @@ textarea:disabled { opacity: var(--shotlog-disabled-opacity, 0.55); }
 .status { margin-top: 10px; font-size: 13px; color: var(--_muted); overflow-wrap: anywhere; }
 .status:empty { display: none; }
 .status[data-state="error"] { color: var(--_error); }
-.status[data-state="sent"] { margin: 0; padding-bottom: 12px; text-align: center; font-size: 15px; font-weight: 600; color: var(--_text); }
-.success-mark { display: grid; place-items: center; padding: 18px 0 10px; }
+.status[data-state="sent"] { margin: 0; padding-bottom: 8px; text-align: center; color: var(--_text); }
+.sent-title { display: block; font-size: 16px; font-weight: var(--shotlog-strong-weight, 600); line-height: 1.3; letter-spacing: -0.01em; }
+.sent-ref {
+  display: block;
+  margin-top: 6px;
+  font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+  font-size: 12px;
+  font-variant-numeric: tabular-nums;
+  letter-spacing: 0.01em;
+  color: var(--_muted);
+}
+.success-mark { display: grid; place-items: center; padding: 14px 0 12px; }
 .success-mark svg { width: 56px; height: 56px; stroke: var(--_success); stroke-width: 2; stroke-linecap: round; stroke-linejoin: round; }
 .success-mark circle, .success-mark path { stroke-dasharray: 1; animation: draw 480ms var(--_ease-out) both; }
 .success-mark circle { animation-delay: 120ms; }

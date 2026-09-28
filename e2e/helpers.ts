@@ -84,7 +84,7 @@ export async function expectSent(page: Page) {
   await expect(
     card(page)
       .getByRole("status")
-      .filter({ hasText: /^Sent ✓ · SL-/ }),
+      .filter({ hasText: /^Report sent Reference SL-/ }),
   ).toBeVisible();
 }
 
