@@ -1,6 +1,6 @@
 {
   "extends": "../../../tsconfig.json",
-  "include": ["*.test-d.ts"],
+  "include": ["**/*.test-d.ts"],
   "exclude": [],
   "compilerOptions": { "skipLibCheck": false }
 }
