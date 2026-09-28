@@ -37,6 +37,7 @@ const parseForm = Effect.fn("parseSupportForm")(function* (
 ) {
   let size = 0;
   let exceeded = false;
+  const signal = AbortSignal.any([request.signal, AbortSignal.timeout(30_000)]);
   const limiter = new TransformStream<Uint8Array, Uint8Array>({
     transform(chunk, controller) {
       size += chunk.byteLength;
@@ -50,13 +51,17 @@ const parseForm = Effect.fn("parseSupportForm")(function* (
   });
   return yield* Effect.tryPromise({
     try: () =>
-      new Response(request.body?.pipeThrough(limiter) ?? null, {
+      new Response(request.body?.pipeThrough(limiter, { signal }) ?? null, {
         headers: { "content-type": request.headers.get("content-type") ?? "" },
       }).formData(),
     catch: () =>
       exceeded
         ? new PayloadTooLarge({ limitBytes })
-        : invalid("Malformed multipart body"),
+        : invalid(
+            signal.aborted
+              ? "Request body was not received in time"
+              : "Malformed multipart body",
+          ),
   });
 });
 

@@ -25,7 +25,15 @@
       "types": "./dist/node.d.ts",
       "default": "./dist/node.js"
     },
-    "./schema.json": "./schema/support-log.v1.json"
+    "./schema.json": "./schema/support-log.v1.json",
+    "./ses": {
+      "types": "./dist/ses.d.ts",
+      "default": "./dist/ses.js"
+    },
+    "./smtp": {
+      "types": "./dist/smtp.d.ts",
+      "default": "./dist/smtp.js"
+    }
   },
   "publishConfig": {
     "access": "public"
@@ -40,7 +48,6 @@
   "peerDependencies": {
     "react": ">=18",
     "react-dom": ">=18",
-    "resend": "*",
     "@aws-sdk/client-sesv2": "*",
     "nodemailer": "*",
     "@uploadfile/core": "*"
@@ -50,9 +57,6 @@
       "optional": true
     },
     "react-dom": {
-      "optional": true
-    },
-    "resend": {
       "optional": true
     },
     "@aws-sdk/client-sesv2": {
@@ -76,7 +80,6 @@
     "nodemailer": "^10.0.11",
     "react": "^18.3.1",
     "react-dom": "^18.3.1",
-    "resend": "^6.30.0",
     "smtp-server": "^3.19.13"
   }
 }

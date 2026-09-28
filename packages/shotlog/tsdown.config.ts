@@ -1,7 +1,13 @@
 import { defineConfig } from "tsdown";
 
 export default defineConfig({
-  entry: ["src/index.ts", "src/server.ts", "src/node.ts"],
+  entry: [
+    "src/index.ts",
+    "src/server.ts",
+    "src/node.ts",
+    "src/ses.ts",
+    "src/smtp.ts",
+  ],
   format: ["esm"],
   target: "es2022",
   platform: "neutral",

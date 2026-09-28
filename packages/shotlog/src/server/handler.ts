@@ -40,12 +40,13 @@ const authorizeRequest = Effect.fn("authorizeSupportRequest")(function* (
   return typeof allowed === "object" ? allowed.reporterId : undefined;
 });
 
-function forwardedIp(request: Request): string | undefined {
+function headerIp(request: Request, name: string): string | undefined {
+  const value = request.headers.get(name);
   return (
-    request.headers.get("cf-connecting-ip")?.trim() ||
-    request.headers.get("x-real-ip")?.trim() ||
-    request.headers.get("x-forwarded-for")?.split(",", 1)[0]?.trim() ||
-    undefined
+    (name.toLowerCase() === "x-forwarded-for"
+      ? value?.split(",").at(-1)
+      : value
+    )?.trim() || undefined
   );
 }
 
@@ -122,9 +123,9 @@ export function createSupportHandler(
   const clientIp = (request: Request) =>
     config.getClientIp
       ? config.getClientIp(request)
-      : config.trustProxy
-        ? forwardedIp(request)
-        : (socketAddresses.get(request) ?? forwardedIp(request));
+      : config.ipHeader !== undefined
+        ? headerIp(request, config.ipHeader)
+        : socketAddresses.get(request);
   const services = storeLayer(config.store);
   const channel = config.delivery.email ? "email" : "webhook";
   const channels = [
@@ -140,7 +141,7 @@ export function createSupportHandler(
     if (warnedNoIp) return;
     warnedNoIp = true;
     console.warn(
-      "shotlog: could not determine the client IP; per-IP rate limiting is skipped. Pass getClientIp.",
+      "shotlog: could not determine the client IP; per-IP rate limiting is skipped. Configure ipHeader or getClientIp.",
     );
   };
   const inFlight = new Map<string, Deferred.Deferred<boolean, InternalError>>();

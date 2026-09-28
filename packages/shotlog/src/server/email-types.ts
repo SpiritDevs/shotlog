@@ -32,7 +32,10 @@ export interface EmailMessage {
 }
 
 /**
- * Server-owned email transport. The Relay Endpoint allows 15 seconds per send, with no retries.
+ * Server-owned email transport. The Relay Endpoint waits for each send without retries.
+ * Custom providers must bound their own duration and honour cancellation: cancel the
+ * underlying transport before rejecting for cancellation or timeout, so retries cannot
+ * overlap an unfinished send. Built-in providers supply their own transport timeouts.
  * @example
  * ```ts
  * const provider: EmailProvider = { name: "custom", send: async (message) => mailer.send(message) };

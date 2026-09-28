@@ -17,10 +17,10 @@ The Server Helper applies these protections.
 4. **`authorize(request)` hook.** The Host App plugs in its own session or role check. It can return `{ reporterId }` from the session; that authenticated ID, never the body's `reporter.id`, keys the per-reporter limit.
 5. **Rate limiting.**
    - Limited per IP and per authenticated reporter (default 5 per 10 minutes).
-   - The in-memory store is capped at 10k keys. Multi-instance deployments can plug in their own store (e.g. Redis).
-   - With `toNodeHandler`, the IP is the socket address, carried outside headers so clients can't spoof it. Set `trustProxy` to use forwarded headers behind a proxy.
-   - Other runtimes use platform headers.
-6. **Concurrency cap.** Default 16 requests in flight per instance, checked before the body is read. Extra requests get a 5 s RateLimited, which bounds memory.
+   - The in-memory store is capped at 10k keys. After pruning expired keys, capacity pressure evicts the oldest delivered-ID key, never a live rate-limit key. If only live rate-limit keys remain, new rate keys are denied and new delivered IDs are not stored. Multi-instance deployments can plug in their own store (e.g. Redis).
+   - `getClientIp` overrides all IP resolution. Otherwise, configure `ipHeader` as the one header your proxy or platform sets: `x-real-ip` on Vercel, `cf-connecting-ip` on Cloudflare, or `x-forwarded-for` behind nginx. For `x-forwarded-for`, use the last entry (the one the proxy appended). The configured header wins over the socket address; only trust a header the proxy overwrites or appends.
+   - Without `ipHeader`, `toNodeHandler` supplies the socket address outside headers so clients cannot spoof it. Without either source, skip per-IP limits and warn once to configure `ipHeader` or `getClientIp`. No generic header fallback is used.
+6. **Concurrency cap.** Default 16 requests in flight per instance, checked before the body is read. Extra requests get a 5 s RateLimited, which bounds memory. Aborted uploads and bodies not received within 30 seconds are cancelled and release their admission slot.
 
 The Server Helper logs a warning at startup if no `authorize` hook is configured.
 

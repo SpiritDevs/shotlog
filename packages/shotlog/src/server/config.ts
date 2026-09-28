@@ -126,17 +126,19 @@ export interface SupportHandlerConfig {
   /** Defaults to 5 requests per 600 seconds; false disables both IP and reporter limits. */
   readonly rateLimit?: false | RateLimitConfig;
   /**
-   * Overrides IP resolution. By default, requests adapted by `toNodeHandler` use the socket
-   * address (see `trustProxy`); other runtimes use platform headers (cf-connecting-ip,
-   * x-real-ip, then the first x-forwarded-for entry). Without an IP, per-IP limits are skipped.
+   * Overrides all IP resolution, including `ipHeader` and the `toNodeHandler` socket address.
+   * Returning undefined skips per-IP limits.
    */
   readonly getClientIp?: (request: Request) => string | undefined;
   /**
-   * With `toNodeHandler` behind a reverse proxy, set true to read the client IP from
-   * forwarded headers instead of the proxy's socket address. Defaults to false, because
-   * without a proxy those headers are client-controlled.
+   * The single trusted client-IP header set by your proxy or platform, e.g. `x-real-ip`
+   * on Vercel, `cf-connecting-ip` on Cloudflare, or `x-forwarded-for` behind nginx.
+   * Only trust a header your proxy overwrites or appends. For `x-forwarded-for`, the last
+   * entry is used. When configured, this takes precedence over the socket address.
+   * Otherwise, `toNodeHandler` supplies the socket address. Without either source,
+   * per-IP limits are skipped with a one-time warning; headers are never auto-detected.
    */
-  readonly trustProxy?: boolean;
+  readonly ipHeader?: string;
   /** Defaults to lazy-expiring in-memory storage, protecting only this handler instance. */
   readonly store?: ShotlogStore;
   /** Screenshot and total streaming body limits. */

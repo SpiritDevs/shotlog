@@ -51,9 +51,17 @@ export function storeLayer(external?: ShotlogStore) {
       const now = yield* Clock.currentTimeMillis;
       prune(now);
       if (!entries.has(key) && entries.size >= maxEntries) {
-        // Bounded memory under key churn (e.g. rotating IPs): drop the oldest entry.
-        const oldest = entries.keys().next().value;
-        if (oldest !== undefined) entries.delete(oldest);
+        // Prefer a duplicate delivery over resetting a live abuse-protection window.
+        let oldestDelivered: string | undefined;
+        for (const candidate of entries.keys()) {
+          if (candidate.startsWith("shotlog:delivered:")) {
+            oldestDelivered = candidate;
+            break;
+          }
+        }
+        if (oldestDelivered !== undefined) entries.delete(oldestDelivered);
+        else
+          return key.startsWith("shotlog:rate:") ? Number.MAX_SAFE_INTEGER : 1;
       }
       const entry = entries.get(key) ?? {
         value: 0,

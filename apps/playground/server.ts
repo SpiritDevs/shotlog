@@ -11,10 +11,10 @@ import { toNodeHandler } from "shotlog/node";
 import {
   createSupportHandler,
   Forbidden,
-  smtp,
   Unauthorized,
   verifyWebhookSignature,
 } from "shotlog/server";
+import { smtp } from "shotlog/smtp";
 import { SMTPServer } from "smtp-server";
 import { createServer as createViteServer } from "vite";
 import { type InboxEntry, isSettings, type Settings } from "./shared.js";

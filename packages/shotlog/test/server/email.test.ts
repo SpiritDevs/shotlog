@@ -1,7 +1,4 @@
-import { Cause, Effect, Fiber, TestClock, TestContext } from "effect";
 import { afterEach, expect, test, vi } from "vitest";
-import { Delivery } from "../../src/server/delivery.js";
-import { emailLayer } from "../../src/server/email.js";
 import { renderEmail } from "../../src/server/email-template.js";
 import {
   createSupportHandler,
@@ -168,30 +165,6 @@ test.each(["email", "webhook"] as const)(
     expect(webhook).toHaveBeenCalledTimes(failedChannel === "webhook" ? 2 : 1);
   },
 );
-
-test("times out email at 15 seconds without automatically retrying", async () => {
-  const send = vi.fn(() => new Promise<void>(() => {}));
-  await Effect.runPromise(
-    Effect.gen(function* () {
-      const delivery = yield* Delivery;
-      const fiber = yield* Effect.fork(delivery.deliver(submission()));
-      yield* TestClock.adjust("15 seconds");
-      const exit = yield* Fiber.await(fiber);
-      expect(exit._tag).toBe("Failure");
-      if (exit._tag === "Failure") {
-        expect(Cause.failureOption(exit.cause)).toMatchObject({
-          value: { _tag: "DeliveryFailed", channel: "email" },
-        });
-      }
-      expect(send).toHaveBeenCalledOnce();
-    }).pipe(
-      Effect.provide(
-        emailLayer({ ...config, provider: { name: "test", send } }),
-      ),
-      Effect.provide(TestContext.TestContext),
-    ),
-  );
-});
 
 test("generic 500 responses prefer email when both channels are configured", async () => {
   const logged = vi.spyOn(console, "error").mockImplementation(() => {});

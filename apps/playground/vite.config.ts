@@ -13,6 +13,8 @@ export default defineConfig({
       { find: /^shotlog$/, replacement: source("index") },
       { find: /^shotlog\/server$/, replacement: source("server") },
       { find: /^shotlog\/node$/, replacement: source("node") },
+      { find: /^shotlog\/ses$/, replacement: source("ses") },
+      { find: /^shotlog\/smtp$/, replacement: source("smtp") },
     ],
     dedupe: ["react", "react-dom"],
   },

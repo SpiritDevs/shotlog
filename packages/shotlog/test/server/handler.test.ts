@@ -2,6 +2,7 @@ import { createHmac } from "node:crypto";
 import { Schema } from "effect";
 import { afterEach, beforeEach, expect, test, vi } from "vitest";
 import { SupportLogSchema } from "../../src/internal/schema/support-log.js";
+import { socketAddresses } from "../../src/internal/socket.js";
 import {
   createSupportHandler,
   DeliveryFailed,
@@ -321,8 +322,11 @@ test("accepts a JSON Blob part and rejects ambiguous multipart fields", async ()
   expect((await send()).status).toBe(400);
 });
 
-test("limits the first forwarded IP before parsing and sends Retry-After", async () => {
-  const handle = handler({ rateLimit: { max: 1, windowSeconds: 600 } });
+test("limits the last entry of the configured forwarded header before parsing and sends Retry-After", async () => {
+  const handle = handler({
+    ipHeader: "X-Forwarded-For",
+    rateLimit: { max: 1, windowSeconds: 600 },
+  });
   expect(
     (
       await handle(
@@ -333,7 +337,7 @@ test("limits the first forwarded IP before parsing and sends Retry-After", async
     ).status,
   ).toBe(200);
   const next = request({ invalid: true }, undefined, {
-    "x-forwarded-for": "192.0.2.1, 192.0.2.3",
+    "x-forwarded-for": "192.0.2.3, 192.0.2.2",
   });
   const response = await handle(next);
   expect(response.status).toBe(429);
@@ -352,6 +356,7 @@ test("limits the authenticated reporter across IPs and ignores body-supplied rep
   const handle = handler({
     rateLimit: { max: 1 },
     authorize: () => ({ reporterId: session.current }),
+    ipHeader: "cf-connecting-ip",
   });
   const send = (n: number, ip: string, reporterId: string) =>
     handle(
@@ -373,6 +378,7 @@ test("honors the IP override and defaults to five requests when rateLimit is omi
     delivery,
     authorize: () => true,
     getClientIp: () => "trusted-ip",
+    ipHeader: "x-forwarded-for",
   });
   for (let index = 1; index <= 6; index += 1) {
     const response = await handle(
@@ -422,7 +428,7 @@ test("uses a supplied store for both limits and completed dedupe across handler 
       return value;
     }),
   };
-  const config = { store, rateLimit: { max: 3 } };
+  const config = { store, ipHeader: "x-forwarded-for", rateLimit: { max: 3 } };
   const first = handler(config);
   const second = handler(config);
   const ip = { "x-forwarded-for": "203.0.113.7" };
@@ -522,3 +528,108 @@ test.each([
 ])("rejects invalid numeric config at creation: %j", (overrides) => {
   expect(() => handler(overrides)).toThrow(TypeError);
 });
+
+test("ignores unconfigured IP headers and warns only once when there is no trusted source", async () => {
+  const warn = vi.spyOn(console, "warn").mockImplementation(() => {});
+  const handle = handler({ rateLimit: { max: 1 } });
+  for (let index = 1; index <= 2; index += 1) {
+    expect(
+      (
+        await handle(
+          request(submission(index), undefined, {
+            "cf-connecting-ip": "192.0.2.1",
+            "x-real-ip": "192.0.2.1",
+            "x-forwarded-for": "192.0.2.1",
+          }),
+        )
+      ).status,
+    ).toBe(200);
+  }
+  expect(warn).toHaveBeenCalledOnce();
+  expect(warn).toHaveBeenCalledWith(
+    expect.stringContaining("ipHeader or getClientIp"),
+  );
+});
+
+test.each(["x-real-ip", "cf-connecting-ip", "platform-client-ip", undefined])(
+  "uses only the configured IP header (%s) or the socket address",
+  async (ipHeader) => {
+    const handle = handler({
+      rateLimit: { max: 1 },
+      ...(ipHeader ? { ipHeader } : {}),
+    });
+    for (let index = 1; index <= 2; index += 1) {
+      const input = request(submission(index), undefined, {
+        "cf-connecting-ip": `spoofed-${index}`,
+        "x-real-ip": `spoofed-${index}`,
+        "x-forwarded-for": `spoofed-${index}`,
+        ...(ipHeader ? { [ipHeader]: "trusted-client" } : {}),
+      });
+      socketAddresses.set(input, ipHeader ? `proxy-${index}` : "socket-client");
+      expect((await handle(input)).status).toBe(index === 1 ? 200 : 429);
+    }
+  },
+);
+
+test.each(["missing header", "undefined override"])(
+  "skips per-IP limits for a %s even when a socket address exists",
+  async (source) => {
+    vi.spyOn(console, "warn").mockImplementation(() => {});
+    const handle = handler({
+      rateLimit: { max: 1 },
+      ipHeader: "x-real-ip",
+      ...(source === "undefined override"
+        ? { getClientIp: () => undefined }
+        : {}),
+    });
+    for (let index = 1; index <= 2; index += 1) {
+      const input = request(
+        submission(index),
+        undefined,
+        source === "undefined override"
+          ? { "x-real-ip": "trusted-client" }
+          : {},
+      );
+      socketAddresses.set(input, "proxy");
+      expect((await handle(input)).status).toBe(200);
+    }
+  },
+);
+
+test.each(["abort", "timeout"])(
+  "cancels a never-ending body on %s and releases its admission slot",
+  async (reason) => {
+    const deadline = new AbortController();
+    const timeout = vi
+      .spyOn(AbortSignal, "timeout")
+      .mockReturnValue(deadline.signal);
+    const controller = new AbortController();
+    const cancel = vi.fn();
+    const init: RequestInit & { duplex: "half" } = {
+      method: "POST",
+      duplex: "half",
+      headers: { "content-type": "multipart/form-data; boundary=never-ending" },
+      body: new ReadableStream<Uint8Array>({ cancel }),
+      signal: controller.signal,
+    };
+    const input = new Request("https://app.example.com/support", init);
+    const handle = handler({ limits: { concurrentRequests: 1 } });
+    const pending = handle(input);
+    await vi.waitFor(() => expect(input.bodyUsed).toBe(true));
+    expect((await handle(request())).status).toBe(429);
+    expect(timeout).toHaveBeenCalledWith(30_000);
+    (reason === "abort" ? controller : deadline).abort();
+    const response = await pending;
+    expect(response.status).toBe(400);
+    expect(await response.json()).toMatchObject({
+      error: {
+        _tag: "ValidationFailed",
+        issues: ["Request body was not received in time"],
+      },
+    });
+    expect(cancel).toHaveBeenCalledOnce();
+    expect(fetchStub).not.toHaveBeenCalled();
+    timeout.mockRestore();
+    expect((await handle(request())).status).toBe(200);
+  },
+);

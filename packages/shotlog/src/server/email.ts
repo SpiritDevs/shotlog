@@ -7,8 +7,6 @@ import { Delivery } from "./delivery.js";
 import { renderEmail } from "./email-template.js";
 import type { ParsedScreenshot } from "./multipart.js";
 
-export const emailTimeoutMs = 15_000;
-
 export function emailLayer(config: EmailConfig) {
   return Layer.succeed(Delivery, {
     deliver: Effect.fn("deliverEmail")(function* (
@@ -27,12 +25,7 @@ export function emailLayer(config: EmailConfig) {
           }
           return new DeliveryFailed({ channel: "email", cause });
         },
-      }).pipe(
-        Effect.timeoutFail({
-          duration: emailTimeoutMs,
-          onTimeout: () => new DeliveryFailed({ channel: "email" }),
-        }),
-      );
+      });
     }),
   });
 }

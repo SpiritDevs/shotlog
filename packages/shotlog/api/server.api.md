@@ -322,27 +322,6 @@ export interface ScreenshotInfo {
 }
 
 // @public
-export function ses(options: SesOptions): EmailProvider;
-
-// @public
-export interface SesCredentials {
-    // (undocumented)
-    readonly accessKeyId: string;
-    // (undocumented)
-    readonly secretAccessKey: string;
-    // (undocumented)
-    readonly sessionToken?: string;
-}
-
-// @public
-export interface SesOptions {
-    // (undocumented)
-    readonly credentials?: SesCredentials | (() => Promise<SesCredentials>);
-    // (undocumented)
-    readonly region: string;
-}
-
-// @public
 export type ShotlogError = Unauthorized | Forbidden | RateLimited | PayloadTooLarge | ValidationFailed | DeliveryFailed | UploadFailed | Offline | ProviderNotInstalled | UnsupportedRuntime;
 
 // @public
@@ -360,32 +339,14 @@ export interface Size {
 }
 
 // @public
-export function smtp(options: SmtpOptions): EmailProvider;
-
-// @public
-export interface SmtpOptions {
-    // (undocumented)
-    readonly auth?: {
-        readonly user: string;
-        readonly pass: string;
-    };
-    // (undocumented)
-    readonly host: string;
-    // (undocumented)
-    readonly port: number;
-    // (undocumented)
-    readonly secure?: boolean;
-}
-
-// @public
 export interface SupportHandlerConfig {
     readonly authorize?: (request: Request) => AuthorizeResult | Promise<AuthorizeResult>;
     readonly delivery: DeliveryConfig;
     readonly getClientIp?: (request: Request) => string | undefined;
+    readonly ipHeader?: string;
     readonly limits?: SupportHandlerLimits;
     readonly rateLimit?: false | RateLimitConfig;
     readonly store?: ShotlogStore;
-    readonly trustProxy?: boolean;
 }
 
 // @public

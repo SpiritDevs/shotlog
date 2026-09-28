@@ -18,7 +18,9 @@
     "paths": {
       "shotlog": ["./packages/shotlog/src/index.ts"],
       "shotlog/server": ["./packages/shotlog/src/server.ts"],
-      "shotlog/node": ["./packages/shotlog/src/node.ts"]
+      "shotlog/node": ["./packages/shotlog/src/node.ts"],
+      "shotlog/ses": ["./packages/shotlog/src/ses.ts"],
+      "shotlog/smtp": ["./packages/shotlog/src/smtp.ts"]
     }
   },
   "exclude": ["**/*.test-d.ts"],

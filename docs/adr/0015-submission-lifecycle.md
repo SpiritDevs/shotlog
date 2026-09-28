@@ -8,10 +8,11 @@
    - A short readable form (e.g. `SL-7F3K`) is shown on success and included in the email subject (`[Bug] SL-7F3K · Save button does nothing`), the email body, and the webhook JSON.
 2. **Safe retries, at-least-once delivery.**
    - The Relay Endpoint remembers delivered IDs **per channel** and ignores repeats, so a Reporter's retry doesn't normally deliver twice.
-   - The pending ID is saved with the draft, so a retry after a page reload is deduped too. Editing after a failure starts a new ID.
-   - Exactly-once delivery is not achievable, for two reasons:
-     - A receiver may accept a webhook but the response gets lost.
+   - The pending ID is saved with the draft, so a retry after a page reload can be deduped while the delivered record is retained. Editing after a failure starts a new ID.
+   - Exactly-once delivery is not achievable:
+     - An email provider or webhook receiver may accept delivery but the response gets lost, including when the request is aborted on timeout.
      - Two instances may receive the same ID at the same moment.
+     - Delivered records expire after 24 hours, can be evicted under memory pressure, and are lost on restart with the in-memory store.
    - Delivery is therefore **at least once**. Receivers dedupe on `x-shotlog-id` / `log.id`.
    - The ID store is swappable, like the rate-limit store (ADR-0008).
 3. **Drafts.**
@@ -31,4 +32,4 @@
 
 ## Consequences
 - Every Support Log can be traced end to end by its ID.
-- Retries can't cause duplicate emails or webhooks.
+- Retries are at least once and can duplicate emails or webhooks; per-channel deduplication reduces repeats while delivered records are retained.

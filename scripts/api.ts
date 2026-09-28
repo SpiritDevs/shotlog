@@ -5,7 +5,7 @@ const packageFolder = fileURLToPath(
   new URL("../packages/shotlog", import.meta.url),
 );
 let succeeded = true;
-for (const entry of ["index", "server", "node"]) {
+for (const entry of ["index", "server", "node", "ses", "smtp"]) {
   const config = ExtractorConfig.prepare({
     configObject: {
       projectFolder: packageFolder,

@@ -23,3 +23,42 @@ test("in-memory increments keep the original TTL and expire rate and dedupe keys
     ),
   );
 });
+
+test("capacity pressure evicts delivered IDs in order without resetting live rate limits", async () => {
+  await Effect.runPromise(
+    Effect.gen(function* () {
+      const store = yield* Store;
+      const rate = "shotlog:rate:ip:existing";
+      const oldest = "shotlog:delivered:oldest";
+      const newer = "shotlog:delivered:newer";
+      yield* store.increment(rate, 600);
+      yield* store.increment(oldest, 86400);
+      yield* store.increment(newer, 86400);
+      for (let index = 0; index < 9997; index += 1)
+        yield* store.increment(`shotlog:rate:ip:${index}`, 600);
+      expect(yield* store.increment("shotlog:rate:ip:replacement-1", 600)).toBe(
+        1,
+      );
+      expect(yield* store.get(oldest)).toBeUndefined();
+      expect(yield* store.get(newer)).toBe(1);
+      expect(yield* store.increment("shotlog:rate:ip:replacement-2", 600)).toBe(
+        1,
+      );
+      expect(yield* store.get(newer)).toBeUndefined();
+      expect(yield* store.increment("shotlog:rate:ip:overflow", 600)).toBe(
+        Number.MAX_SAFE_INTEGER,
+      );
+      expect(yield* store.get("shotlog:rate:ip:overflow")).toBeUndefined();
+      expect(yield* store.increment("shotlog:delivered:overflow", 86400)).toBe(
+        1,
+      );
+      expect(yield* store.get("shotlog:delivered:overflow")).toBeUndefined();
+      expect(yield* store.increment(rate, 600)).toBe(2);
+      yield* TestClock.adjust("600 seconds");
+      expect(yield* store.increment("shotlog:rate:ip:overflow", 600)).toBe(1);
+    }).pipe(
+      Effect.provide(storeLayer()),
+      Effect.provide(TestContext.TestContext),
+    ),
+  );
+});

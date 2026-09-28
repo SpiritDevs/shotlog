@@ -1,7 +1,8 @@
 import { type ParsedMail, simpleParser } from "mailparser";
 import { SMTPServer } from "smtp-server";
 import { expect, test } from "vitest";
-import { createSupportHandler, smtp } from "../../src/server.js";
+import { createSupportHandler } from "../../src/server.js";
+import { smtp } from "../../src/smtp.js";
 import { png, request, submission } from "./fixtures.js";
 
 test("SMTP delivers a real multipart report with server recipients, Reply-To, and both PNG copies", async () => {
