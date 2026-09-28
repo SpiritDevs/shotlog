@@ -60,7 +60,7 @@ export const defaultLabels: ShotlogLabels = {
   editorMedium: "Medium",
   editorThick: "Thick",
   editorRounded: "Rounded",
-  editorSolid: "Solid",
+  editorSolid: "Solid (strongest)",
   editorUndo: "Undo (⌘/Ctrl+Z)",
   editorRedo: "Redo (⇧⌘/Ctrl+Shift+Z)",
   editorToolSelected: (tool) => `${tool} selected`,

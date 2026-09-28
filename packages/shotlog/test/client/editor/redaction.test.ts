@@ -1,4 +1,4 @@
-import { describe, expect, it } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import {
   type Pixels,
   redactPixels,
@@ -18,32 +18,59 @@ const pixel = (image: Pixels, x: number, y: number) =>
     image.data.slice((y * image.width + x) * 4, (y * image.width + x + 1) * 4),
   );
 
+beforeEach(() => {
+  vi.stubGlobal("crypto", {
+    getRandomValues: (bytes: Uint8Array) => {
+      bytes.set([0, 12, 24]);
+      return bytes;
+    },
+  });
+});
+afterEach(() => vi.unstubAllGlobals());
+
 describe("destructive flatten redaction pass", () => {
   it("expands tiny pixelations and merges short trailing blocks", () => {
     const tiny = pixels();
     redactPixels(tiny, { x: 47, y: 35, width: 1, height: 1 }, false);
-    for (let y = 24; y < 36; y++)
-      for (let x = 36; x < 48; x++)
-        expect(pixel(tiny, x, y)).toEqual(pixel(tiny, 36, 24));
+    for (let y = 20; y < 36; y++)
+      for (let x = 32; x < 48; x++)
+        expect(pixel(tiny, x, y)).toEqual(pixel(tiny, 32, 20));
     const edge = pixels();
-    redactPixels(edge, { x: 0, y: 0, width: 25, height: 25 }, false);
-    // A 25px extent becomes 12 + 13, never 12 + 12 + 1.
-    expect(pixel(edge, 24, 24)).toEqual(pixel(edge, 12, 12));
-    expect(pixel(edge, 12, 12)).not.toEqual(pixel(edge, 0, 0));
+    redactPixels(edge, { x: 0, y: 0, width: 33, height: 33 }, false);
+    // A 33px extent becomes 16 + 17, never 16 + 16 + 1.
+    expect(pixel(edge, 32, 32)).toEqual(pixel(edge, 16, 16));
+    expect(pixel(edge, 16, 16)).not.toEqual(pixel(edge, 0, 0));
   });
-  it("overwrites a minimum 12px block with one opaque sampled colour", () => {
-    const image = pixels(),
-      before = image.data.slice();
-    redactPixels(image, { x: 12, y: 12, width: 24, height: 24 }, false, 2);
-    const first = pixel(image, 12, 12);
-    expect(first[3]).toBe(255);
-    for (let y = 12; y < 24; y++)
-      for (let x = 12; x < 24; x++) expect(pixel(image, x, y)).toEqual(first);
-    expect(pixel(image, 24, 12)).not.toEqual(first);
-    expect(image.data).not.toEqual(before);
-    expect(pixel(image, 11, 12)).toEqual(
-      pixel({ ...image, data: before }, 11, 12),
-    );
+  it("uses bounded coarse blocks and fresh per-block noise, overwriting every source pixel", () => {
+    for (const [extent, size] of [
+      [48, 16],
+      [99, 33],
+      [300, 64],
+    ] as const) {
+      const image: Pixels = {
+        width: extent,
+        height: extent,
+        data: new Uint8ClampedArray(extent * extent * 4),
+      };
+      for (let i = 0; i < image.data.length; i += 4)
+        image.data.set([100, 110, 120, 100], i);
+      const random = vi.fn((bytes: Uint8Array) => {
+        bytes.set(random.mock.calls.length % 2 ? [0, 12, 24] : [24, 0, 12]);
+        return bytes;
+      });
+      vi.stubGlobal("crypto", { getRandomValues: random });
+      redactPixels(image, { x: 0, y: 0, width: extent, height: extent }, false);
+      expect(pixel(image, 0, 0)).toEqual([88, 110, 132, 255]);
+      expect(pixel(image, size - 1, size - 1)).toEqual(pixel(image, 0, 0));
+      expect(pixel(image, size, 0)).toEqual([112, 98, 120, 255]);
+      for (let y = 0; y < extent; y++)
+        for (let x = 0; x < extent; x++) {
+          const value = pixel(image, x, y);
+          expect(value).not.toEqual([100, 110, 120, 100]);
+          expect(value[3]).toBe(255);
+        }
+      expect(random).toHaveBeenCalledTimes(Math.floor(extent / size) ** 2);
+    }
   });
   it("solid redaction erases original RGB and alpha including fractional edges", () => {
     const image = pixels();

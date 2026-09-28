@@ -9,6 +9,7 @@ import {
 import { afterEach, beforeEach, expect, test, vi } from "vitest";
 import { ShotlogProvider } from "../../src/client/provider.js";
 import { ReportCard } from "../../src/client/report-card.js";
+import { ScreenshotControls } from "../../src/client/screenshot-controls.js";
 import type {
   ShotlogControls,
   ShotlogProviderProps,
@@ -197,4 +198,57 @@ test("success clears the stored draft before onSubmitted unmounts the provider",
   expect(onSubmitted).toHaveBeenCalledOnce();
   expect(storedAtCallback).toBeNull();
   expect(sessionStorage.getItem("shotlog:draft")).toBeNull();
+});
+
+function screenshotProps(card: ComponentProps<typeof ReportCard>) {
+  const controls = card.screenshotControls;
+  if (
+    !isValidElement<ComponentProps<typeof ScreenshotControls>>(controls) ||
+    controls.type !== ScreenshotControls
+  )
+    throw new Error("Screenshot controls were not rendered");
+  return controls.props;
+}
+
+test("capture ownership and errors survive closing and reopening the card", () => {
+  const card = mount({ diagnostics: false, onSubmit: async () => {} });
+  const first = screenshotProps(card());
+  const release = first.acquireCapture();
+  expect(release).toBeTypeOf("function");
+  card().onClose();
+  // Reopening uses the same provider hooks, with a new card and controls instance.
+  const reopened = mount({ diagnostics: false, onSubmit: async () => {} });
+  expect(screenshotProps(reopened()).busy).toBe(true);
+  expect(screenshotProps(reopened()).acquireCapture()).toBeUndefined();
+  first.onError("Capture failed");
+  release?.();
+  expect(screenshotProps(reopened()).busy).toBe(false);
+  expect(screenshotProps(reopened()).error).toBe("Capture failed");
+  const finishNext = screenshotProps(reopened()).acquireCapture();
+  release?.(); // A stale release cannot clear the next operation.
+  expect(screenshotProps(reopened()).busy).toBe(true);
+  finishNext?.();
+});
+
+test("an attachment finishing after typing persists the latest draft and resets an attempted identity", async () => {
+  const card = mount({
+    diagnostics: false,
+    onSubmit: async () => {
+      throw new Error("Lost response");
+    },
+  });
+  card().onChange({ type: "Bug", description: "Original" });
+  card().onSubmit();
+  await new Promise(setImmediate);
+  const delayedAttachment = screenshotProps(card()).onChange;
+  card().onChange({ type: "Idea", description: "Typed while decoding" });
+  card();
+  delayedAttachment(new Blob(["image"]));
+  expect(JSON.parse(sessionStorage.getItem("shotlog:draft") ?? "null")).toEqual(
+    {
+      type: "Idea",
+      description: "Typed while decoding",
+      identity: null,
+    },
+  );
 });

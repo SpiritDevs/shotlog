@@ -106,9 +106,24 @@ export function ShotlogProvider({
     type: types[0] ?? "Bug",
     description: "",
   });
+  const latestDraft = useRef(draft);
+  latestDraft.current = draft;
   // Screenshots never enter the persisted text draft.
   const [screenshot, setScreenshot] = useState<Blob>();
   const [capturing, setCapturing] = useState(false);
+  const [captureError, setCaptureError] = useState("");
+  const captureOwner = useRef<object | null>(null);
+  const acquireCapture = useCallback(() => {
+    if (captureOwner.current) return undefined;
+    const operation = {};
+    captureOwner.current = operation;
+    setCapturing(true);
+    return () => {
+      if (captureOwner.current !== operation) return;
+      captureOwner.current = null;
+      setCapturing(false);
+    };
+  }, []);
   const [loaded, setLoaded] = useState(false);
   const [status, setStatus] = useState<Status>({ tag: "idle" });
   // Kept with the draft so a retry after a lost response, even after a reload, reuses the
@@ -234,7 +249,12 @@ export function ShotlogProvider({
     ? draft.type
     : (types[0] ?? "Bug");
   const submit = async () => {
-    if (sending.current || capturing || !enabled || status.tag === "sent")
+    if (
+      sending.current ||
+      captureOwner.current ||
+      !enabled ||
+      status.tag === "sent"
+    )
       return;
     const current = ensureIdentity();
     identity.current = { ...current, attempted: true };
@@ -355,12 +375,15 @@ export function ShotlogProvider({
                     screenshot={screenshot}
                     labels={labels}
                     locked={status.tag === "sending" || status.tag === "sent"}
-                    onBusyChange={setCapturing}
+                    busy={capturing}
+                    error={captureError}
+                    onError={setCaptureError}
+                    acquireCapture={acquireCapture}
                     onChange={(next) => {
                       if (identity.current?.attempted) identity.current = null;
                       setScreenshot(next);
                       // Persist the changed identity, never the image.
-                      persist(draft);
+                      persist(latestDraft.current);
                     }}
                   />
                 }
@@ -376,6 +399,7 @@ export function ShotlogProvider({
                 onChange={(next) => {
                   // The attempt may have been delivered, including before a reload.
                   if (identity.current?.attempted) identity.current = null;
+                  latestDraft.current = next;
                   setDraft(next);
                 }}
                 onSubmit={() => {

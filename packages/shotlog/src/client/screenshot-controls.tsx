@@ -17,7 +17,10 @@ interface ScreenshotControlsProps {
   readonly labels: ShotlogLabels;
   readonly locked: boolean;
   readonly onChange: (screenshot: Blob | undefined) => void;
-  readonly onBusyChange: (busy: boolean) => void;
+  readonly busy: boolean;
+  readonly error: string;
+  readonly onError: (error: string) => void;
+  readonly acquireCapture: () => (() => void) | undefined;
 }
 
 export function ScreenshotControls({
@@ -26,16 +29,16 @@ export function ScreenshotControls({
   labels,
   locked,
   onChange,
-  onBusyChange,
+  busy,
+  error,
+  onError: setError,
+  acquireCapture,
 }: ScreenshotControlsProps) {
   const id = useId();
   const [optionsOpen, setOptionsOpen] = useState(false);
-  const [busy, setBusy] = useState(false);
-  const [error, setError] = useState("");
   const [preview, setPreview] = useState<string>();
   const input = useRef<HTMLInputElement>(null);
   const trigger = useRef<HTMLButtonElement>(null);
-  const pending = useRef(false);
   const wasBusy = useRef(false);
   const mounted = useRef(false);
   const editorAbort = useRef<AbortController | null>(null);
@@ -46,9 +49,8 @@ export function ScreenshotControls({
     return () => {
       mounted.current = false;
       editorAbort.current?.abort();
-      onBusyChange(false);
     };
-  }, [onBusyChange]);
+  }, []);
 
   useEffect(() => {
     if (wasBusy.current && !busy) trigger.current?.focus();
@@ -91,26 +93,21 @@ export function ScreenshotControls({
 
   const capture = useCallback(
     async (getImage: () => Promise<Blob | undefined>, failure: string) => {
-      if (locked || pending.current) return;
-      pending.current = true;
-      setBusy(true);
-      onBusyChange(true);
+      if (locked) return;
+      const release = acquireCapture();
+      if (!release) return;
       setOptionsOpen(false);
       setError("");
       try {
         const blob = await getImage();
         if (blob) await attachScreenshot(blob);
       } catch {
-        if (mounted.current) setError(failure);
+        setError(failure);
       } finally {
-        pending.current = false;
-        if (mounted.current) {
-          setBusy(false);
-          onBusyChange(false);
-        }
+        release();
       }
     },
-    [locked, onBusyChange, attachScreenshot],
+    [locked, acquireCapture, attachScreenshot, setError],
   );
 
   const upload = useCallback(

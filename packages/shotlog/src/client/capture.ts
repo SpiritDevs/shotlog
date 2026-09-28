@@ -1,4 +1,8 @@
-import { captureSize, screenshotLimit } from "./capture-size.js";
+import {
+  captureSize,
+  imageDimensions,
+  screenshotLimit,
+} from "./capture-size.js";
 
 export const supportsScreenCapture = () =>
   typeof navigator !== "undefined" &&
@@ -7,76 +11,137 @@ export const supportsScreenCapture = () =>
 const nextFrame = () =>
   new Promise<void>((resolve) => requestAnimationFrame(() => resolve()));
 
-/** Inline !important also wins over a Host App's aggressive global reset. */
+const hiddenHosts = new WeakMap<
+  HTMLElement,
+  {
+    count: number;
+    visibility: string;
+    priority: string;
+  }
+>();
+
+/** Each operation releases only its own visibility lease, including on timeout. */
 async function withHiddenWidget<T>(
   host: HTMLElement,
-  capture: () => Promise<T>,
+  capture: (signal: AbortSignal, startDeadline: () => void) => Promise<T>,
+  deadlineStartsImmediately = true,
 ): Promise<T> {
-  const visibility = host.style.getPropertyValue("visibility");
-  const priority = host.style.getPropertyPriority("visibility");
+  let hidden = hiddenHosts.get(host);
+  if (!hidden) {
+    hidden = {
+      count: 0,
+      visibility: host.style.getPropertyValue("visibility"),
+      priority: host.style.getPropertyPriority("visibility"),
+    };
+    hiddenHosts.set(host, hidden);
+  }
+  hidden.count++;
   host.style.setProperty("visibility", "hidden", "important");
+  // This signal is also the stale-operation token: late imports/frames cannot proceed.
+  const controller = new AbortController();
+  let timer: ReturnType<typeof setTimeout> | undefined;
   try {
-    return await capture();
+    let rejectDeadline: (error: Error) => void = () => {};
+    const deadline = new Promise<never>((_, reject) => {
+      rejectDeadline = reject;
+    });
+    const startDeadline = () => {
+      timer ??= setTimeout(() => {
+        const error = new Error("Screenshot capture timed out");
+        controller.abort(error);
+        rejectDeadline(error);
+      }, 15_000);
+    };
+    if (deadlineStartsImmediately) startDeadline();
+    return await Promise.race([
+      capture(controller.signal, startDeadline),
+      deadline,
+    ]);
   } finally {
-    if (visibility) host.style.setProperty("visibility", visibility, priority);
-    else host.style.removeProperty("visibility");
+    clearTimeout(timer);
+    controller.abort();
+    if (--hidden.count === 0) {
+      hiddenHosts.delete(host);
+      if (hidden.visibility)
+        host.style.setProperty(
+          "visibility",
+          hidden.visibility,
+          hidden.priority,
+        );
+      else host.style.removeProperty("visibility");
+    }
   }
 }
 
 export function capturePage(host: HTMLElement): Promise<Blob> {
-  return withHiddenWidget(host, async () => {
+  return withHiddenWidget(host, async (signal) => {
     await nextFrame();
+    signal.throwIfAborted();
     const { renderPage } = await import("./page-render.js");
-    return canvasToPng(await renderPage(host));
-  });
-}
-
-export function captureScreen(host: HTMLElement): Promise<Blob | undefined> {
-  return withHiddenWidget(host, async () => {
-    // Invoke before any await to retain the click's transient user activation.
-    const options: DisplayMediaStreamOptions & {
-      preferCurrentTab: boolean;
-      selfBrowserSurface: "include";
-    } = {
-      video: { displaySurface: "browser" },
-      preferCurrentTab: true,
-      selfBrowserSurface: "include",
-      audio: false,
-    };
-    let stream: MediaStream;
-    try {
-      stream = await navigator.mediaDevices.getDisplayMedia(options);
-    } catch (error) {
-      if (
-        error instanceof DOMException &&
-        (error.name === "NotAllowedError" || error.name === "AbortError")
-      )
-        return undefined;
-      throw error;
-    }
-    const video = document.createElement("video");
-    let canvas: HTMLCanvasElement;
-    try {
-      video.muted = true;
-      video.playsInline = true;
-      video.srcObject = stream;
-      await videoFrame(video);
-      canvas = drawImage(video, video.videoWidth, video.videoHeight);
-    } finally {
-      // Release the sharing indicator before PNG encoding or the M4 editor.
-      for (const track of stream.getTracks()) track.stop();
-      video.pause();
-      video.srcObject = null;
-    }
+    signal.throwIfAborted();
+    const canvas = await renderPage(host, signal);
+    signal.throwIfAborted();
     return canvasToPng(canvas);
   });
 }
 
-function videoFrame(video: HTMLVideoElement): Promise<void> {
+export function captureScreen(host: HTMLElement): Promise<Blob | undefined> {
+  // The deadline starts once sharing is granted: time spent in the browser's picker is the user's.
+  return withHiddenWidget(
+    host,
+    async (signal, startDeadline) => {
+      // Invoke before any await to retain the click's transient user activation.
+      const options: DisplayMediaStreamOptions & {
+        preferCurrentTab: boolean;
+        selfBrowserSurface: "include";
+      } = {
+        video: { displaySurface: "browser" },
+        preferCurrentTab: true,
+        selfBrowserSurface: "include",
+        audio: false,
+      };
+      let stream: MediaStream;
+      try {
+        stream = await navigator.mediaDevices.getDisplayMedia(options);
+      } catch (error) {
+        if (
+          error instanceof DOMException &&
+          (error.name === "NotAllowedError" || error.name === "AbortError")
+        )
+          return undefined;
+        throw error;
+      }
+      startDeadline();
+      const video = document.createElement("video");
+      let canvas: HTMLCanvasElement;
+      try {
+        signal.throwIfAborted();
+        video.muted = true;
+        video.playsInline = true;
+        video.srcObject = stream;
+        await videoFrame(video, signal);
+        signal.throwIfAborted();
+        canvas = drawImage(video, video.videoWidth, video.videoHeight);
+      } finally {
+        // Release the sharing indicator before PNG encoding or the M4 editor.
+        for (const track of stream.getTracks()) track.stop();
+        video.pause();
+        video.srcObject = null;
+      }
+      return canvasToPng(canvas);
+    },
+    false,
+  );
+}
+
+function videoFrame(
+  video: HTMLVideoElement,
+  signal: AbortSignal,
+): Promise<void> {
   return new Promise((resolve, reject) => {
     let frame: number | undefined;
     const finish = (error?: unknown) => {
-      clearTimeout(timer);
+      signal.removeEventListener("abort", aborted);
       if (frame !== undefined) video.cancelVideoFrameCallback(frame);
       video.removeEventListener("loadeddata", ready);
       video.removeEventListener("error", failed);
@@ -85,7 +150,8 @@ function videoFrame(video: HTMLVideoElement): Promise<void> {
     };
     const ready = () => finish();
     const failed = () => finish(new Error("Screen frame is unavailable"));
-    const timer = setTimeout(failed, 10_000);
+    const aborted = () => finish(signal.reason);
+    signal.addEventListener("abort", aborted, { once: true });
     // Register before playback so a static stream's first frame is sufficient.
     if (typeof video.requestVideoFrameCallback === "function")
       frame = video.requestVideoFrameCallback(ready);
@@ -96,16 +162,25 @@ function videoFrame(video: HTMLVideoElement): Promise<void> {
 }
 
 export async function imageToPng(blob: Blob): Promise<Blob> {
-  const url = URL.createObjectURL(blob);
-  const image = new Image();
+  const dimensions = await imageDimensions(blob);
+  const size = dimensions && captureSize(dimensions.width, dimensions.height);
+  // Known headers let the decoder resize before allocating a full-size bitmap.
+  const bitmap = await createImageBitmap(
+    blob,
+    size
+      ? {
+          resizeWidth: size.width,
+          resizeHeight: size.height,
+          resizeQuality: "high",
+        }
+      : undefined,
+  );
   try {
-    image.src = url;
-    await image.decode();
-    return await canvasToPng(
-      drawImage(image, image.naturalWidth, image.naturalHeight),
-    );
+    if (bitmap.width * bitmap.height > 40_000_000)
+      throw new Error("Image exceeds the pixel budget");
+    return await canvasToPng(drawImage(bitmap, bitmap.width, bitmap.height));
   } finally {
-    URL.revokeObjectURL(url);
+    bitmap.close();
   }
 }
 

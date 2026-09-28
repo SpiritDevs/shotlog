@@ -4,6 +4,7 @@ import { captureSize } from "./capture-size.js";
 /** Kept behind capturePage's dynamic import, including the renderer dependency. */
 export async function renderPage(
   host: HTMLElement,
+  signal?: AbortSignal,
 ): Promise<HTMLCanvasElement> {
   const {
     innerWidth: width,
@@ -26,7 +27,11 @@ export async function renderPage(
   const mediaMarker = "data-shotlog-capture-media";
   const media = new Map<
     string,
-    { placeholder: HTMLElement; styles: [string, string][] }
+    {
+      node: Element;
+      previous: string | null;
+      replacements: { index: number; styles: [string, string][] }[];
+    }
   >();
   const marker = "data-shotlog-capture-sticky";
   const sticky = new Map<
@@ -39,26 +44,63 @@ export async function renderPage(
       transform: string;
     }
   >();
+  const restore = () => {
+    for (const { node, previous } of media.values()) {
+      if (previous === null) node.removeAttribute(mediaMarker);
+      else node.setAttribute(mediaMarker, previous);
+    }
+    for (const { node, previous } of sticky.values()) {
+      if (previous === null) node.removeAttribute(marker);
+      else node.setAttribute(marker, previous);
+    }
+    media.clear();
+    sticky.clear();
+  };
+  signal?.throwIfAborted();
+  signal?.addEventListener("abort", restore, { once: true });
   try {
-    // Hidden surrogates preserve layout in the clone without loading/playing media.
-    for (const source of Array.from(
-      document.querySelectorAll("video, iframe"),
+    // Only mark live parents. Insert blank media boxes after their children clone.
+    for (const parent of new Set(
+      Array.from(
+        document.querySelectorAll("video, iframe"),
+        (source) => source.parentElement,
+      ),
     )) {
-      const computed = getComputedStyle(source);
+      if (!parent) continue;
       const key = String(media.size);
-      const placeholder = document.createElement("span");
-      const styles: [string, string][] = Array.from(computed, (name) => [
-        name,
-        computed.getPropertyValue(name),
-      ]);
-      styles.push([
-        "display",
-        computed.display === "inline" ? "inline-block" : computed.display,
-      ]);
-      placeholder.setAttribute(mediaMarker, key);
-      placeholder.style.setProperty("display", "none", "important");
-      media.set(key, { placeholder, styles });
-      source.before(placeholder);
+      const replacements: { index: number; styles: [string, string][] }[] = [];
+      // modern-screenshot omits comments, scripts and styles before calling filter.
+      const children = Array.from(parent.childNodes).filter(
+        (node) =>
+          node.nodeType !== 8 &&
+          node !== host &&
+          !(node instanceof Element && node.matches("script, style")),
+      );
+      for (const [index, source] of children.entries()) {
+        if (
+          !(
+            source instanceof HTMLVideoElement ||
+            source instanceof HTMLIFrameElement
+          )
+        )
+          continue;
+        const computed = getComputedStyle(source);
+        const styles: [string, string][] = Array.from(computed, (name) => [
+          name,
+          computed.getPropertyValue(name),
+        ]);
+        styles.push([
+          "display",
+          computed.display === "inline" ? "inline-block" : computed.display,
+        ]);
+        replacements.push({ index, styles });
+      }
+      media.set(key, {
+        node: parent,
+        previous: parent.getAttribute(mediaMarker),
+        replacements,
+      });
+      parent.setAttribute(mediaMarker, key);
     }
     return await domToCanvas(document.documentElement, {
       width,
@@ -68,6 +110,7 @@ export async function renderPage(
       timeout: 5000,
       features: { restoreScrollPosition: true },
       filter: (node) => {
+        signal?.throwIfAborted();
         // Video cloning can wait indefinitely for seeked (notably srcObject streams).
         if (
           node === host ||
@@ -84,10 +127,15 @@ export async function renderPage(
           const position = node.style.getPropertyValue("position");
           const priority = node.style.getPropertyPriority("position");
           // Read its un-stuck location synchronously; restore before the browser paints.
-          node.style.setProperty("position", "static", "important");
-          const natural = node.getBoundingClientRect();
-          if (position) node.style.setProperty("position", position, priority);
-          else node.style.removeProperty("position");
+          let natural: DOMRect;
+          try {
+            node.style.setProperty("position", "static", "important");
+            natural = node.getBoundingClientRect();
+          } finally {
+            if (position)
+              node.style.setProperty("position", position, priority);
+            else node.style.removeProperty("position");
+          }
           const key = String(sticky.size);
           sticky.set(key, {
             node,
@@ -101,13 +149,18 @@ export async function renderPage(
         return true;
       },
       onCloneEachNode: (node) => {
+        signal?.throwIfAborted();
         if (!(node instanceof HTMLElement)) return;
         const mediaKey = node.getAttribute(mediaMarker);
         const blank = mediaKey === null ? undefined : media.get(mediaKey);
         if (blank) {
           node.removeAttribute(mediaMarker);
-          for (const [name, value] of blank.styles)
-            node.style.setProperty(name, value, "important");
+          for (const { index, styles } of blank.replacements) {
+            const placeholder = document.createElement("span");
+            for (const [name, value] of styles)
+              placeholder.style.setProperty(name, value, "important");
+            node.insertBefore(placeholder, node.childNodes[index] ?? null);
+          }
         }
         const key = node.getAttribute(marker);
         const pinned = key === null ? undefined : sticky.get(key);
@@ -122,6 +175,7 @@ export async function renderPage(
         );
       },
       onCloneNode: (node) => {
+        signal?.throwIfAborted();
         if (!(node instanceof HTMLElement)) return;
         // Move document flow without a transform containing block: viewport-fixed
         // content stays fixed. Retain the library's nested scroller restoration.
@@ -139,10 +193,7 @@ export async function renderPage(
       },
     });
   } finally {
-    for (const { placeholder } of media.values()) placeholder.remove();
-    for (const { node, previous } of sticky.values()) {
-      if (previous === null) node.removeAttribute(marker);
-      else node.setAttribute(marker, previous);
-    }
+    signal?.removeEventListener("abort", restore);
+    restore();
   }
 }

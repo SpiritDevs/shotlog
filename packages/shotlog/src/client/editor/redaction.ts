@@ -6,13 +6,11 @@ export interface Pixels {
   readonly data: Uint8ClampedArray;
 }
 /** Overwrite RGB and alpha, never composite a translucent mask. Blocks are output pixels. */
-export function redactPixels(
-  image: Pixels,
-  rect: Rect,
-  solid: boolean,
-  blockSize = 12,
-): void {
-  const size = Math.max(12, Math.ceil(blockSize));
+export function redactPixels(image: Pixels, rect: Rect, solid: boolean): void {
+  const size = Math.min(
+    64,
+    Math.max(16, Math.round(Math.min(rect.width, rect.height) / 3)),
+  );
   let x0 = Math.max(0, Math.floor(rect.x)),
     y0 = Math.max(0, Math.floor(rect.y));
   let x1 = Math.min(image.width, Math.ceil(rect.x + rect.width)),
@@ -44,12 +42,20 @@ export function redactPixels(
             count++;
           }
       }
+      // Sample once per block for this flatten; every output pixel gets the same
+      // noisy colour, with fresh entropy on the next flatten.
+      const noise = solid
+        ? new Uint8Array(3)
+        : crypto.getRandomValues(new Uint8Array(3));
+      const red = count ? r / count + ((noise[0] ?? 0) % 25) - 12 : 0;
+      const green = count ? g / count + ((noise[1] ?? 0) % 25) - 12 : 0;
+      const blue = count ? b / count + ((noise[2] ?? 0) % 25) - 12 : 0;
       for (let py = y; py < bottom; py++)
         for (let px = x; px < right; px++) {
           const i = (py * image.width + px) * 4;
-          image.data[i] = count ? r / count : 0;
-          image.data[i + 1] = count ? g / count : 0;
-          image.data[i + 2] = count ? b / count : 0;
+          image.data[i] = red;
+          image.data[i + 1] = green;
+          image.data[i + 2] = blue;
           image.data[i + 3] = 255;
         }
       x = right;
