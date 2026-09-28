@@ -5,18 +5,21 @@ import {
   type ServerResponse,
 } from "node:http";
 import { text } from "node:stream/consumers";
+import { simpleParser } from "mailparser";
 import type { SupportLog } from "shotlog";
 import { toNodeHandler } from "shotlog/node";
 import {
   createSupportHandler,
   Forbidden,
+  smtp,
   Unauthorized,
   verifyWebhookSignature,
 } from "shotlog/server";
+import { SMTPServer } from "smtp-server";
 import { createServer as createViteServer } from "vite";
 import { type InboxEntry, isSettings, type Settings } from "./shared.js";
 
-const port = 5199;
+const port = Number(process.env.PORT ?? 5199);
 const host = "127.0.0.1";
 const origin = `http://${host}:${port}`;
 const webhookSecret = "shotlog-playground-dev-secret";
@@ -28,6 +31,11 @@ function createRelay() {
   return toNodeHandler(
     createSupportHandler({
       delivery: {
+        email: {
+          from: "reports@playground.test",
+          to: "support@playground.test",
+          provider: smtp({ host, port: 2525 }),
+        },
         webhook: { url: `${origin}/_inbox/webhook`, secret: webhookSecret },
       },
       authorize: () => {
@@ -60,6 +68,55 @@ function notifyInbox() {
     subscriber.write('data: {"changed":true}\n\n');
   }
 }
+
+const catcher = new SMTPServer({
+  authOptional: true,
+  disabledCommands: ["AUTH", "STARTTLS"],
+  onData(stream, _session, callback) {
+    void simpleParser(stream, { skipImageLinks: true })
+      .then((mail) => {
+        const images = new Map(
+          mail.attachments
+            .filter((attachment) => attachment.cid)
+            .map((attachment) => [
+              attachment.cid,
+              `data:${attachment.contentType};base64,${attachment.content.toString("base64")}`,
+            ]),
+        );
+        const html = (mail.html || "").replace(
+          /cid:([^\s"'<>]+)/g,
+          (source, cid: string) => images.get(cid) ?? source,
+        );
+        inbox.unshift({
+          kind: "email",
+          id: randomUUID(),
+          subject: mail.subject ?? "",
+          from: mail.from?.text ?? "",
+          to: Array.isArray(mail.to)
+            ? mail.to.map((address) => address.text).join(", ")
+            : (mail.to?.text ?? ""),
+          replyTo: mail.replyTo?.text ?? "",
+          html,
+          text: mail.text ?? "",
+          attachments: mail.attachments.map((attachment) => ({
+            filename: attachment.filename ?? "attachment",
+            contentType: attachment.contentType,
+            size: attachment.size,
+            ...(attachment.cid ? { contentId: attachment.cid } : {}),
+          })),
+          receivedAt: new Date().toISOString(),
+        });
+        inbox.length = Math.min(inbox.length, 100);
+        notifyInbox();
+        callback();
+      })
+      .catch((error: unknown) =>
+        callback(
+          error instanceof Error ? error : new Error("Could not parse email"),
+        ),
+      );
+  },
+});
 
 function subscribe(res: ServerResponse) {
   res.writeHead(200, {
@@ -164,6 +221,7 @@ async function shutdown() {
   for (const subscriber of subscribers) subscriber.end();
   server.close();
   server.closeAllConnections();
+  catcher.close();
   await vite.close();
 }
 
@@ -174,6 +232,14 @@ server.once("error", (error) => {
   process.exitCode = 1;
   void shutdown();
 });
-server.listen(port, host, () => {
-  console.log(`shotlog Playground → ${origin}`);
+catcher.once("error", (error) => {
+  console.error("Playground SMTP catcher could not start", error);
+  process.exitCode = 1;
+  void shutdown();
+});
+catcher.listen(2525, host, () => {
+  console.log(`shotlog SMTP catcher → ${host}:2525`);
+  server.listen(port, host, () => {
+    console.log(`shotlog Playground → ${origin}`);
+  });
 });

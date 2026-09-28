@@ -1,3 +1,20 @@
+import type { EmailLabels, EmailProvider } from "./email-types.js";
+
+/**
+ * Server-owned email destination, transport, and template labels.
+ * @example
+ * ```ts
+ * const email: EmailConfig = { to: "support@example.com", from: "reports@example.com", provider: resend({ apiKey }) };
+ * ```
+ * @public
+ */
+export interface EmailConfig {
+  readonly to: string | readonly string[];
+  readonly from: string;
+  readonly provider: EmailProvider;
+  readonly labels?: Partial<EmailLabels>;
+}
+
 /**
  * Webhook delivery settings. Credentials and destinations stay on the server.
  * @example
@@ -16,14 +33,16 @@ export interface WebhookConfig {
 }
 
 /**
- * Delivery destination. Additional channel variants can be added in later releases.
+ * At least one server-owned delivery destination. When both are configured, both receive the report.
  * @example
  * ```ts
  * const delivery: DeliveryConfig = { webhook: { url: "https://support.example.com/logs", secret: "shared-secret" } };
  * ```
  * @public
  */
-export type DeliveryConfig = { readonly webhook: WebhookConfig };
+export type DeliveryConfig =
+  | { readonly email: EmailConfig; readonly webhook?: WebhookConfig }
+  | { readonly webhook: WebhookConfig; readonly email?: EmailConfig };
 
 /**
  * Shared storage for rate limits and delivered IDs. Use a shared backend for multiple instances.

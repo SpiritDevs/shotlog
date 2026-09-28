@@ -19,8 +19,15 @@ export interface ConsoleEntry {
 export function createSupportHandler(config: SupportHandlerConfig): (request: Request) => Promise<Response>;
 
 // @public
+export const defaultEmailLabels: EmailLabels;
+
+// @public
 export type DeliveryConfig = {
+    readonly email: EmailConfig;
+    readonly webhook?: WebhookConfig;
+} | {
     readonly webhook: WebhookConfig;
+    readonly email?: EmailConfig;
 };
 
 // @public
@@ -38,6 +45,134 @@ export interface Diagnostics {
     readonly console: readonly ConsoleEntry[];
     // (undocumented)
     readonly network: readonly NetworkEntry[];
+}
+
+// @public
+export interface EmailAttachment {
+    // (undocumented)
+    readonly content: Uint8Array;
+    // (undocumented)
+    readonly contentId?: string;
+    // (undocumented)
+    readonly contentType: string;
+    // (undocumented)
+    readonly filename: string;
+}
+
+// @public
+export interface EmailConfig {
+    // (undocumented)
+    readonly from: string;
+    // (undocumented)
+    readonly labels?: Partial<EmailLabels>;
+    // (undocumented)
+    readonly provider: EmailProvider;
+    // (undocumented)
+    readonly to: string | readonly string[];
+}
+
+// @public
+export interface EmailLabels {
+    // (undocumented)
+    readonly browser: string;
+    // (undocumented)
+    readonly colorScheme: string;
+    // (undocumented)
+    readonly console: string;
+    // (undocumented)
+    readonly createdAt: string;
+    // (undocumented)
+    readonly description: string;
+    // (undocumented)
+    readonly devicePixelRatio: string;
+    // (undocumented)
+    readonly deviceType: string;
+    // (undocumented)
+    readonly diagnosticTrail: string;
+    // (undocumented)
+    readonly email: string;
+    // (undocumented)
+    readonly environment: string;
+    // (undocumented)
+    readonly id: string;
+    // (undocumented)
+    readonly language: string;
+    // (undocumented)
+    readonly level: string;
+    // (undocumented)
+    readonly libraryVersion: string;
+    // (undocumented)
+    readonly message: string;
+    // (undocumented)
+    readonly metadata: string;
+    // (undocumented)
+    readonly method: string;
+    // (undocumented)
+    readonly name: string;
+    // (undocumented)
+    readonly network: string;
+    // (undocumented)
+    readonly none: string;
+    // (undocumented)
+    readonly online: string;
+    // (undocumented)
+    readonly os: string;
+    // (undocumented)
+    readonly referrer: string;
+    // (undocumented)
+    readonly reporter: string;
+    // (undocumented)
+    readonly route: string;
+    // (undocumented)
+    readonly screen: string;
+    // (undocumented)
+    readonly screenshot: string;
+    // (undocumented)
+    readonly stack: string;
+    // (undocumented)
+    readonly status: string;
+    // (undocumented)
+    readonly supportLogId: string;
+    // (undocumented)
+    readonly time: string;
+    // (undocumented)
+    readonly timeOnPageMs: string;
+    // (undocumented)
+    readonly timezone: string;
+    // (undocumented)
+    readonly title: string;
+    // (undocumented)
+    readonly url: string;
+    // (undocumented)
+    readonly userAgent: string;
+    // (undocumented)
+    readonly viewport: string;
+}
+
+// @public
+export interface EmailMessage {
+    // (undocumented)
+    readonly attachments: readonly EmailAttachment[];
+    // (undocumented)
+    readonly from: string;
+    // (undocumented)
+    readonly html: string;
+    // (undocumented)
+    readonly replyTo?: string;
+    // (undocumented)
+    readonly subject: string;
+    // (undocumented)
+    readonly text: string;
+    // (undocumented)
+    readonly to: readonly string[];
+}
+
+// @public
+export interface EmailProvider {
+    // (undocumented)
+    readonly name: string;
+    // (undocumented)
+    send(message: EmailMessage): Promise<void>;
 }
 
 // @public
@@ -151,6 +286,15 @@ export type Reporter = {
 };
 
 // @public
+export function resend(options: ResendOptions): EmailProvider;
+
+// @public
+export interface ResendOptions {
+    // (undocumented)
+    readonly apiKey: string;
+}
+
+// @public
 export type Screenshot = (ScreenshotInfo & {
     readonly _tag: "Inline";
     readonly data: string;
@@ -173,6 +317,27 @@ export interface ScreenshotInfo {
 }
 
 // @public
+export function ses(options: SesOptions): EmailProvider;
+
+// @public
+export interface SesCredentials {
+    // (undocumented)
+    readonly accessKeyId: string;
+    // (undocumented)
+    readonly secretAccessKey: string;
+    // (undocumented)
+    readonly sessionToken?: string;
+}
+
+// @public
+export interface SesOptions {
+    // (undocumented)
+    readonly credentials?: SesCredentials | (() => Promise<SesCredentials>);
+    // (undocumented)
+    readonly region: string;
+}
+
+// @public
 export type ShotlogError = Unauthorized | Forbidden | RateLimited | PayloadTooLarge | ValidationFailed | DeliveryFailed | UploadFailed | Offline | ProviderNotInstalled | UnsupportedRuntime;
 
 // @public
@@ -187,6 +352,24 @@ export interface Size {
     readonly height: number;
     // (undocumented)
     readonly width: number;
+}
+
+// @public
+export function smtp(options: SmtpOptions): EmailProvider;
+
+// @public
+export interface SmtpOptions {
+    // (undocumented)
+    readonly auth?: {
+        readonly user: string;
+        readonly pass: string;
+    };
+    // (undocumented)
+    readonly host: string;
+    // (undocumented)
+    readonly port: number;
+    // (undocumented)
+    readonly secure?: boolean;
 }
 
 // @public
