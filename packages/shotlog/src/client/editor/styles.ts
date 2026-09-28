@@ -1,5 +1,6 @@
 export const editorStyles = `
-.sl-editor { position: fixed; inset: 0; z-index: 10; pointer-events: auto; display: flex; flex-direction: column; gap: 12px; padding: 16px; background: var(--shotlog-surface, var(--_surface)); color: var(--shotlog-text, var(--_text)); font: 14px/1.4 var(--shotlog-font, system-ui, sans-serif); }
+.sl-editor { position: fixed; inset: 0; z-index: 10; pointer-events: auto; display: flex; flex-direction: column; gap: 12px; padding: 16px; background: var(--shotlog-surface, var(--_surface)); color: var(--shotlog-text, var(--_text)); font: 14px/1.4 var(--shotlog-font, system-ui, sans-serif); animation: sl-editor-in 220ms cubic-bezier(0.22, 1, 0.36, 1) both; }
+@keyframes sl-editor-in { from { opacity: 0; transform: scale(0.985); } }
 .sl-editor button { display: inline-flex; align-items: center; justify-content: center; gap: 6px; min-width: 36px; min-height: 36px; padding: 6px 10px; background: var(--shotlog-field, var(--_field)); color: inherit; border: 1px solid var(--shotlog-border, var(--_border)); border-radius: 8px; }
 .sl-editor button[aria-pressed="true"] { background: var(--shotlog-text, var(--_text)); color: var(--shotlog-surface, var(--_surface)); box-shadow: 0 0 0 2px var(--shotlog-surface, var(--_surface)), 0 0 0 3px var(--shotlog-text, var(--_text)); }
 .sl-editor button:focus-visible, .sl-editor canvas:focus-visible { outline: 3px solid var(--shotlog-focus, var(--_focus)); outline-offset: 3px; }

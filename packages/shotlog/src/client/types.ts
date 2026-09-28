@@ -132,11 +132,17 @@ export interface ShotlogLabels {
   readonly editorRedo: string;
   /** Selected tool announcement. */
   readonly editorToolSelected: (tool: string) => string;
-  /** Collapsed Included Details summary, including Diagnostic Trail counts. */
+  /** Accessible name of the expanded Included Details region, including Diagnostic Trail counts. */
   readonly includedDetails: (
     consoleCount: number,
     networkCount: number,
   ) => string;
+  /** Included Details disclosure title, shown beside the count badges. */
+  readonly detailsSummary: string;
+  /** Console badge on the Included Details disclosure. */
+  readonly consoleCount: (count: number) => string;
+  /** Network badge on the Included Details disclosure. */
+  readonly networkCount: (count: number) => string;
   /** Environment section heading. */
   readonly environment: string;
   /** Reporter section heading. */

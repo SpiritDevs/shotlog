@@ -183,6 +183,7 @@ export interface ShotlogLabels {
     readonly captureScreen: string;
     readonly capturingScreenshot: string;
     readonly close: string;
+    readonly consoleCount: (count: number) => string;
     readonly consoleEntries: string;
     readonly deliveryFailed: string;
     readonly description: string;
@@ -191,6 +192,7 @@ export interface ShotlogLabels {
     readonly detailsEmpty: string;
     readonly detailsLoading: string;
     readonly detailsRefresh: string;
+    readonly detailsSummary: string;
     readonly detailsUnavailable: string;
     readonly diagnosticsDisabled: string;
     readonly diagnosticTrail: string;
@@ -238,6 +240,7 @@ export interface ShotlogLabels {
     readonly includedDetails: (consoleCount: number, networkCount: number) => string;
     readonly launcher: string;
     readonly metadata: string;
+    readonly networkCount: (count: number) => string;
     readonly networkEntries: string;
     readonly offline: string;
     readonly pageCaptureFailed: string;

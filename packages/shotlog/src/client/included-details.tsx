@@ -60,7 +60,28 @@ export function IncludedDetails({
       onToggle={(event) => setExpanded(event.currentTarget.open)}
     >
       <summary>
-        {labels.includedDetails(consoleEntries.length, networkEntries.length)}
+        <svg
+          className="disclosure"
+          viewBox="0 0 16 16"
+          aria-hidden="true"
+          focusable="false"
+        >
+          <path
+            d="m6 4.5 3.5 3.5L6 11.5"
+            fill="none"
+            stroke="currentColor"
+            strokeWidth="1.75"
+            strokeLinecap="round"
+            strokeLinejoin="round"
+          />
+        </svg>
+        <span className="summary-title">{labels.detailsSummary}</span>
+        <span className="badge">
+          {labels.consoleCount(consoleEntries.length)}
+        </span>
+        <span className="badge">
+          {labels.networkCount(networkEntries.length)}
+        </span>
       </summary>
       {expanded && (
         <section

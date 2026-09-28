@@ -1,6 +1,7 @@
 import {
   type CSSProperties,
   createContext,
+  forwardRef,
   type ReactElement,
   useCallback,
   useContext,
@@ -42,6 +43,7 @@ const defaultTypes = ["Bug", "Question", "Idea"];
 type Identity = Pick<SupportLogSubmission, "id" | "shortId" | "createdAt"> & {
   readonly attempted?: true;
 };
+type Phase = "closed" | "open" | "closing";
 type Status =
   | { readonly tag: "idle" | "sending" }
   | { readonly tag: "sent"; readonly result: ShotlogSubmitResult }
@@ -114,7 +116,10 @@ export function ShotlogProvider({
     };
   }, [reporter, metadata]);
   const [root, setRoot] = useState<ShadowRoot | null>(null);
-  const [isOpen, setIsOpen] = useState(false);
+  // The card stays mounted while "closing" so it can collapse back into the Launcher.
+  const [phase, setPhase] = useState<Phase>("closed");
+  const isOpen = phase === "open";
+  const launcherRef = useRef<HTMLButtonElement>(null);
   const [draft, setDraft] = useState<Draft>({
     type: firstType,
     description: "",
@@ -194,7 +199,14 @@ export function ShotlogProvider({
       /* Session storage can be unavailable. */
     }
   }, [draftKey, resetDraft]);
-  const close = useCallback(() => setIsOpen(false), []);
+  const close = useCallback(
+    () => setPhase((current) => (current === "open" ? "closing" : current)),
+    [],
+  );
+  const closed = useCallback(
+    () => setPhase((current) => (current === "closing" ? "closed" : current)),
+    [],
+  );
   const open = useCallback(() => {
     if (!enabled || isOpen || typeof document === "undefined") return;
     let active = document.activeElement;
@@ -203,7 +215,7 @@ export function ShotlogProvider({
     opener.current = active instanceof HTMLElement ? active : null;
     if (!identity.current) setStatus({ tag: "idle" });
     ensureIdentity();
-    setIsOpen(true);
+    setPhase("open");
   }, [enabled, isOpen, ensureIdentity]);
   const controls = useMemo(
     () => ({ open, close, clearDraft, isOpen: enabled && isOpen }),
@@ -212,7 +224,7 @@ export function ShotlogProvider({
 
   useEffect(() => {
     if (!enabled) {
-      close();
+      setPhase("closed");
       return;
     }
     const host = document.createElement("div");
@@ -227,7 +239,7 @@ export function ShotlogProvider({
       host.remove();
       setRoot(null);
     };
-  }, [enabled, close]);
+  }, [enabled]);
 
   useEffect(() => {
     if (loaded) return;
@@ -404,13 +416,14 @@ export function ShotlogProvider({
           >
             {launcher && (
               <Launcher
+                ref={launcherRef}
                 options={launcher === true ? {} : launcher}
                 label={labels.launcher}
-                hidden={isOpen}
+                open={isOpen}
                 onOpen={open}
               />
             )}
-            {isOpen && (
+            {phase !== "closed" && (
               <ReportCard
                 key={epoch}
                 draft={{ ...draft, type: selectedType }}
@@ -419,6 +432,9 @@ export function ShotlogProvider({
                 state={status.tag}
                 message={message}
                 opener={opener.current}
+                origin={launcher ? launcherRef : undefined}
+                closing={phase === "closing"}
+                onClosed={closed}
                 capturing={capturing}
                 screenshotControls={
                   <ScreenshotControls
@@ -469,27 +485,36 @@ export function ShotlogProvider({
   );
 }
 
-function Launcher({
-  options: { content = "icon", icon = <SupportIcon /> },
-  label,
-  hidden,
-  onOpen,
-}: {
-  readonly options: ShotlogLauncherOptions;
-  readonly label: string;
-  readonly hidden: boolean;
-  readonly onOpen: () => void;
-}): ReactElement {
+const Launcher = forwardRef<
+  HTMLButtonElement,
+  {
+    readonly options: ShotlogLauncherOptions;
+    readonly label: string;
+    readonly open: boolean;
+    readonly onOpen: () => void;
+  }
+>(function Launcher(
+  {
+    options: { content = "icon", icon = <SupportIcon /> },
+    label,
+    open,
+    onOpen,
+  },
+  ref,
+): ReactElement {
+  // Stays mounted while the card is open so the card can hand focus and its shape back.
   return (
     <button
+      ref={ref}
       className="launcher"
       data-content={content}
+      data-open={open}
       type="button"
       onClick={onOpen}
       aria-label={label}
       title={content === "icon" ? label : undefined}
       aria-haspopup="dialog"
-      hidden={hidden}
+      tabIndex={open ? -1 : undefined}
     >
       {content !== "text" && (
         <span className="launcher-icon" aria-hidden="true">
@@ -499,7 +524,7 @@ function Launcher({
       {content !== "icon" && label}
     </button>
   );
-}
+});
 
 /** A speech bubble with a question mark. */
 function SupportIcon(): ReactElement {

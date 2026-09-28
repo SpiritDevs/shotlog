@@ -132,7 +132,7 @@ export function ScreenshotControls({
 
   return (
     <div className="screenshot-controls">
-      <div className="screenshot-row">
+      <div className="attachment" data-attached={screenshot ? "true" : "false"}>
         {screenshot ? (
           <>
             {preview && (
@@ -142,35 +142,40 @@ export function ScreenshotControls({
                 alt={labels.screenshotPreview}
               />
             )}
-            <button
-              ref={trigger}
-              type="button"
-              disabled={locked || busy}
-              onClick={() =>
-                void capture(
-                  () => Promise.resolve(screenshot),
-                  labels.editorFailed,
-                )
-              }
-            >
-              {labels.editScreenshot}
-            </button>
-            <button
-              type="button"
-              disabled={locked || busy}
-              onClick={() => {
-                setError("");
-                editableScreenshots.delete(screenshot);
-                onChange(undefined);
-              }}
-            >
-              {labels.removeScreenshot}
-            </button>
+            <div className="attachment-actions">
+              <button
+                ref={trigger}
+                className="quiet"
+                type="button"
+                disabled={locked || busy}
+                onClick={() =>
+                  void capture(
+                    () => Promise.resolve(screenshot),
+                    labels.editorFailed,
+                  )
+                }
+              >
+                {labels.editScreenshot}
+              </button>
+              <button
+                className="quiet"
+                type="button"
+                disabled={locked || busy}
+                onClick={() => {
+                  setError("");
+                  editableScreenshots.delete(screenshot);
+                  onChange(undefined);
+                }}
+              >
+                {labels.removeScreenshot}
+              </button>
+            </div>
           </>
         ) : (
           <>
             <button
               ref={trigger}
+              className="attachment-main"
               type="button"
               disabled={locked || busy}
               onClick={() =>
@@ -182,9 +187,11 @@ export function ScreenshotControls({
                 )
               }
             >
+              <CameraIcon />
               {busy ? labels.capturingScreenshot : labels.screenshot}
             </button>
             <button
+              className="attachment-more"
               type="button"
               disabled={locked || busy}
               aria-label={labels.screenshotOptions}
@@ -194,10 +201,12 @@ export function ScreenshotControls({
             >
               <svg viewBox="0 0 16 16" aria-hidden="true" focusable="false">
                 <path
-                  d="m4 6 4 4 4-4"
+                  d="m4.5 6.5 3.5 3.5 3.5-3.5"
                   fill="none"
                   stroke="currentColor"
-                  strokeWidth="2"
+                  strokeWidth="1.75"
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
                 />
               </svg>
             </button>
@@ -206,7 +215,7 @@ export function ScreenshotControls({
       </div>
       <div
         id={`${id}-options`}
-        className="screenshot-options"
+        className="menu"
         hidden={!optionsOpen || locked || busy}
       >
         <button
@@ -260,6 +269,7 @@ export function ScreenshotControls({
       />
       <div
         className="capture-status"
+        data-error={error ? "true" : "false"}
         role="status"
         aria-live="polite"
         aria-atomic="true"
@@ -267,5 +277,25 @@ export function ScreenshotControls({
         {error || (busy ? labels.capturingScreenshot : "")}
       </div>
     </div>
+  );
+}
+
+function CameraIcon() {
+  return (
+    <svg
+      viewBox="0 0 20 20"
+      width="18"
+      height="18"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="1.6"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+      aria-hidden="true"
+      focusable="false"
+    >
+      <path d="M3 7.5A1.5 1.5 0 0 1 4.5 6h2l1.2-1.6A1 1 0 0 1 8.5 4h3a1 1 0 0 1 .8.4L13.5 6h2A1.5 1.5 0 0 1 17 7.5v7a1.5 1.5 0 0 1-1.5 1.5h-11A1.5 1.5 0 0 1 3 14.5Z" />
+      <circle cx="10" cy="11" r="2.75" />
+    </svg>
   );
 }

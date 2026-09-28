@@ -89,6 +89,9 @@ export const defaultLabels: ShotlogLabels = {
   editorToolSelected: (tool) => `${tool} selected`,
   includedDetails: (consoleCount, networkCount) =>
     `Included details · ${consoleCount} console · ${networkCount} network`,
+  detailsSummary: "Included details",
+  consoleCount: (count) => `${count} console`,
+  networkCount: (count) => `${count} network`,
   environment: "Environment",
   reporter: "Reporter",
   metadata: "Metadata",
