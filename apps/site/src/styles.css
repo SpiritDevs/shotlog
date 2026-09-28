@@ -177,7 +177,7 @@ pre,
   padding-bottom: 74px;
 }
 .hero h1 {
-  margin: 25px 0 29px;
+  margin: 0 0 29px;
   font-size: clamp(60px, 6.9vw, 93px);
   line-height: 1.01;
   font-weight: 550;
@@ -1441,10 +1441,6 @@ pre,
   .hero {
     padding-top: 38px;
     padding-bottom: 45px;
-  }
-  .hero .eyebrow {
-    font-size: 8px;
-    letter-spacing: 1px;
   }
   .hero h1 {
     font-size: clamp(44px, 10.9vw, 67px);

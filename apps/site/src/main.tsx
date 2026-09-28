@@ -31,9 +31,6 @@ function App() {
       <Header theme={theme} toggleTheme={toggleTheme} />
       <main id="main-content">
         <section className="hero container" aria-labelledby="hero-title">
-          <div className="eyebrow">
-            <span className="status-dot" /> THE IN-APP SUPPORT LIBRARY FOR REACT
-          </div>
           <h1 id="hero-title">
             Show the{" "}
             <span className="circled">
