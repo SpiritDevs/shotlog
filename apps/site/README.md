@@ -38,6 +38,3 @@ node apps/site/scripts/generate-og.mjs /tmp/pw/node_modules/playwright/index.mjs
 
 The favicon is copied from `assets/icon.svg`, with an accessible SVG title added.
 
-## TODO
-
-Replace the clearly marked GitHub placeholder in `src/ui.tsx` with the actual repository URL once the remote exists.

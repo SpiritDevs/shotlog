@@ -2,6 +2,7 @@
   "name": "shotlog",
   "version": "0.0.0",
   "description": "In-app support reports for React with annotated screenshots, diagnostics, and email or webhook delivery.",
+  "license": "MIT",
   "type": "module",
   "sideEffects": false,
   "engines": {
@@ -90,6 +91,14 @@
     "smtp-server": "^3.19.13"
   },
   "homepage": "https://shotlog.dev",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/SpiritDevs/shotlog.git",
+    "directory": "packages/shotlog"
+  },
+  "bugs": {
+    "url": "https://github.com/SpiritDevs/shotlog/issues"
+  },
   "keywords": [
     "support",
     "bug report",

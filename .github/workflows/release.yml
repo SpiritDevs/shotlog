@@ -89,9 +89,6 @@ jobs:
       - run: npm install --global corepack@0.34.6
       - run: corepack enable
       - run: pnpm install --frozen-lockfile
-      # TODO(COR-235): Set packages/shotlog/package.json repository to the canonical
-      # GitHub remote (type: git, url: git+https://github.com/OWNER/REPO.git,
-      # directory: packages/shotlog) once that remote is established. Provenance needs it.
       - name: Version PR or gated latest publish
         id: latest
         if: inputs.tag != 'next'

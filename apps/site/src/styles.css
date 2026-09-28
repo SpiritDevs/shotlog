@@ -966,17 +966,6 @@ pre,
   text-decoration: underline;
   text-underline-offset: 4px;
 }
-.pending-link {
-  color: var(--muted);
-}
-.pending-link span {
-  font-size: 8px;
-  background: var(--soft);
-  border: 1px solid var(--line);
-  border-radius: 3px;
-  padding: 2px 4px;
-  margin-left: 3px;
-}
 .footer-note {
   font-size: 8px;
   line-height: 1.8;

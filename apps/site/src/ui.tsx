@@ -95,14 +95,7 @@ export function Footer() {
         <p>A little context goes a long way.</p>
       </div>
       <nav aria-label="Footer navigation">
-        {/* TODO(COR-234): Replace the GitHub placeholder when the repository remote exists. */}
-        <a
-          href="https://github.com/"
-          className="pending-link"
-          title="TODO: add the GitHub repository URL"
-        >
-          GitHub <span className="mono">soon</span>
-        </a>
+        <a href="https://github.com/SpiritDevs/shotlog">GitHub</a>
         <a href="https://www.npmjs.com/package/shotlog">npm ↗</a>
         <a href="/docs/">Documentation ↗</a>
       </nav>
