@@ -637,6 +637,17 @@ export function SignOut({ signOut }: { signOut: () => Promise<void> }) {
 
 Use `diagnostics={false}` or disable individual channels when those sources may contain sensitive data. Inspect the Screenshot and use Solid redaction before submitting.
 
+## Agent skill
+
+AI coding agents can install a short guide to shotlog as a skill:
+
+```sh
+mkdir -p ~/.claude/skills/shotlog
+curl -fsSL https://shotlog-spiritdevs.vercel.app/skills/shotlog/SKILL.md -o ~/.claude/skills/shotlog/SKILL.md
+```
+
+The source is [`skills/shotlog/SKILL.md`](https://github.com/SpiritDevs/shotlog/blob/main/skills/shotlog/SKILL.md).
+
 ## Development
 
 From the repository root:

@@ -186,6 +186,12 @@ export default defineConfig(async () => {
             .replace("<!--DOCS_TOC-->", toc);
         },
         async generateBundle() {
+          // The agent skill ships as a plain file agents can download.
+          this.emitFile({
+            type: "asset",
+            fileName: "skills/shotlog/SKILL.md",
+            source: readFileSync(`${repo}skills/shotlog/SKILL.md`, "utf8"),
+          });
           // Preserve the README's repository links without inventing a GitHub remote.
           const referenceMarkdown = new Marked();
           const page = (title: string, body: string) =>

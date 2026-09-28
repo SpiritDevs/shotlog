@@ -111,6 +111,9 @@ export function Footer() {
         <a href="/docs/">
           Documentation <Arrow />
         </a>
+        <a href="/skills/shotlog/SKILL.md">
+          Agent skill <Arrow />
+        </a>
       </nav>
       <span className="footer-note mono">
         MADE FOR THE MOMENT
