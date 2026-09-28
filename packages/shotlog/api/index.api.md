@@ -266,6 +266,12 @@ export interface ShotlogLabels {
 }
 
 // @public
+export interface ShotlogLauncherOptions {
+    readonly content?: "icon" | "text" | "icon-text";
+    readonly icon?: ReactNode;
+}
+
+// @public
 export function ShotlogProvider(input: ShotlogProviderProps): ReactElement;
 
 // @public
@@ -279,7 +285,7 @@ export interface ShotlogProviderOptions {
     readonly draftScope?: string;
     readonly enabled?: boolean;
     readonly labels?: Partial<ShotlogLabels>;
-    readonly launcher?: boolean;
+    readonly launcher?: boolean | ShotlogLauncherOptions;
     readonly metadata?: {
         readonly [key: string]: JsonValue;
     } | (() => {

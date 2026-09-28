@@ -312,8 +312,17 @@ export interface ShotlogProviderOptions {
   readonly draftScope?: string;
   /** Defaults to true. False keeps drafts and pending report IDs in memory only. */
   readonly persistDraft?: boolean;
-  /** Defaults to true. False selects Programmatic Mode with a centred card. */
-  readonly launcher?: boolean;
+  /**
+   * The floating Launcher (Standalone Mode). Defaults to a round button with a support icon.
+   * Pass options to show text or your own icon, or `false` for Programmatic Mode with a centred card.
+   * Its accessible name is always `labels.launcher`.
+   * @example
+   * ```tsx
+   * <ShotlogProvider endpoint="/api/support" launcher={{ content: "icon-text" }} />
+   * <ShotlogProvider endpoint="/api/support" launcher={{ icon: <MyHelpIcon /> }} />
+   * ```
+   */
+  readonly launcher?: boolean | ShotlogLauncherOptions;
   /** Standalone Mode corner; defaults to `bottom-right`. */
   readonly position?: "bottom-right" | "bottom-left";
   /** Defaults to `auto`, following the system colour scheme. */
@@ -354,6 +363,21 @@ export interface ShotlogProviderOptions {
   readonly onSubmitted?: (result: ShotlogSubmitResult) => void;
   /** Called for each failed attempt with a public tagged error, unless its draft was cleared or scope changed. */
   readonly onError?: (error: ShotlogError) => void;
+}
+
+/**
+ * How the floating Launcher looks.
+ * @example
+ * ```tsx
+ * const launcher: ShotlogLauncherOptions = { content: "text" };
+ * ```
+ * @public
+ */
+export interface ShotlogLauncherOptions {
+  /** `icon` (default): a round icon button; `text`: `labels.launcher`; `icon-text`: both. */
+  readonly content?: "icon" | "text" | "icon-text";
+  /** Replaces the default support icon. Rendered inside the widget's shadow root. */
+  readonly icon?: ReactNode;
 }
 
 /**

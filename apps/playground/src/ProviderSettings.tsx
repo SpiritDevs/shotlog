@@ -4,6 +4,7 @@ import type { ShotlogProviderProps } from "shotlog";
 interface Settings {
   readonly enabled: boolean;
   readonly launcher: boolean;
+  readonly launcherContent: "icon" | "text" | "icon-text";
   readonly position: NonNullable<ShotlogProviderProps["position"]>;
   readonly theme: NonNullable<ShotlogProviderProps["theme"]>;
   readonly accent: string;
@@ -16,6 +17,7 @@ const storageKey = "shotlog:playground:provider";
 const defaults: Settings = {
   enabled: true,
   launcher: true,
+  launcherContent: "icon",
   position: "bottom-right",
   theme: "light",
   accent: "#343c35",
@@ -34,6 +36,10 @@ function isSettings(value: unknown): value is Settings {
     typeof value.enabled === "boolean" &&
     "launcher" in value &&
     typeof value.launcher === "boolean" &&
+    "launcherContent" in value &&
+    (value.launcherContent === "icon" ||
+      value.launcherContent === "text" ||
+      value.launcherContent === "icon-text") &&
     "position" in value &&
     (value.position === "bottom-right" || value.position === "bottom-left") &&
     "theme" in value &&
@@ -59,7 +65,12 @@ function loadSettings(): Settings {
     const saved: unknown = JSON.parse(
       localStorage.getItem(storageKey) ?? "null",
     );
-    if (isSettings(saved)) return saved;
+    // Settings saved before a new option existed pick up its default.
+    const merged: unknown =
+      typeof saved === "object" && saved !== null
+        ? { ...defaults, ...saved }
+        : saved;
+    if (isSettings(merged)) return merged;
   } catch {
     // The Playground still works when browser storage is unavailable.
   }
@@ -78,7 +89,7 @@ export function useProviderSettings() {
   };
   const providerProps = {
     enabled: settings.enabled,
-    launcher: settings.launcher,
+    launcher: settings.launcher && { content: settings.launcherContent },
     position: settings.position,
     theme: settings.theme,
     accent: settings.accent,
@@ -126,6 +137,26 @@ export function ProviderSettings({
             }
           />
           Launcher
+        </label>
+        <label className="select-label">
+          Launcher style
+          <select
+            value={settings.launcherContent}
+            disabled={!settings.launcher}
+            onChange={(event) => {
+              const launcherContent = event.currentTarget.value;
+              if (
+                launcherContent === "icon" ||
+                launcherContent === "text" ||
+                launcherContent === "icon-text"
+              )
+                onChange({ ...settings, launcherContent });
+            }}
+          >
+            <option value="icon">Icon</option>
+            <option value="text">Text</option>
+            <option value="icon-text">Icon + text</option>
+          </select>
         </label>
         <label className="select-label">
           Position

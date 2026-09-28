@@ -40,3 +40,19 @@ test("delivery is exactly one of endpoint or onSubmit", () => {
   void neither;
   void both;
 });
+
+test("launcher accepts a boolean or icon/text options", () => {
+  const icon: ShotlogProviderProps = { endpoint: "/x" };
+  const text: ShotlogProviderProps = {
+    endpoint: "/x",
+    launcher: { content: "icon-text", icon: null },
+  };
+  const bad: ShotlogProviderProps = {
+    endpoint: "/x",
+    // @ts-expect-error Unknown launcher content.
+    launcher: { content: "big" },
+  };
+  void icon;
+  void text;
+  void bad;
+});

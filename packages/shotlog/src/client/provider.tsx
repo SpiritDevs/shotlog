@@ -32,6 +32,7 @@ import { styles } from "./styles.js";
 import { submitReport } from "./submit.js";
 import type {
   ShotlogControls,
+  ShotlogLauncherOptions,
   ShotlogProviderProps,
   ShotlogSubmitResult,
 } from "./types.js";
@@ -402,16 +403,12 @@ export function ShotlogProvider({
             style={themeStyle}
           >
             {launcher && (
-              <button
-                className="launcher"
-                type="button"
-                onClick={open}
-                aria-label={labels.launcher}
-                aria-haspopup="dialog"
+              <Launcher
+                options={launcher === true ? {} : launcher}
+                label={labels.launcher}
                 hidden={isOpen}
-              >
-                {labels.launcher}
-              </button>
+                onOpen={open}
+              />
             )}
             {isOpen && (
               <ReportCard
@@ -469,6 +466,60 @@ export function ShotlogProvider({
           root,
         )}
     </Context.Provider>
+  );
+}
+
+function Launcher({
+  options: { content = "icon", icon = <SupportIcon /> },
+  label,
+  hidden,
+  onOpen,
+}: {
+  readonly options: ShotlogLauncherOptions;
+  readonly label: string;
+  readonly hidden: boolean;
+  readonly onOpen: () => void;
+}): ReactElement {
+  return (
+    <button
+      className="launcher"
+      data-content={content}
+      type="button"
+      onClick={onOpen}
+      aria-label={label}
+      title={content === "icon" ? label : undefined}
+      aria-haspopup="dialog"
+      hidden={hidden}
+    >
+      {content !== "text" && (
+        <span className="launcher-icon" aria-hidden="true">
+          {icon}
+        </span>
+      )}
+      {content !== "icon" && label}
+    </button>
+  );
+}
+
+/** A speech bubble with a question mark. */
+function SupportIcon(): ReactElement {
+  return (
+    <svg
+      viewBox="0 0 24 24"
+      width="24"
+      height="24"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="2"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+      focusable="false"
+      aria-hidden="true"
+    >
+      <path d="M21 11.5a8.5 8.5 0 0 1-12.4 7.6L3 21l1.9-5.6A8.5 8.5 0 1 1 21 11.5Z" />
+      <path d="M9.6 9.2a2.5 2.5 0 0 1 4.8 1c0 1.7-2.4 2.1-2.4 3.3" />
+      <path d="M12 16.6h.01" />
+    </svg>
   );
 }
 

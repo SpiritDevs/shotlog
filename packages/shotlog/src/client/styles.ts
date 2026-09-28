@@ -77,6 +77,17 @@ button:disabled { opacity: var(--shotlog-disabled-opacity, 0.65); }
   box-shadow: var(--shotlog-shadow, 0 8px 32px #0000001f);
 }
 [data-position="bottom-left"] .launcher { right: auto; left: var(--shotlog-offset, 24px); }
+.launcher { display: inline-flex; align-items: center; justify-content: center; gap: var(--shotlog-space, 8px); }
+.launcher[data-content="icon"] {
+  width: var(--shotlog-launcher-size, 56px);
+  height: var(--shotlog-launcher-size, 56px);
+  padding: 0;
+  border-radius: var(--shotlog-launcher-radius, 50%);
+}
+.launcher-icon { display: inline-flex; line-height: 0; }
+.launcher-icon > svg, .launcher-icon > img { width: 24px; height: 24px; }
+.launcher[data-content="icon"] .launcher-icon > svg,
+.launcher[data-content="icon"] .launcher-icon > img { width: 26px; height: 26px; }
 .backdrop {
   position: fixed;
   inset: 0;

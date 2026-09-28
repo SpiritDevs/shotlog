@@ -423,7 +423,7 @@ See [ADR-0008](../../docs/adr/0008-relay-endpoint-abuse-protection.md) for the c
 
 ## Client options
 
-**Standalone Mode** is the default: mount `ShotlogProvider` and use its floating Launcher. For **Programmatic Mode**, set `launcher={false}` and call `useShotlog` from a descendant:
+**Standalone Mode** is the default: mount `ShotlogProvider` and use its floating Launcher, a round support-icon button in the chosen corner. Show text or your own icon with `launcher={{ content: "icon" | "text" | "icon-text", icon }}`; its accessible name is always `labels.launcher`. For **Programmatic Mode**, set `launcher={false}` and call `useShotlog` from a descendant:
 
 ```tsx
 "use client";
