@@ -15,6 +15,7 @@ import {
   verifyWebhookSignature,
 } from "shotlog/server";
 import { smtp } from "shotlog/smtp";
+import { uploadfile } from "shotlog/uploadfile";
 import { SMTPServer } from "smtp-server";
 import { createServer as createViteServer } from "vite";
 import { type InboxEntry, isSettings, type Settings } from "./shared.js";
@@ -36,7 +37,14 @@ function createRelay() {
           to: "support@playground.test",
           provider: smtp({ host, port: 2525 }),
         },
-        webhook: { url: `${origin}/_inbox/webhook`, secret: webhookSecret },
+        webhook: {
+          url: `${origin}/_inbox/webhook`,
+          secret: webhookSecret,
+          ...(process.env.SHOTLOG_SCREENSHOT_MODE === "upload" &&
+          process.env.UPLOADFILE_TOKEN
+            ? { screenshotMode: "upload", storage: uploadfile() }
+            : {}),
+        },
       },
       authorize: () => {
         if (settings.authorize === "unauthorized") throw new Unauthorized();

@@ -16,23 +16,42 @@ Sent as `multipart/form-data`: one JSON part holding the Support Log, and one bi
 
 ### Webhook
 The **Screenshot Mode** can be set to one of:
-- **`base64`** (default): the PNG is embedded in the JSON body as `screenshot.data`. This needs no extra infrastructure.
-- **`upload`**: the Server Helper uploads the PNG through a **Storage Adapter** and puts only `screenshot.url` in the JSON.
-  - The built-in adapter is **UploadFile**, the in-house service (`../uploadfile`, production at `https://www.uploadfile.dev`). It uses the `@uploadfile/core` npm package, specifically `UFApi` from `@uploadfile/core/server`, and needs only `UPLOADFILE_TOKEN` to configure.
-  - The Storage Adapter interface is public, so S3, R2, etc. can be added.
-- UploadFile adapter behaviour:
-  - Upload with `new UFFile([png], "support-log-<id>.png", { type: "image/png", customId: <supportLogId> })` and `uf.uploadFiles(file, { acl, signal })`.
-  - `uploadFiles` returns `{ data, error }` rather than throwing, and it polls for up to 10 minutes. The adapter therefore passes an `AbortSignal` with a short timeout (default 30 s).
-  - If the upload fails or times out, the webhook **falls back to `base64`** and records `screenshot.uploadError`, so the Support Log is never lost.
-  - The webhook JSON includes both `screenshot.url` and `screenshot.key`, so the file can be deleted or re-signed later.
+- **`base64`** (default): the PNG is embedded in the JSON body as `{ _tag: "Inline", data, width, height, size, mimeType }`. This needs no extra infrastructure.
+- **`upload`**: the Server Helper uploads the PNG through a **Storage Adapter** and sends `{ _tag: "Uploaded", url, key, width, height, size, mimeType }`. `size` is the PNG byte length; `mimeType` is `"image/png"`.
+  - Set `delivery.webhook.screenshotMode: "upload"` and `delivery.webhook.storage`. Upload mode without storage throws `TypeError` when the handler is created.
+  - The built-in adapter is `uploadfile()` from **`shotlog/uploadfile`**, for the in-house UploadFile service (`../uploadfile`, production at `https://www.uploadfile.dev`). It uses `UFApi` and `UFFile` from `@uploadfile/core/server` (0.2.0).
+  - `token` defaults to `process.env.UPLOADFILE_TOKEN`, read when `uploadfile()` is called. A missing token fails the upload and uses the inline fallback.
+  - The public `StorageAdapter` interface in `shotlog/server` permits custom S3, R2, etc. implementations, with no Effect or SDK types:
 
-Every webhook request is signed with an HMAC-SHA256 `X-Signature` header (plus a timestamp) using a shared secret held on the server. Receivers can use it to verify the request came from the Server Helper.
+    ```ts
+    interface StorageAdapter {
+      readonly name: string;
+      upload(
+        png: Uint8Array,
+        info: { id: string; filename: string; signal: AbortSignal },
+      ): Promise<{ url: string; key: string }>;
+    }
+    ```
+
+  - Custom adapters **must honour `signal`**, cancelling their underlying work on abort.
+- UploadFile adapter behaviour:
+  - Upload a PNG `UFFile` with the handler's `support-log-<id>.png` filename and `{ type: "image/png", customId: <supportLogId> }`, using `uf.uploadFiles(file, { acl, signal })`.
+  - `uploadFiles` returns `{ data, error }` rather than throwing on upload failures, and it polls for up to 10 minutes. A returned error becomes an `UploadFailed` rejection.
+  - The handler applies a fixed **30-second deadline** to the complete storage operation, including SDK loading and private URL signing. It aborts the adapter signal on timeout. The UploadFile adapter also binds the SDK's fetch to that signal because `getSignedURL` has no signal parameter.
+  - If storage fails or times out, the webhook **falls back to `Inline`** with `screenshot.uploadError` set to `"Screenshot upload failed"` or `"Screenshot upload timed out"`. Provider messages, credentials, and internal details never enter this field. Storage failure does not prevent Support Log delivery.
+  - The screenshot is prepared once per webhook delivery, outside its HTTP retries and after the handler's delivered-ID check. Concurrent submissions on the same handler coalesce. An already-delivered webhook never re-uploads, even when only email needs retrying. As with delivery itself, separate instances racing or a later retry after failed webhook delivery can upload again.
+  - Email always embeds and attaches the original PNG. No Screenshot means no upload; base64 mode ignores storage.
+  - `@uploadfile/core` is an optional peer and a development dependency. Only the `shotlog/uploadfile` entry imports its SDK, lazily at upload time; a missing SDK rejects with `ProviderNotInstalled` and an install hint. Importing only `shotlog/server` bundles without the SDK installed.
+
+Every webhook request signs its actual JSON body with HMAC-SHA256 in `x-shotlog-signature: t=<timestamp>,v1=<digest>`, using a shared secret held on the server. Receivers can use `verifyWebhookSignature` to verify it and dedupe on `x-shotlog-id` / `log.id`.
 
 ### UploadFile access policy
-- **Default: `public-read`.** URLs are permanent and unguessable (`uploadfile.dev/f/<appId>/<key>`), so links in emails and Pathway issues keep working indefinitely.
-- **Option: `acl: "private"`.** The webhook gets a signed URL instead. UploadFile caps signed URLs at 7 days, so these links expire. This is documented clearly.
+- **Default: `public-read`.** Return `data.ufsUrl` and `data.key`. Anyone with the URL can view the image; the URL has no signing expiry and remains usable while the file exists.
+- **Option: `acl: "private"`.** Return the `ufsUrl` from `getSignedURL(key, { expiresIn })` and the same key. `signedUrlExpiresIn` is a positive integer in seconds, defaulting to and capped at **604800 (7 days)**. Invalid values throw `TypeError` at adapter creation. **These links expire**; receivers can retain the key to re-sign the file later.
 - **Later enhancement:** keep the file private and give the webhook a permanent Screenshot Link on the Relay Endpoint (`/screenshot/<key>`). Opening it runs the Authorize Hook, then redirects to a fresh short-lived signed URL.
 
 ## Consequences
 - The default setup works out of the box. The `upload` mode keeps webhook bodies small for strict receivers.
+- Fallback retains the original PNG and may exceed a strict receiver's body-size limit; webhook delivery retains its normal failure and retry behaviour.
+- The Playground can try upload mode with `SHOTLOG_SCREENSHOT_MODE=upload`, only when `UPLOADFILE_TOKEN` is also set. Otherwise it keeps base64 delivery.
 - Uploaded Screenshots may sit at public (if unguessable) URLs. The redaction and size-cap rules in ADR-0005 and ADR-0008 matter even more here. Private or expiring links should be used where the provider supports them.

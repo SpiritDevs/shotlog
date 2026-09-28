@@ -118,6 +118,11 @@ export function createSupportHandler(
     positive("rateLimit.windowSeconds", config.rateLimit.windowSeconds);
   }
   positive("delivery.webhook.timeoutMs", config.delivery.webhook?.timeoutMs);
+  if (
+    config.delivery.webhook?.screenshotMode === "upload" &&
+    !config.delivery.webhook.storage
+  )
+    throw new TypeError("shotlog: webhook upload mode requires storage");
   const screenshotBytes = config.limits?.screenshotBytes ?? 5 * 1024 * 1024;
   const concurrentRequests = config.limits?.concurrentRequests ?? 16;
   const clientIp = (request: Request) =>

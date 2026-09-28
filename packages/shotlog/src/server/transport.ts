@@ -16,7 +16,7 @@ export function lazySdk<A>(packageName: string, load: () => Promise<A>) {
     catch: (cause) =>
       new ProviderNotInstalled({
         packageName,
-        message: `Install this email provider with: npm install ${packageName}`,
+        message: `Install this provider with: npm install ${packageName}`,
         cause,
       }),
   });

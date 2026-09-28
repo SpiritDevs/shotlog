@@ -1,4 +1,5 @@
 import type { EmailLabels, EmailProvider } from "./email-types.js";
+import type { StorageAdapter } from "./storage-types.js";
 
 /**
  * Server-owned email destination, transport, and template labels.
@@ -30,6 +31,10 @@ export interface WebhookConfig {
   readonly secret: string;
   /** Timeout per attempt in milliseconds. Defaults to 10,000; at most two retries. */
   readonly timeoutMs?: number;
+  /** Defaults to base64. Upload uses storage, with a 30-second timeout and inline fallback. */
+  readonly screenshotMode?: "base64" | "upload";
+  /** Required for upload mode. Only Webhook Screenshots are uploaded; Email embeds the PNG. */
+  readonly storage?: StorageAdapter;
 }
 
 /**
