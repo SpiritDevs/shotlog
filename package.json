@@ -9,13 +9,15 @@
   "scripts": {
     "dev": "pnpm --filter @shotlog/playground dev",
     "build": "pnpm --filter shotlog build",
-    "typecheck": "tsc --noEmit",
+    "typecheck": "tsc --noEmit && pnpm --filter shotlog build && pnpm --filter next-example typecheck && tsc --noEmit -p e2e/tsconfig.json",
     "lint": "biome check .",
     "test": "vitest run --typecheck",
     "api:check": "tsx scripts/api.ts",
     "api:update": "tsx scripts/api.ts --local",
     "check:no-effect-dts": "node scripts/check-no-effect-dts.mjs",
-    "schema:generate": "pnpm --filter shotlog schema:generate"
+    "schema:generate": "pnpm --filter shotlog schema:generate",
+    "e2e": "pnpm --filter @shotlog/e2e exec playwright test",
+    "e2e:chromium": "pnpm e2e --project=chromium"
   },
   "devDependencies": {
     "@biomejs/biome": "2.5.14",

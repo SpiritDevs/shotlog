@@ -55,6 +55,7 @@ export function App({
             Inbox <span className="nav-count">{inbox.entries.length}</span>
           </a>
           <a href="#/capture">Capture tests</a>
+          <a href="#/custom">Custom delivery</a>
         </nav>
       </header>
 
@@ -139,7 +140,7 @@ export function App({
           </section>
         )}
       </main>
-      <footer>shotlog · local relay + webhook inbox · :5199</footer>
+      <footer>shotlog · local relay + webhook inbox · :{location.port}</footer>
     </div>
   );
 }

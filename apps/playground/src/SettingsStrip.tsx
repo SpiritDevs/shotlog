@@ -1,7 +1,7 @@
 import { useEffect, useState } from "react";
 import { isSettings, type Settings } from "../shared.js";
 import { errorMessage, requestJson } from "./api.js";
-import { buildSubmission } from "./submission.js";
+import { buildOversizedSubmission, buildSubmission } from "./submission.js";
 
 interface SubmissionResult {
   readonly sequence: number;
@@ -14,6 +14,7 @@ export function SettingsStrip() {
   const [running, setRunning] = useState(false);
   const [results, setResults] = useState<SubmissionResult[]>([]);
   const [error, setError] = useState("");
+  const [oversizedResult, setOversizedResult] = useState("");
 
   useEffect(() => {
     const controller = new AbortController();
@@ -65,6 +66,25 @@ export function SettingsStrip() {
     setRunning(false);
   }
 
+  async function sendOversized() {
+    setRunning(true);
+    setError("");
+    setOversizedResult("");
+    try {
+      const response = await fetch("/api/support", {
+        method: "POST",
+        body: await buildOversizedSubmission(),
+      });
+      setOversizedResult(
+        `Oversized screenshot: HTTP ${response.status} · ${await response.text()}`,
+      );
+    } catch (cause) {
+      setError(errorMessage(cause));
+    } finally {
+      setRunning(false);
+    }
+  }
+
   const disabled = !settings || saving || running;
   return (
     <section className="settings panel" aria-labelledby="settings-title">
@@ -107,6 +127,13 @@ export function SettingsStrip() {
         >
           {running ? `Sending ${results.length}/20…` : "Fire 20 submissions"}
         </button>
+        <button
+          type="button"
+          disabled={disabled}
+          onClick={() => void sendOversized()}
+        >
+          Oversized screenshot
+        </button>
       </div>
       <p className="hint">
         Changing a setting recreates the handler and resets rate limits and
@@ -117,6 +144,7 @@ export function SettingsStrip() {
           {error}
         </p>
       )}
+      {oversizedResult && <p role="status">{oversizedResult}</p>}
       {results.length > 0 && (
         <div className="burst-results">
           <p role="status" className="hint">

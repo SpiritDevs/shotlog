@@ -33,11 +33,14 @@ export interface EmailEntry {
   readonly replyTo: string;
   /** CID images have been replaced with data URLs by the local catcher. */
   readonly html: string;
+  /** Original HTML retains cid: references for delivery assertions. */
+  readonly sourceHtml: string;
   readonly text: string;
   readonly attachments: readonly {
     readonly filename: string;
     readonly contentType: string;
     readonly size: number;
+    readonly disposition: string;
     readonly contentId?: string;
   }[];
   readonly receivedAt: string;

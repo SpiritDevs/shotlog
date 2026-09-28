@@ -68,6 +68,13 @@ async function handle(
   if (req.socket.remoteAddress)
     socketAddresses.set(request, req.socket.remoteAddress);
   const response = await handler(request);
+  // Early rejections (e.g. 413 from content-length) leave the upload unread. Some clients
+  // (Firefox) won't read the response until their upload is accepted, so drain it (bounded)
+  // and close the connection rather than reuse it.
+  if (init.body && !request.bodyUsed && request.body) {
+    res.setHeader("connection", "close");
+    await drain(request.body);
+  }
   res.statusCode = response.status;
   response.headers.forEach((value, name) => {
     if (name !== "set-cookie") res.setHeader(name, value);
@@ -81,4 +88,25 @@ async function handle(
     );
   else res.end();
   res.off("close", abort);
+}
+
+async function drain(
+  body: ReadableStream<Uint8Array>,
+  maxBytes = 64 * 1024 * 1024,
+  timeoutMs = 30_000,
+): Promise<void> {
+  const reader = body.getReader();
+  const deadline = Date.now() + timeoutMs;
+  let read = 0;
+  try {
+    while (read <= maxBytes && Date.now() < deadline) {
+      const { done, value } = await reader.read();
+      if (done) return;
+      read += value.byteLength;
+    }
+  } catch {
+    // The client went away; nothing left to drain.
+    return;
+  }
+  await reader.cancel().catch(() => {});
 }

@@ -35,3 +35,25 @@ jobs:
       - run: pnpm exec changeset status --since=origin/main
         if: github.event_name == 'pull_request' && github.head_ref != 'changeset-release/main'
       - run: pnpm exec changeset status
+
+  e2e:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24
+      - run: npm install --global corepack@0.34.6
+      - run: corepack enable
+      - run: pnpm install --frozen-lockfile
+      - run: pnpm --filter @shotlog/e2e exec playwright install --with-deps chromium firefox webkit
+      - run: pnpm e2e
+      - uses: actions/upload-artifact@v4
+        if: failure()
+        with:
+          name: playwright-report
+          path: |
+            e2e/playwright-report/
+            e2e/test-results/
+          retention-days: 7

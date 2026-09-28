@@ -4,7 +4,8 @@
   "type": "module",
   "scripts": {
     "dev": "tsx watch --tsconfig tsconfig.json server.ts",
-    "build": "vite build"
+    "build": "vite build",
+    "start": "tsx --tsconfig tsconfig.json server.ts"
   },
   "dependencies": {
     "react": "^18.3.1",

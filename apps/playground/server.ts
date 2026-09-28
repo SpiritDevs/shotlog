@@ -20,7 +20,8 @@ import { SMTPServer } from "smtp-server";
 import { createServer as createViteServer } from "vite";
 import { type InboxEntry, isSettings, type Settings } from "./shared.js";
 
-const port = Number(process.env.PORT ?? 5199);
+const port = Number(process.env.PLAYGROUND_PORT ?? 5199);
+const smtpPort = Number(process.env.SMTP_PORT ?? 2525);
 const host = "127.0.0.1";
 const origin = `http://${host}:${port}`;
 const webhookSecret = "shotlog-playground-dev-secret";
@@ -35,7 +36,7 @@ function createRelay() {
         email: {
           from: "reports@playground.test",
           to: "support@playground.test",
-          provider: smtp({ host, port: 2525 }),
+          provider: smtp({ host, port: smtpPort }),
         },
         webhook: {
           url: `${origin}/_inbox/webhook`,
@@ -105,11 +106,13 @@ const catcher = new SMTPServer({
             : (mail.to?.text ?? ""),
           replyTo: mail.replyTo?.text ?? "",
           html,
+          sourceHtml: mail.html || "",
           text: mail.text ?? "",
           attachments: mail.attachments.map((attachment) => ({
             filename: attachment.filename ?? "attachment",
             contentType: attachment.contentType,
             size: attachment.size,
+            disposition: attachment.contentDisposition,
             ...(attachment.cid ? { contentId: attachment.cid } : {}),
           })),
           receivedAt: new Date().toISOString(),
@@ -245,8 +248,8 @@ catcher.once("error", (error) => {
   process.exitCode = 1;
   void shutdown();
 });
-catcher.listen(2525, host, () => {
-  console.log(`shotlog SMTP catcher → ${host}:2525`);
+catcher.listen(smtpPort, host, () => {
+  console.log(`shotlog SMTP catcher → ${host}:${smtpPort}`);
   server.listen(port, host, () => {
     console.log(`shotlog Playground → ${origin}`);
   });

@@ -4,7 +4,9 @@
   "files": {
     "includes": [
       "**",
-      "!!**/api",
+      "!!packages/shotlog/api",
+      "!!**/.next",
+      "!!**/next-env.d.ts",
       "!!**/schema/*.json",
       "!!**/temp",
       "!!pnpm-lock.yaml",
