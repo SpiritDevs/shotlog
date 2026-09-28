@@ -9,7 +9,7 @@ const empty: Diagnostics = { console: [], network: [] };
 let trail = empty;
 const listeners = new Set<() => void>();
 const clients = new Set<{
-  readonly endpoint: string;
+  readonly endpoint: string | undefined;
   readonly options: DiagnosticOptions;
 }>();
 let recordingConsole = false;
@@ -36,7 +36,7 @@ function publish(next: Diagnostics) {
 
 /** One lease per mounted provider. Hooks are shared, with independent channel counts. */
 export function acquireDiagnostics(
-  endpoint: string,
+  endpoint: string | undefined,
   options: DiagnosticOptions,
 ): () => void {
   if (typeof window === "undefined" || (!options.console && !options.network))
@@ -75,7 +75,10 @@ function cleanUrl(value: string): string | undefined {
 function requestUrl(value: string): string | undefined {
   const url = cleanUrl(value);
   // Resolve relative endpoints when the request starts: SPA navigation can change the base.
-  return [...clients].some((client) => cleanUrl(client.endpoint) === url)
+  return [...clients].some(
+    (client) =>
+      client.endpoint !== undefined && cleanUrl(client.endpoint) === url,
+  )
     ? undefined
     : url;
 }

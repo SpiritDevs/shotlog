@@ -44,7 +44,7 @@ export type SubmitErrorBody = {
     | {
         readonly _tag: "DeliveryFailed";
         readonly message: string;
-        readonly channel: "email" | "webhook";
+        readonly channel: "email" | "webhook" | "custom";
       }
     | { readonly _tag: "UploadFailed"; readonly message: string };
 };

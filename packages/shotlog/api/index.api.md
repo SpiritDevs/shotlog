@@ -20,9 +20,9 @@ export interface ConsoleEntry {
 
 // @public
 export class DeliveryFailed extends Error {
-    constructor(channel: "email" | "webhook", message?: string, options?: ErrorOptions);
+    constructor(channel: "email" | "webhook" | "custom", message?: string, options?: ErrorOptions);
     // (undocumented)
-    readonly channel: "email" | "webhook";
+    readonly channel: "email" | "webhook" | "custom";
     // (undocumented)
     readonly _tag = "DeliveryFailed";
 }
@@ -212,32 +212,7 @@ export interface ShotlogLabels {
 export function ShotlogProvider(input: ShotlogProviderProps): ReactElement;
 
 // @public
-export interface ShotlogProviderProps {
-    readonly accent?: string;
-    readonly children?: ReactNode;
-    readonly diagnostics?: false | {
-        readonly console?: boolean;
-        readonly network?: boolean;
-    };
-    readonly enabled?: boolean;
-    readonly endpoint: string;
-    readonly labels?: Partial<ShotlogLabels>;
-    readonly launcher?: boolean;
-    readonly metadata?: {
-        readonly [key: string]: JsonValue;
-    } | (() => {
-        readonly [key: string]: JsonValue;
-    } | Promise<{
-        readonly [key: string]: JsonValue;
-    }>);
-    readonly onError?: (error: ShotlogError) => void;
-    readonly onSubmitted?: (result: ShotlogSubmitResult) => void;
-    readonly position?: "bottom-right" | "bottom-left";
-    readonly reporter?: Reporter | (() => Reporter | Promise<Reporter>);
-    readonly shortcut?: string;
-    readonly theme?: "light" | "dark" | "auto";
-    readonly types?: readonly string[];
-}
+export type ShotlogProviderProps = ShotlogDelivery & ShotlogProviderOptions;
 
 // @public
 export interface ShotlogSubmitResult {

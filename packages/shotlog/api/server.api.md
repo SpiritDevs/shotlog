@@ -25,9 +25,9 @@ export type DeliveryConfig = {
 
 // @public
 export class DeliveryFailed extends Error {
-    constructor(channel: "email" | "webhook", message?: string, options?: ErrorOptions);
+    constructor(channel: "email" | "webhook" | "custom", message?: string, options?: ErrorOptions);
     // (undocumented)
-    readonly channel: "email" | "webhook";
+    readonly channel: "email" | "webhook" | "custom";
     // (undocumented)
     readonly _tag = "DeliveryFailed";
 }

@@ -10,7 +10,11 @@ import {
   useState,
 } from "react";
 import { createPortal } from "react-dom";
-import { type ShotlogError, ValidationFailed } from "../errors.js";
+import {
+  DeliveryFailed,
+  type ShotlogError,
+  ValidationFailed,
+} from "../errors.js";
 import { getShortId } from "../short-id.js";
 import type { SupportLogSubmission } from "../types.js";
 import { acquireDiagnostics, getDiagnostics } from "./diagnostics.js";
@@ -30,6 +34,7 @@ import type {
 const Context = createContext<ShotlogControls | null>(null);
 const defaultTypes = ["Bug", "Question", "Idea"];
 const draftKey = "shotlog:draft";
+type Identity = Pick<SupportLogSubmission, "id" | "shortId" | "createdAt">;
 type Status =
   | { readonly tag: "idle" | "sending" }
   | { readonly tag: "sent"; readonly result: ShotlogSubmitResult }
@@ -49,6 +54,7 @@ type Status =
 export function ShotlogProvider({
   children,
   endpoint,
+  onSubmit,
   enabled = true,
   launcher = true,
   position = "bottom-right",
@@ -95,10 +101,30 @@ export function ShotlogProvider({
   });
   const [loaded, setLoaded] = useState(false);
   const [status, setStatus] = useState<Status>({ tag: "idle" });
-  const identity = useRef<Pick<
-    SupportLogSubmission,
-    "id" | "shortId" | "createdAt"
-  > | null>(null);
+  // Kept with the draft so a retry after a lost response, even after a reload, reuses the
+  // same id and the relay dedupes it. Editing after a failure starts a new identity.
+  const identity = useRef<Identity | null>(null);
+  const ensureIdentity = useCallback((): Identity => {
+    if (!identity.current) {
+      const id = randomId();
+      identity.current = {
+        id,
+        shortId: getShortId(id),
+        createdAt: new Date().toISOString(),
+      };
+    }
+    return identity.current;
+  }, []);
+  const persist = useCallback((next: Draft) => {
+    try {
+      sessionStorage.setItem(
+        draftKey,
+        JSON.stringify({ ...next, identity: identity.current }),
+      );
+    } catch {
+      /* In-memory drafts remain available. */
+    }
+  }, []);
   const opener = useRef<HTMLElement | null>(null);
   const sending = useRef(false);
   const close = useCallback(() => setIsOpen(false), []);
@@ -108,17 +134,10 @@ export function ShotlogProvider({
     while (active?.shadowRoot?.activeElement)
       active = active.shadowRoot.activeElement;
     opener.current = active instanceof HTMLElement ? active : null;
-    if (!identity.current) {
-      const id = randomId();
-      identity.current = {
-        id,
-        shortId: getShortId(id),
-        createdAt: new Date().toISOString(),
-      };
-      setStatus({ tag: "idle" });
-    }
+    if (!identity.current) setStatus({ tag: "idle" });
+    ensureIdentity();
     setIsOpen(true);
-  }, [enabled, isOpen]);
+  }, [enabled, isOpen, ensureIdentity]);
   const controls = useMemo(
     () => ({ open, close, isOpen: enabled && isOpen }),
     [open, close, enabled, isOpen],
@@ -157,6 +176,8 @@ export function ShotlogProvider({
         typeof saved.description === "string"
       ) {
         setDraft({ type: saved.type, description: saved.description });
+        if ("identity" in saved && isIdentity(saved.identity))
+          identity.current = saved.identity;
       }
     } catch {
       /* Session storage can be unavailable in private or embedded contexts. */
@@ -166,13 +187,14 @@ export function ShotlogProvider({
 
   useEffect(() => {
     if (!loaded) return;
-    try {
-      if (status.tag === "sent") sessionStorage.removeItem(draftKey);
-      else sessionStorage.setItem(draftKey, JSON.stringify(draft));
-    } catch {
-      /* In-memory drafts remain available. */
-    }
-  }, [draft, loaded, status.tag]);
+    if (status.tag !== "sent") persist(draft);
+    else
+      try {
+        sessionStorage.removeItem(draftKey);
+      } catch {
+        /* Nothing to clear. */
+      }
+  }, [draft, loaded, status.tag, persist]);
 
   useEffect(() => {
     if (status.tag !== "sent") return;
@@ -208,13 +230,9 @@ export function ShotlogProvider({
     ? draft.type
     : (types[0] ?? "Bug");
   const submit = async () => {
-    if (
-      sending.current ||
-      !identity.current ||
-      !enabled ||
-      status.tag === "sent"
-    )
-      return;
+    if (sending.current || !enabled || status.tag === "sent") return;
+    const current = ensureIdentity();
+    persist(draft);
     sending.current = true;
     setStatus({ tag: "sending" });
     let log: SupportLogSubmission;
@@ -223,7 +241,7 @@ export function ShotlogProvider({
       const trail = getDiagnostics();
       log = {
         schemaVersion: 1,
-        ...identity.current,
+        ...current,
         type: selectedType,
         description: draft.description,
         ...context,
@@ -249,9 +267,15 @@ export function ShotlogProvider({
     }
     let result: ShotlogSubmitResult;
     try {
-      result = await submitReport(endpoint, log);
+      if (endpoint !== undefined) result = await submitReport(endpoint, log);
+      else {
+        await onSubmit({ log });
+        result = { id: log.id, shortId: log.shortId, duplicate: false };
+      }
     } catch (cause) {
-      const error = cause as ShotlogError;
+      const error = isShotlogError(cause)
+        ? cause
+        : new DeliveryFailed("custom", undefined, { cause });
       sending.current = false;
       setStatus({ tag: "error", error });
       onError?.(error);
@@ -318,7 +342,11 @@ export function ShotlogProvider({
                   />
                 }
                 onClose={close}
-                onChange={setDraft}
+                onChange={(next) => {
+                  // The failed attempt may have been delivered; edited content is a new report.
+                  if (status.tag === "error") identity.current = null;
+                  setDraft(next);
+                }}
                 onSubmit={() => {
                   void submit();
                 }}
@@ -330,6 +358,41 @@ export function ShotlogProvider({
     </Context.Provider>
   );
 }
+
+function isIdentity(value: unknown): value is Identity {
+  return (
+    typeof value === "object" &&
+    value !== null &&
+    "id" in value &&
+    typeof value.id === "string" &&
+    "shortId" in value &&
+    typeof value.shortId === "string" &&
+    "createdAt" in value &&
+    typeof value.createdAt === "string"
+  );
+}
+
+function isShotlogError(value: unknown): value is ShotlogError {
+  return (
+    value instanceof Error &&
+    "_tag" in value &&
+    typeof value._tag === "string" &&
+    value._tag in defaultErrorTags
+  );
+}
+
+const defaultErrorTags: Record<ShotlogError["_tag"], true> = {
+  Unauthorized: true,
+  Forbidden: true,
+  RateLimited: true,
+  PayloadTooLarge: true,
+  ValidationFailed: true,
+  DeliveryFailed: true,
+  UploadFailed: true,
+  Offline: true,
+  ProviderNotInstalled: true,
+  UnsupportedRuntime: true,
+};
 
 /** `crypto.randomUUID` only exists in secure contexts; plain-HTTP intranet apps need the fallback. */
 function randomId(): string {

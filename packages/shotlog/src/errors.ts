@@ -94,7 +94,7 @@ export class ValidationFailed extends Error {
 }
 
 /**
- * A Delivery Channel could not deliver the Support Log.
+ * A Delivery Channel could not deliver the Support Log. `custom` means a Host App `onSubmit` failed.
  * @example
  * ```ts
  * throw new DeliveryFailed("webhook");
@@ -104,7 +104,7 @@ export class ValidationFailed extends Error {
 export class DeliveryFailed extends Error {
   readonly _tag = "DeliveryFailed";
   constructor(
-    readonly channel: "email" | "webhook",
+    readonly channel: "email" | "webhook" | "custom",
     message = `Support Log delivery through ${channel} failed`,
     options?: ErrorOptions,
   ) {

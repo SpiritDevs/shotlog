@@ -1,6 +1,6 @@
 import type { ReactNode } from "react";
 import type { ShotlogError } from "../errors.js";
-import type { JsonValue, Reporter } from "../types.js";
+import type { JsonValue, Reporter, SupportLogSubmission } from "../types.js";
 
 /**
  * Replaceable Report Card text. Custom `types` supply their own chip labels.
@@ -109,6 +109,35 @@ export interface ShotlogSubmitResult {
 }
 
 /**
+ * A Support Log ready for delivery, handed to a custom `onSubmit`.
+ * @public
+ */
+export interface ShotlogSubmission {
+  readonly log: SupportLogSubmission;
+  /** The flattened, annotated PNG, when the Reporter attached one. */
+  readonly screenshot?: Blob;
+}
+
+/**
+ * Where Support Logs go: the Relay Endpoint (default), or the Host App's own `onSubmit`.
+ * @public
+ */
+export type ShotlogDelivery =
+  | {
+      /** Relay Endpoint URL, served by `createSupportHandler` from `shotlog/server`. */
+      readonly endpoint: string;
+      readonly onSubmit?: never;
+    }
+  | {
+      readonly endpoint?: never;
+      /**
+       * Deliver the Support Log yourself (your database, Slack, ...). Throw a shotlog
+       * error class to show its message; any other throw shows as a delivery failure.
+       */
+      readonly onSubmit: (submission: ShotlogSubmission) => Promise<void>;
+    };
+
+/**
  * Host App configuration for Standalone or Programmatic Mode.
  * Functions supplying Host Context run on every submission attempt.
  * @example
@@ -120,9 +149,13 @@ export interface ShotlogSubmitResult {
  * ```
  * @public
  */
-export interface ShotlogProviderProps {
-  /** Relay Endpoint URL. */
-  readonly endpoint: string;
+export type ShotlogProviderProps = ShotlogDelivery & ShotlogProviderOptions;
+
+/**
+ * Everything on ShotlogProvider except the delivery choice.
+ * @public
+ */
+export interface ShotlogProviderOptions {
   /** Host App content; always rendered, including when disabled. */
   readonly children?: ReactNode;
   /** Defaults to true. False removes the widget and makes `open()` a no-op. */

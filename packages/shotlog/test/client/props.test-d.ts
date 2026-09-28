@@ -22,3 +22,21 @@ test("provider labels have finite keys and onError receives ShotlogError", () =>
   const invalid: Partial<ShotlogLabels> = { sumbit: "Send" };
   void invalid;
 });
+
+test("delivery is exactly one of endpoint or onSubmit", () => {
+  const relay: ShotlogProviderProps = { endpoint: "/api/support" };
+  const custom: ShotlogProviderProps = {
+    onSubmit: async ({ log }) => void log,
+  };
+  void relay;
+  void custom;
+  // @ts-expect-error A provider needs somewhere to deliver.
+  const neither: ShotlogProviderProps = {};
+  // @ts-expect-error Both would be ambiguous.
+  const both: ShotlogProviderProps = {
+    endpoint: "/x",
+    onSubmit: async () => {},
+  };
+  void neither;
+  void both;
+});

@@ -49,7 +49,9 @@ test("public errors narrow by _tag", () => {
       break;
     case "DeliveryFailed":
       expectTypeOf(error).toEqualTypeOf<DeliveryFailed>();
-      expectTypeOf(error.channel).toEqualTypeOf<"email" | "webhook">();
+      expectTypeOf(error.channel).toEqualTypeOf<
+        "email" | "webhook" | "custom"
+      >();
       break;
     case "UploadFailed":
       expectTypeOf(error).toEqualTypeOf<UploadFailed>();

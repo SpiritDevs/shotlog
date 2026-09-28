@@ -8,6 +8,9 @@ import {
 import type { SupportLogSubmission } from "../types.js";
 import type { ShotlogSubmitResult } from "./types.js";
 
+/** Covers the request and reading the response, so a stalled relay can't leave the card sending. */
+const deadlineMs = 30_000;
+
 export async function submitReport(
   endpoint: string,
   log: SupportLogSubmission,
@@ -27,9 +30,10 @@ export async function submitReport(
       { cause },
     );
   }
+  const signal = AbortSignal.timeout(deadlineMs);
   let response: Response;
   try {
-    response = await fetch(endpoint, { method: "POST", body: form });
+    response = await fetch(endpoint, { method: "POST", body: form, signal });
   } catch (cause) {
     throw new Offline(undefined, { cause });
   }
@@ -37,7 +41,8 @@ export async function submitReport(
   try {
     body = await response.json();
   } catch (cause) {
-    if (cause instanceof TypeError) throw new Offline(undefined, { cause });
+    if (cause instanceof TypeError || signal.aborted)
+      throw new Offline(undefined, { cause });
     throw new ValidationFailed(
       ["Relay Endpoint returned invalid JSON"],
       undefined,
@@ -119,7 +124,9 @@ function isErrorBody(body: unknown): body is SubmitErrorBody {
     case "DeliveryFailed":
       return (
         "channel" in error &&
-        (error.channel === "email" || error.channel === "webhook")
+        (error.channel === "email" ||
+          error.channel === "webhook" ||
+          error.channel === "custom")
       );
     default:
       return false;
