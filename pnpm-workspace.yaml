@@ -4,4 +4,5 @@ packages:
   - e2e/
 allowBuilds:
   esbuild: true
+  msgpackr-extract: false
 autoInstallPeers: false
