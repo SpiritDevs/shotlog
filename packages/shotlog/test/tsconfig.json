@@ -2,5 +2,8 @@
   "extends": "../../../tsconfig.json",
   "include": ["**/*.test-d.ts"],
   "exclude": [],
-  "compilerOptions": { "skipLibCheck": false }
+  "compilerOptions": {
+    "skipLibCheck": false,
+    "paths": {}
+  }
 }

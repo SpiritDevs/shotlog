@@ -124,6 +124,7 @@ export function ReportCard({
           </button>
         </div>
         <form
+          hidden={state === "sent"}
           onSubmit={(event) => {
             event.preventDefault();
             if (!draft.description.trim()) {
@@ -175,16 +176,6 @@ export function ReportCard({
           />
           <div data-shotlog-slot="screenshot" />
           <div data-shotlog-slot="included-details" />
-          <div
-            id={`${id}-status`}
-            className="status"
-            data-state={state}
-            role="status"
-            aria-live="polite"
-            aria-atomic="true"
-          >
-            {message}
-          </div>
           <button
             className="submit"
             type="submit"
@@ -198,6 +189,16 @@ export function ReportCard({
                 : labels.submit}
           </button>
         </form>
+        <div
+          id={`${id}-status`}
+          className="status"
+          data-state={state}
+          role="status"
+          aria-live="polite"
+          aria-atomic="true"
+        >
+          {message}
+        </div>
       </div>
     </div>
   );

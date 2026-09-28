@@ -14,10 +14,16 @@
     "noUnusedParameters": true,
     "noImplicitOverride": true,
     "skipLibCheck": true,
-    "types": ["node"]
+    "types": ["node"],
+    "paths": {
+      "shotlog": ["./packages/shotlog/src/index.ts"],
+      "shotlog/server": ["./packages/shotlog/src/server.ts"],
+      "shotlog/node": ["./packages/shotlog/src/node.ts"]
+    }
   },
   "exclude": ["**/*.test-d.ts"],
   "include": [
+    "apps/playground",
     "packages/shotlog/src",
     "packages/shotlog/test",
     "packages/shotlog/scripts",

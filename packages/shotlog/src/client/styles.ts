@@ -130,7 +130,7 @@ textarea { display: block; width: 100%; min-height: var(--shotlog-textarea-heigh
 .status { margin-top: calc(var(--shotlog-space, 8px) * 2); color: var(--shotlog-muted, var(--_muted)); overflow-wrap: anywhere; }
 .status:empty { margin: 0; }
 .status[data-state="error"] { color: var(--shotlog-error, var(--_error)); }
-.status[data-state="sent"] { color: var(--shotlog-success, var(--_success)); }
+.status[data-state="sent"] { margin: 0; padding: calc(var(--shotlog-space, 8px) * 3) 0; text-align: center; font-weight: 600; color: var(--shotlog-success, var(--_success)); }
 @media (prefers-reduced-motion: reduce) {
   *, *::before, *::after { animation: none !important; transition: none !important; scroll-behavior: auto !important; }
 }
