@@ -280,6 +280,9 @@ test("stalled relay reaches the 60-second Offline deadline and Retry succeeds", 
       .filter({ hasText: "You're offline or couldn't connect." }),
   ).toBeVisible();
   expect(await inbox(request)).toEqual([]);
+  // WebKit keeps request interception active while the stalled route is pending and
+  // drops multipart Blob bodies on intercepted requests. Real browsers never route.
+  await page.unrouteAll({ behavior: "ignoreErrors" });
   expect((await submit(page, "Retry")).status()).toBe(200);
   await expectSent(page);
   await delivered(request, text);
