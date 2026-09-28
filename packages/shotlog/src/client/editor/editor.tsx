@@ -148,6 +148,8 @@ export function Editor({ image, initial, labels, origin, onFinish }: Props) {
     cancelButton.current?.focus();
   };
   const [selected, setSelected] = useState<string>();
+  // No selection box or handles while a shape is still being drawn.
+  const [drawing, setDrawing] = useState(false);
   const [styles, setStyles] = useState<Partial<Record<Tool, Style>>>({});
   const [cropDraft, setCropDraft] = useState<Rect | null>(null);
   const [text, setText] = useState<TextMark | null>(null);
@@ -205,6 +207,7 @@ export function Editor({ image, initial, labels, origin, onFinish }: Props) {
   const releaseGesture = () => {
     const current = gesture.current;
     gesture.current = null;
+    setDrawing(false);
     if (current && canvas.current?.hasPointerCapture(current.pointerId))
       canvas.current.releasePointerCapture(current.pointerId);
   };
@@ -622,11 +625,12 @@ export function Editor({ image, initial, labels, origin, onFinish }: Props) {
     ctx.strokeStyle = "#6366f1";
     ctx.lineWidth = 1.5 / scale;
     // An arrow is a line, not a box: it shows only its three handles.
+    const chrome = drawing ? undefined : active;
     const selection =
-      cropDraft ?? (active && active.kind !== "arrow" ? bounds(active) : null);
+      cropDraft ?? (chrome && chrome.kind !== "arrow" ? bounds(chrome) : null);
     if (selection) {
       ctx.setLineDash([5 / scale, 4 / scale]);
-      if (!cropDraft && active?.kind === "text") {
+      if (!cropDraft && chrome?.kind === "text") {
         const gap = 3 / scale;
         ctx.beginPath();
         ctx.roundRect(
@@ -634,7 +638,7 @@ export function Editor({ image, initial, labels, origin, onFinish }: Props) {
           selection.y - gap,
           selection.width + gap * 2,
           selection.height + gap * 2,
-          measureText(active).radius + gap,
+          measureText(chrome).radius + gap,
         );
         ctx.stroke();
       } else
@@ -646,12 +650,12 @@ export function Editor({ image, initial, labels, origin, onFinish }: Props) {
         );
       ctx.setLineDash([]);
     }
-    if (active)
-      for (const handle of handles(active)) {
-        const r = (active.kind === "arrow" ? 5 : 4) / scale;
+    if (chrome)
+      for (const handle of handles(chrome)) {
+        const r = (chrome.kind === "arrow" ? 5 : 4) / scale;
         ctx.fillStyle = "#fff";
         ctx.beginPath();
-        if (active.kind === "arrow")
+        if (chrome.kind === "arrow")
           ctx.arc(handle.point.x, handle.point.y, r, 0, Math.PI * 2);
         else ctx.rect(handle.point.x - r, handle.point.y - r, 2 * r, 2 * r);
         ctx.fill();
@@ -661,6 +665,7 @@ export function Editor({ image, initial, labels, origin, onFinish }: Props) {
     image,
     scene,
     active,
+    drawing,
     cropDraft,
     scale,
     crop.x,
@@ -791,6 +796,7 @@ export function Editor({ image, initial, labels, origin, onFinish }: Props) {
                   return;
                 }
                 setSelected(annotation.id);
+                setDrawing(true);
                 updatePreview(replace(baseScene, annotation));
                 gesture.current = {
                   start: p,
@@ -851,12 +857,18 @@ export function Editor({ image, initial, labels, origin, onFinish }: Props) {
                 } else {
                   if (draft.current) save(draft.current);
                   // Pointer-up completes the shape; return to Select unless ⌘ or Shift is held.
-                  if (drawn) setTool(toolAfterDrawing(tool, event));
+                  if (drawn) {
+                    const next = toolAfterDrawing(tool, event);
+                    setTool(next);
+                    // Still drawing: keep the canvas clean of selection chrome.
+                    if (next !== "select") setSelected(undefined);
+                  }
                 }
                 releaseGesture();
               }}
               onPointerCancel={() => {
                 gesture.current = null;
+                setDrawing(false);
                 updatePreview(null);
                 setCropDraft(null);
               }}
