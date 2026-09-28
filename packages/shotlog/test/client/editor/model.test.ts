@@ -15,6 +15,7 @@ import {
   emptyScene,
   fontSize,
   historyFor,
+  nudge,
   redo,
   remove,
   replace,
@@ -47,6 +48,41 @@ const step = (id: string): Annotation => ({
 });
 
 describe("editable scene", () => {
+  it("retains only the newest 100 undo entries, including after redo", () => {
+    let history = historyFor(replace(emptyScene(), rectangle));
+    for (let x = 1; x <= 125; x++)
+      history = commit(
+        history,
+        replace(history.present, translate(rectangle, x, 0)),
+      );
+    expect(history.past).toHaveLength(100);
+    for (let i = 0; i < 100; i++) history = undo(history);
+    expect(bounds(history.present.annotations[0] as Annotation).x).toBe(45);
+    expect(undo(history)).toBe(history);
+    for (let i = 0; i < 100; i++) history = redo(history);
+    expect(history.past).toHaveLength(100);
+    expect(bounds(history.present.annotations[0] as Annotation).x).toBe(145);
+  });
+  it("coalesces rapid nudges of the same selection but separates pauses, selections and edits", () => {
+    const initial = replace(replace(emptyScene(), rectangle), arrow);
+    let history = nudge(historyFor(initial), rectangle.id, 1, 0, 0);
+    history = nudge(history, rectangle.id, 10, 0, 100);
+    history = nudge(history, rectangle.id, 0, -1, 600);
+    expect(history.past).toHaveLength(1);
+    expect(bounds(history.present.annotations[0] as Annotation).x).toBe(31);
+    expect(undo(history).present).toBe(initial);
+    expect(redo(undo(history)).present).toBe(history.present);
+    history = nudge(history, rectangle.id, 1, 0, 1101);
+    expect(history.past).toHaveLength(2);
+    history = nudge(history, arrow.id, 1, 0, 1102);
+    expect(history.past).toHaveLength(3);
+    history = commit(history, { ...history.present, crop: rectangle.rect });
+    history = nudge(history, arrow.id, 1, 0, 1103);
+    expect(history.past).toHaveLength(5);
+    history = nudge(undo(history), arrow.id, 1, 0, 1104);
+    expect(history.past).toHaveLength(5);
+    expect(history.future).toEqual([]);
+  });
   it("resizes text glyphs when only the horizontal handle coordinate changes", () => {
     const text: Annotation = {
       id: "text",
@@ -134,6 +170,26 @@ describe("editable scene", () => {
 });
 
 describe("hit testing", () => {
+  it("uses outline distance and padded bounds for eccentric ovals", () => {
+    const oval: Annotation = {
+      ...rectangle,
+      kind: "oval",
+      rect: { x: 0, y: 0, width: 1000, height: 20 },
+    };
+    expect(hitTest(oval, { x: 1300, y: 10 })).toBe(false);
+    expect(hitTest(oval, { x: 1007, y: 10 })).toBe(true);
+    expect(hitTest(oval, { x: 1008, y: 10 })).toBe(false);
+    expect(hitTest(oval, { x: 500, y: 10 })).toBe(false);
+    expect(hitTest(oval, { x: 500, y: -7 })).toBe(true);
+    expect(hitTest(oval, { x: 998, y: 0 })).toBe(false);
+    expect(hitTest(oval, { x: 998, y: 5 })).toBe(true);
+    expect(
+      hitTest(
+        { ...oval, rect: { x: 0, y: 0, width: 20, height: 1000 } },
+        { x: 10, y: 1300 },
+      ),
+    ).toBe(false);
+  });
   it("picks the curved stroke instead of its empty bounding box", () => {
     expect(hitTest(arrow, { x: 60, y: 60 })).toBe(true);
     expect(hitTest(arrow, { x: 60, y: 100 })).toBe(false);

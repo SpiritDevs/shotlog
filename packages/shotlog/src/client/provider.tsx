@@ -50,6 +50,9 @@ type Status =
 /**
  * Mounts one isolated support widget while leaving the Host App in control of visibility.
  * Safe to render on the server; the shadow host is created after mounting.
+ * The widget contains its keyboard events, but capture-phase listeners the Host App
+ * registered earlier still see them: ignore events whose `composedPath()` includes the
+ * `[data-shotlog]` host.
  * @example
  * ```tsx
  * <ShotlogProvider endpoint="/api/support" enabled={isAdmin} theme="auto">

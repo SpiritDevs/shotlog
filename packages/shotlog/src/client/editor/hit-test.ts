@@ -27,6 +27,33 @@ function distance(p: Point, a: Point, b: Point): number {
   );
   return Math.hypot(p.x - a.x - t * dx, p.y - a.y - t * dy);
 }
+function ellipseDistance(rect: Rect, p: Point): number {
+  let a = rect.width / 2,
+    b = rect.height / 2,
+    x = Math.abs(p.x - rect.x - a),
+    y = Math.abs(p.y - rect.y - b);
+  if (a < b) {
+    [a, b] = [b, a];
+    [x, y] = [y, x];
+  }
+  if (!b) return Math.hypot(Math.max(0, x - a), y);
+  const aa = a * a,
+    bb = b * b;
+  if (!y) {
+    const qx = aa > bb ? Math.min(a, (aa * x) / (aa - bb)) : a;
+    return Math.hypot(qx - x, b * Math.sqrt(Math.max(0, 1 - (qx / a) ** 2)));
+  }
+  // Solve for the closest point in the first quadrant, including interior points.
+  let low = -bb,
+    high = Math.hypot(a * x, b * y);
+  for (let i = 0; i < 64; i++) {
+    const t = (low + high) / 2;
+    if (((a * x) / (t + aa)) ** 2 + ((b * y) / (t + bb)) ** 2 > 1) low = t;
+    else high = t;
+  }
+  const t = (low + high) / 2;
+  return Math.hypot((aa * x) / (t + aa) - x, (bb * y) / (t + bb) - y);
+}
 export function hitTest(a: Annotation, p: Point, tolerance = 6): boolean {
   const margin = tolerance + a.style.thickness / 2;
   if (a.kind === "arrow" || "points" in a) {
@@ -42,12 +69,7 @@ export function hitTest(a: Annotation, p: Point, tolerance = 6): boolean {
   }
   const b = bounds(a);
   if (a.kind === "oval") {
-    const rx = Math.max(1, b.width / 2),
-      ry = Math.max(1, b.height / 2);
-    return (
-      Math.abs(Math.hypot((p.x - b.x - rx) / rx, (p.y - b.y - ry) / ry) - 1) <=
-      margin / Math.min(rx, ry)
-    );
+    return contains(b, p, margin) && ellipseDistance(b, p) <= margin;
   }
   if (a.kind === "rectangle")
     return (

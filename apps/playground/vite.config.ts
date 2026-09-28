@@ -11,10 +11,7 @@ export default defineConfig({
   resolve: {
     alias: [
       { find: /^shotlog$/, replacement: source("index") },
-      { find: /^shotlog\/server$/, replacement: source("server") },
-      { find: /^shotlog\/node$/, replacement: source("node") },
-      { find: /^shotlog\/ses$/, replacement: source("ses") },
-      { find: /^shotlog\/smtp$/, replacement: source("smtp") },
+      { find: /^shotlog\/(.+)$/, replacement: source("$1") },
     ],
     dedupe: ["react", "react-dom"],
   },

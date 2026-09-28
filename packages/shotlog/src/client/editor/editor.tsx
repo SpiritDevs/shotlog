@@ -10,6 +10,7 @@ import {
   fontSize,
   historyFor,
   midpoint,
+  nudge,
   type Point,
   type Rect,
   rectBetween,
@@ -163,12 +164,20 @@ export function Editor({ image, initial, labels, onFinish }: Props) {
     setHistory((h) => commit(h, next));
     updatePreview(null);
   };
-  const withText = (): Scene =>
+  const withText = (base = draft.current ?? scene): Scene =>
     text
       ? text.text.trim()
-        ? replace(history.present, textAnnotation(text))
-        : remove(history.present, text.id)
-      : history.present;
+        ? replace(base, textAnnotation(text))
+        : remove(base, text.id)
+      : base;
+  const stopNudging = () =>
+    setHistory(({ past, present, future }) => ({ past, present, future }));
+  const releaseGesture = () => {
+    const current = gesture.current;
+    gesture.current = null;
+    if (current && canvas.current?.hasPointerCapture(current.pointerId))
+      canvas.current.releasePointerCapture(current.pointerId);
+  };
   const finishText = () => {
     if (text) {
       save(withText());
@@ -176,6 +185,7 @@ export function Editor({ image, initial, labels, onFinish }: Props) {
     }
   };
   const choose = (next: Tool) => {
+    stopNudging();
     finishText();
     setTool(next);
     setSelected(undefined);
@@ -192,9 +202,11 @@ export function Editor({ image, initial, labels, onFinish }: Props) {
   };
   const done = async () => {
     if (savingRef.current) return;
+    const finalScene = withText();
+    releaseGesture();
     if (cropDraft) {
       save({
-        ...withText(),
+        ...finalScene,
         crop: boundCrop(cropDraft, image.naturalWidth, image.naturalHeight),
       });
       setCropDraft(null);
@@ -202,7 +214,8 @@ export function Editor({ image, initial, labels, onFinish }: Props) {
       setText(null);
       return;
     }
-    const finalScene = withText();
+    save(finalScene);
+    setText(null);
     savingRef.current = true;
     setSaving(true);
     setError(false);
@@ -281,7 +294,9 @@ export function Editor({ image, initial, labels, onFinish }: Props) {
     }
     if (event.isComposing) return;
     const target = event.composedPath()[0];
-    const typing = target instanceof HTMLTextAreaElement;
+    const typing =
+      target instanceof HTMLElement &&
+      (target.matches("input, textarea, select") || target.isContentEditable);
     const command = event.metaKey || event.ctrlKey,
       key = event.key.toLowerCase();
     if (event.key === "Escape") {
@@ -289,13 +304,12 @@ export function Editor({ image, initial, labels, onFinish }: Props) {
       cancel();
       return;
     }
-    if (typing) {
-      if (event.key === "Enter" && !event.shiftKey) {
-        event.preventDefault();
-        void done();
-      }
-      if (event.key !== "Tab") return;
+    if (command && event.key === "Enter") {
+      event.preventDefault();
+      void done();
+      return;
     }
+    if (typing && event.key !== "Tab") return;
     if (event.key === "Tab") {
       const nodes = Array.from(
         dialog.current?.querySelectorAll<HTMLElement>(
@@ -350,16 +364,12 @@ export function Editor({ image, initial, labels, onFinish }: Props) {
       setTool("select");
       return;
     }
-    if (command) {
-      if (event.key === "Enter") {
+    if (command) return;
+    if (event.key === "Enter") {
+      if (target === canvas.current || target === stage.current) {
         event.preventDefault();
         void done();
       }
-      return;
-    }
-    if (event.key === "Enter") {
-      event.preventDefault();
-      void done();
       return;
     }
     if ((event.key === "Delete" || event.key === "Backspace") && active) {
@@ -371,22 +381,22 @@ export function Editor({ image, initial, labels, onFinish }: Props) {
     if (event.key.startsWith("Arrow") && active) {
       event.preventDefault();
       const amount = event.shiftKey ? 10 : 1;
-      save(
-        replace(
-          history.present,
-          translate(
-            active,
-            event.key === "ArrowLeft"
-              ? -amount
-              : event.key === "ArrowRight"
-                ? amount
-                : 0,
-            event.key === "ArrowUp"
-              ? -amount
-              : event.key === "ArrowDown"
-                ? amount
-                : 0,
-          ),
+      const time = performance.now();
+      setHistory((h) =>
+        nudge(
+          h,
+          active.id,
+          event.key === "ArrowLeft"
+            ? -amount
+            : event.key === "ArrowRight"
+              ? amount
+              : 0,
+          event.key === "ArrowUp"
+            ? -amount
+            : event.key === "ArrowDown"
+              ? amount
+              : 0,
+          time,
         ),
       );
       return;
@@ -402,11 +412,32 @@ export function Editor({ image, initial, labels, onFinish }: Props) {
   const keyHandler = useRef(keyDown);
   keyHandler.current = keyDown;
   useEffect(() => {
-    // Window capture precedes the Report Card's document capture trap. Keep native
-    // input defaults, but stop keydown/keypress/keyup before Host App listeners.
+    // Window capture precedes the Report Card's document trap, but cannot
+    // pre-empt Host App capture listeners registered earlier on window.
+    const held = new Set<string>();
+    let mounted = true;
+    const detach = () => {
+      for (const type of ["keydown", "keypress", "keyup"] as const)
+        window.removeEventListener(type, keyboard, true);
+      window.removeEventListener("blur", blur);
+    };
     const keyboard = (event: KeyboardEvent) => {
+      const key = event.code || event.key;
+      if (!mounted && !held.has(key)) return;
+      if (event.type === "keydown") held.add(key);
+      if (event.type === "keyup") held.delete(key);
+      event.stopPropagation();
       event.stopImmediatePropagation();
-      if (event.type === "keydown") keyHandler.current(event);
+      if (mounted) {
+        if (event.type === "keydown") keyHandler.current(event);
+      } else {
+        event.preventDefault();
+        if (!held.size) detach();
+      }
+    };
+    const blur = () => {
+      held.clear();
+      if (!mounted) detach();
     };
     const focus = (event: FocusEvent) => {
       event.stopImmediatePropagation();
@@ -418,12 +449,13 @@ export function Editor({ image, initial, labels, onFinish }: Props) {
     for (const type of ["keydown", "keypress", "keyup"] as const)
       window.addEventListener(type, keyboard, true);
     window.addEventListener("focusin", focus, true);
+    window.addEventListener("blur", blur);
     toolbar.current
       ?.querySelector<HTMLButtonElement>("[tabindex='0']")
       ?.focus();
     return () => {
-      for (const type of ["keydown", "keypress", "keyup"] as const)
-        window.removeEventListener(type, keyboard, true);
+      mounted = false;
+      if (!held.size) detach();
       window.removeEventListener("focusin", focus, true);
     };
   }, []);
@@ -521,7 +553,7 @@ export function Editor({ image, initial, labels, onFinish }: Props) {
               : labels.editorDone}
         </button>
       </header>
-      <div className="sl-editor-stage" ref={stage}>
+      <div className="sl-editor-stage" ref={stage} tabIndex={-1}>
         <div
           className="sl-editor-image"
           style={{ width: displayWidth, height: displayHeight }}
@@ -534,6 +566,7 @@ export function Editor({ image, initial, labels, onFinish }: Props) {
             data-select={tool === "select"}
             onPointerDown={(event) => {
               if (saving || event.button !== 0 || gesture.current) return;
+              stopNudging();
               event.preventDefault();
               const baseScene = withText();
               finishText();
@@ -639,9 +672,7 @@ export function Editor({ image, initial, labels, onFinish }: Props) {
               const g = gesture.current;
               if (!g || g.pointerId !== event.pointerId) return;
               if (draft.current) save(draft.current);
-              gesture.current = null;
-              if (event.currentTarget.hasPointerCapture(event.pointerId))
-                event.currentTarget.releasePointerCapture(event.pointerId);
+              releaseGesture();
             }}
             onPointerCancel={() => {
               gesture.current = null;
@@ -654,6 +685,7 @@ export function Editor({ image, initial, labels, onFinish }: Props) {
                 point(event.clientX, event.clientY),
               );
               if (a?.kind === "text") {
+                stopNudging();
                 setText(a);
                 setSelected(undefined);
               }

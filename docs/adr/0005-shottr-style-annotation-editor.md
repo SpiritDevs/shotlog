@@ -37,8 +37,12 @@ The Reporter needs to mark up the Screenshot. The reference for how that should 
 - Pixelate/Redact uses **coarse** blocks, so the text underneath can't be recovered.
 - It also has a **solid fill** option.
 - Both are applied permanently when the image is flattened.
+- Resampled exports redact source pixels before resizing, then reapply redaction at output resolution so filtering cannot expose original masked pixels and pixelation stays coarse.
 - Shottr's lighter blur isn't used for redaction.
 
 ## Consequences
 - The Annotation Editor is the largest piece of the library, bigger than capture and delivery combined.
-- The keyboard shortcuts must not leak to the Host App while the editor is open.
+- The editor stops keyboard propagation while open and retains a temporary guard for held keys when it closes, until release or window blur. Enter and Space preserve focused controls' native actions; bare Enter completes editing only on the canvas or stage.
+- Host capture-phase keyboard listeners registered earlier still see editor keys; ignore events whose composedPath() includes the shotlog host. A later listener cannot pre-empt an earlier capture listener on the same target. The host is the element marked `data-shotlog`; no additional API is exported.
+- Done commits an active drawing, move, or resize before flattening the scene used for preview. Applying a crop retains its existing confirmation step.
+- Undo retains at most 100 entries. Arrow-key nudges within 500 ms on the same selection form one transaction; other edits and selection changes end that group.

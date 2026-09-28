@@ -156,8 +156,29 @@ export function renderScene(
   const ctx = contextFor(canvas),
     sx = canvas.width / crop.width,
     sy = canvas.height / crop.height;
+  const redactions = scene.annotations.filter((a) => a.kind === "redact");
+  let raster: HTMLImageElement | HTMLCanvasElement = source;
+  if ((sx !== 1 || sy !== 1) && redactions.length) {
+    // Resampling filters read neighbouring source pixels, including those just
+    // outside the output mask. Sanitize the source before any resizing.
+    const sanitized = document.createElement("canvas");
+    sanitized.width = source.naturalWidth;
+    sanitized.height = source.naturalHeight;
+    const sourceContext = contextFor(sanitized);
+    sourceContext.drawImage(source, 0, 0);
+    const pixels = sourceContext.getImageData(
+      0,
+      0,
+      sanitized.width,
+      sanitized.height,
+    );
+    for (const a of redactions)
+      if (a.kind === "redact") redactPixels(pixels, a.rect, a.style.solid);
+    sourceContext.putImageData(pixels, 0, 0);
+    raster = sanitized;
+  }
   ctx.drawImage(
-    source,
+    raster,
     crop.x,
     crop.y,
     crop.width,
@@ -194,7 +215,6 @@ export function renderScene(
     }
     ctx.drawImage(mask, 0, 0);
   }
-  const redactions = scene.annotations.filter((a) => a.kind === "redact");
   if (redactions.length) {
     const pixels = ctx.getImageData(0, 0, canvas.width, canvas.height);
     for (const a of redactions)
@@ -223,6 +243,6 @@ export async function flatten(
     const size = captureSize(width, height, 1, blob.size);
     width = size.width;
     height = size.height;
-    // Re-render instead of resizing redacted pixels: blocks stay >= 12 output pixels.
+    // Each retry sanitizes the source and reapplies coarse blocks at output size.
   }
 }

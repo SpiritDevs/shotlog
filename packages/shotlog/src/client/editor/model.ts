@@ -65,7 +65,9 @@ export interface History {
   readonly past: readonly Scene[];
   readonly present: Scene;
   readonly future: readonly Scene[];
+  readonly nudge?: { readonly id: string; readonly time: number };
 }
+const historyLimit = 100;
 export const emptyScene = (): Scene => ({ annotations: [], crop: null });
 export const historyFor = (scene: Scene): History => ({
   past: [],
@@ -75,7 +77,7 @@ export const historyFor = (scene: Scene): History => ({
 export function commit(history: History, scene: Scene): History {
   if (JSON.stringify(scene) === JSON.stringify(history.present)) return history;
   return {
-    past: [...history.past, history.present],
+    past: [...history.past, history.present].slice(-historyLimit),
     present: scene,
     future: [],
   };
@@ -94,7 +96,7 @@ export function redo(history: History): History {
   const next = history.future[0];
   return next
     ? {
-        past: [...history.past, history.present],
+        past: [...history.past, history.present].slice(-historyLimit),
         present: next,
         future: history.future.slice(1),
       }
@@ -229,6 +231,29 @@ export function transform(a: Annotation, from: Rect, to: Rect): Annotation {
 export function translate(a: Annotation, dx: number, dy: number): Annotation {
   const b = bounds(a);
   return transform(a, b, { ...b, x: b.x + dx, y: b.y + dy });
+}
+export function nudge(
+  history: History,
+  id: string,
+  dx: number,
+  dy: number,
+  time: number,
+): History {
+  const annotation = history.present.annotations.find((a) => a.id === id);
+  if (!annotation) return history;
+  const next = commit(
+    history,
+    replace(history.present, translate(annotation, dx, dy)),
+  );
+  const coalesce =
+    history.nudge?.id === id &&
+    time >= history.nudge.time &&
+    time - history.nudge.time <= 500;
+  return {
+    ...next,
+    past: coalesce ? history.past : next.past,
+    nudge: { id, time },
+  };
 }
 export function duplicate(
   scene: Scene,
