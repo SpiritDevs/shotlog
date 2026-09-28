@@ -1,6 +1,6 @@
 {
   "name": "shotlog",
-  "version": "0.0.0",
+  "version": "1.0.0",
   "description": "In-app support reports for React with annotated screenshots, diagnostics, and email or webhook delivery.",
   "license": "MIT",
   "type": "module",
