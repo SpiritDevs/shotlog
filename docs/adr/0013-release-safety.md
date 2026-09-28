@@ -21,7 +21,7 @@ All six layers are in place from day one:
    - Each Email Provider
    - Webhook with signing
    - UploadFile upload, including the timeout → base64 fallback
-5. **End-to-end tests in real browsers.** Playwright runs on Chromium, Firefox, and WebKit against the Playground and a Next.js example. Mailpit catches email and a local receiver catches webhooks. The full flow is checked: open → capture → annotate → submit → assert what arrived.
+5. **End-to-end tests in real browsers.** Playwright runs on Chromium, Firefox, and WebKit against the Playground and a Next.js example. An in-process SMTP catcher (`smtp-server`) catches email and a local receiver catches webhooks. The full flow is checked: open → capture → annotate → submit → assert what arrived.
 6. **Release gate.** Changesets are required for every change, and CI is the only publish path. Publishing happens only when 1–5 pass, with npm provenance.
 
 The **Playground** (a local test app environment) is part of this repo from the start. It's used for day-to-day development and as the target for the end-to-end tests.
@@ -34,7 +34,7 @@ A **blocking real-provider Smoke Test runs before any production release**. That
   - **UploadFile**, in both `public` and `private` modes
 - Anything it uploads is deleted afterwards.
 - If any check fails, the release stops. A documented manual override exists only for the case where a provider itself is down.
-- Generic SMTP is covered by Mailpit and is not part of the Smoke Test.
+- Generic SMTP is covered by the in-process SMTP catcher and is not part of the Smoke Test.
 
 The Smoke Test is **not required** for:
 - Staging deploys

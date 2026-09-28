@@ -5,7 +5,7 @@ Each step ends with something working in the Playground. The release gates from 
 1. **Repo foundation.** Monorepo (ADR-0014), strict TypeScript, Effect internals, and the `shotlog` / `shotlog/server` / `shotlog/node` entry points (ADR-0011). Set up CI with the API snapshot, the "no `effect` in `.d.ts`" check, and Changesets (ADR-0012, ADR-0013). Reserve the npm name and shotlog.dev.
 2. **Support Log schema.** Define it in `effect/Schema`, with `schemaVersion`, a published JSON Schema, a contract snapshot, and the Support Log ID (ADR-0006, ADR-0015).
 3. **Server Helper, Webhook first.** `createSupportHandler`, the Authorize Hook, size limits, validation, rate limiting, safe retries, and signed Webhook with `base64` Screenshot Mode (ADR-0003, ADR-0008, ADR-0009).
-4. **Playground skeleton.** The Inbox view, the webhook receiver, and Mailpit via docker-compose (ADR-0014).
+4. **Playground skeleton.** The Inbox view, the webhook receiver, and an in-process SMTP catcher (ADR-0014).
 5. **Report Card and Launcher.** Built in the Shadow DOM, with Standalone and Programmatic modes, Type and Description fields, drafts, success and failure states, the `labels` prop, and accessibility (ADR-0001, ADR-0007, ADR-0010, ADR-0015, ADR-0016). This is the first complete end-to-end flow, without a Screenshot yet.
 6. **Environment, Host Context, and Diagnostic Trail**, plus the Included Details section (ADR-0006), with the Playground's trouble buttons.
 7. **Email channel.** The HTML and plain-text template, then Resend, then SES, then SMTP (ADR-0003, ADR-0009).
