@@ -13,6 +13,8 @@ const clients = new Set<{
   readonly options: DiagnosticOptions;
 }>();
 let recordingConsole = false;
+let notifying = false;
+let notificationPending = false;
 let restoreConsole: (() => void) | undefined;
 let restoreNetwork: (() => void) | undefined;
 
@@ -25,13 +27,40 @@ export function subscribeDiagnostics(listener: () => void): () => void {
 
 function publish(next: Diagnostics) {
   trail = next;
-  for (const listener of listeners) {
+  if (notificationPending) return;
+  notificationPending = true;
+  queueMicrotask(() => {
+    notificationPending = false;
+    notifying = true;
     try {
-      listener();
-    } catch {
-      /* A subscriber must not break a host call. */
+      for (const listener of listeners) {
+        try {
+          listener();
+        } catch {
+          /* A subscriber must not break a host call. */
+        }
+      }
+    } finally {
+      notifying = false;
     }
+  });
+}
+
+/** Leave room for the report and Host Context within the relay's JSON limit. */
+export function trimDiagnostics(diagnostics: Diagnostics): Diagnostics {
+  const result = {
+    console: [...diagnostics.console],
+    network: [...diagnostics.network],
+  };
+  const encoder = new TextEncoder();
+  while (encoder.encode(JSON.stringify(result)).byteLength > 150_000) {
+    const consoleEntry = result.console[0];
+    const networkEntry = result.network[0];
+    if (consoleEntry && (!networkEntry || consoleEntry.at <= networkEntry.at))
+      result.console.shift();
+    else result.network.shift();
   }
+  return result;
 }
 
 /** One lease per mounted provider. Hooks are shared, with independent channel counts. */
@@ -63,6 +92,9 @@ export function acquireDiagnostics(
 function cleanUrl(value: string): string | undefined {
   try {
     const url = new URL(value, document.baseURI);
+    if (url.protocol !== "http:" && url.protocol !== "https:") return undefined;
+    url.username = "";
+    url.password = "";
     url.search = "";
     url.hash = "";
     return url.href;
@@ -80,44 +112,87 @@ function requestUrl(value: string): string | undefined {
       client.endpoint !== undefined && cleanUrl(client.endpoint) === url,
   )
     ? undefined
-    : url;
+    : url?.slice(0, 2000);
 }
 
-function format(value: unknown): string {
+function format(value: unknown, limit: number): string {
   try {
-    if (value instanceof Error) return value.message.slice(0, 2000);
+    if (value instanceof Error) return value.message.slice(0, limit);
+    if (typeof value === "function") return "[Function]".slice(0, limit);
     if (typeof value !== "object" || value === null)
-      return String(value).slice(0, 2000);
+      return String(value).slice(0, limit);
     const seen = new WeakSet<object>();
-    return (
-      JSON.stringify(value, (_key, item: unknown) => {
-        if (typeof item === "bigint") return String(item);
-        if (typeof item === "object" && item !== null) {
-          if (seen.has(item)) return "[Circular]";
-          seen.add(item);
+    let output = "";
+    const append = (text: string) => {
+      output += text.slice(0, limit - output.length);
+    };
+    const quote = (text: string) => {
+      append(JSON.stringify(text.slice(0, limit - output.length)));
+    };
+    const write = (item: unknown, depth: number): void => {
+      if (output.length >= limit) return;
+      if (item instanceof Error) {
+        quote(item.message);
+      } else if (typeof item !== "object" || item === null) {
+        if (typeof item === "string" || typeof item === "bigint")
+          quote(String(item));
+        else if (typeof item === "number" || typeof item === "boolean")
+          append(JSON.stringify(item));
+        else append("null");
+      } else if (seen.has(item)) {
+        quote("[Circular]");
+      } else if (depth >= 3) {
+        quote(Array.isArray(item) ? "[Array]" : "[Object]");
+      } else {
+        seen.add(item);
+        const array = Array.isArray(item);
+        append(array ? "[" : "{");
+        if (output.length >= limit) return;
+        let count = 0;
+        for (const key of Object.keys(item).slice(0, 20)) {
+          if (output.length >= limit) break;
+          const property = Object.getOwnPropertyDescriptor(item, key);
+          if (!property?.enumerable || !("value" in property)) continue;
+          const child: unknown = property.value;
+          if (
+            !array &&
+            (child === undefined ||
+              typeof child === "function" ||
+              typeof child === "symbol")
+          )
+            continue;
+          if (count++ > 0) append(",");
+          if (!array) {
+            quote(key);
+            append(":");
+          }
+          write(child, depth + 1);
         }
-        return item;
-      }) ?? String(value)
-    ).slice(0, 2000);
+        append(array ? "]" : "}");
+        seen.delete(item);
+      }
+    };
+    write(value, 0);
+    return output;
   } catch {
-    return "[Unserializable]";
+    return "[Unserializable]".slice(0, limit);
   }
 }
 
 function recordConsole(level: ConsoleEntry["level"], args: readonly unknown[]) {
   // Formatters and store subscribers may themselves call console.
-  if (recordingConsole) return;
+  if (recordingConsole || notifying) return;
   recordingConsole = true;
   // A hostile getter/proxy must never stop the host's console method from running.
   try {
     let stack = "";
     let message = "";
     for (const arg of args) {
-      if (message.length < 2000)
-        message = `${message}${message ? " " : ""}${format(arg)}`.slice(
-          0,
-          2000,
-        );
+      if (message.length < 2000) {
+        if (message) message += " ";
+        if (message.length < 2000)
+          message += format(arg, 2000 - message.length);
+      }
       if (arg instanceof Error && arg.stack && stack.length < 4000)
         stack = `${stack}${stack ? "\n" : ""}${arg.stack}`.slice(0, 4000);
     }

@@ -17,7 +17,11 @@ import {
 } from "../errors.js";
 import { getShortId } from "../short-id.js";
 import type { SupportLogSubmission } from "../types.js";
-import { acquireDiagnostics, getDiagnostics } from "./diagnostics.js";
+import {
+  acquireDiagnostics,
+  getDiagnostics,
+  trimDiagnostics,
+} from "./diagnostics.js";
 import { captureEnvironment } from "./environment.js";
 import { type IncludedContext, IncludedDetails } from "./included-details.js";
 import { defaultLabels, errorMessage } from "./labels.js";
@@ -35,7 +39,9 @@ import type {
 const Context = createContext<ShotlogControls | null>(null);
 const defaultTypes = ["Bug", "Question", "Idea"];
 const draftKey = "shotlog:draft";
-type Identity = Pick<SupportLogSubmission, "id" | "shortId" | "createdAt">;
+type Identity = Pick<SupportLogSubmission, "id" | "shortId" | "createdAt"> & {
+  readonly attempted?: true;
+};
 type Status =
   | { readonly tag: "idle" | "sending" }
   | { readonly tag: "sent"; readonly result: ShotlogSubmitResult }
@@ -106,7 +112,7 @@ export function ShotlogProvider({
   const [loaded, setLoaded] = useState(false);
   const [status, setStatus] = useState<Status>({ tag: "idle" });
   // Kept with the draft so a retry after a lost response, even after a reload, reuses the
-  // same id and the relay dedupes it. Editing after a failure starts a new identity.
+  // same id and the relay dedupes it. Editing after an attempt starts a new identity.
   const identity = useRef<Identity | null>(null);
   const ensureIdentity = useCallback((): Identity => {
     if (!identity.current) {
@@ -192,12 +198,6 @@ export function ShotlogProvider({
   useEffect(() => {
     if (!loaded) return;
     if (status.tag !== "sent") persist(draft);
-    else
-      try {
-        sessionStorage.removeItem(draftKey);
-      } catch {
-        /* Nothing to clear. */
-      }
   }, [draft, loaded, status.tag, persist]);
 
   useEffect(() => {
@@ -237,6 +237,7 @@ export function ShotlogProvider({
     if (sending.current || capturing || !enabled || status.tag === "sent")
       return;
     const current = ensureIdentity();
+    identity.current = { ...current, attempted: true };
     persist(draft);
     sending.current = true;
     setStatus({ tag: "sending" });
@@ -246,16 +247,18 @@ export function ShotlogProvider({
       const trail = getDiagnostics();
       log = {
         schemaVersion: 1,
-        ...current,
+        id: current.id,
+        shortId: current.shortId,
+        createdAt: current.createdAt,
         type: selectedType,
         description: draft.description,
         ...context,
         ...(recordConsole || recordNetwork
           ? {
-              diagnostics: {
+              diagnostics: trimDiagnostics({
                 console: recordConsole ? trail.console : [],
                 network: recordNetwork ? trail.network : [],
-              },
+              }),
             }
           : {}),
       };
@@ -292,6 +295,11 @@ export function ShotlogProvider({
     setScreenshot(undefined);
     setDraft({ type: types[0] ?? "Bug", description: "" });
     setStatus({ tag: "sent", result });
+    try {
+      sessionStorage.removeItem(draftKey);
+    } catch {
+      /* Session storage can be unavailable. */
+    }
     onSubmitted?.(result);
   };
   const message =
@@ -349,7 +357,7 @@ export function ShotlogProvider({
                     locked={status.tag === "sending" || status.tag === "sent"}
                     onBusyChange={setCapturing}
                     onChange={(next) => {
-                      if (status.tag === "error") identity.current = null;
+                      if (identity.current?.attempted) identity.current = null;
                       setScreenshot(next);
                       // Persist the changed identity, never the image.
                       persist(draft);
@@ -366,8 +374,8 @@ export function ShotlogProvider({
                 }
                 onClose={close}
                 onChange={(next) => {
-                  // The failed attempt may have been delivered; edited content is a new report.
-                  if (status.tag === "error") identity.current = null;
+                  // The attempt may have been delivered, including before a reload.
+                  if (identity.current?.attempted) identity.current = null;
                   setDraft(next);
                 }}
                 onSubmit={() => {
@@ -391,7 +399,8 @@ function isIdentity(value: unknown): value is Identity {
     "shortId" in value &&
     typeof value.shortId === "string" &&
     "createdAt" in value &&
-    typeof value.createdAt === "string"
+    typeof value.createdAt === "string" &&
+    (!("attempted" in value) || value.attempted === true)
   );
 }
 
