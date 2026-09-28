@@ -8,18 +8,21 @@ import {
 import {
   type Annotation,
   arrowPoint,
+  arrowWedge,
   boundCrop,
   bounds,
   commit,
   duplicate,
   emptyScene,
-  fontSize,
   historyFor,
   nudge,
   redo,
   remove,
   replace,
   smoothPoints,
+  textColorFor,
+  textLayout,
+  toolAfterDrawing,
   translate,
   undo,
 } from "../../../src/client/editor/model.js";
@@ -83,7 +86,7 @@ describe("editable scene", () => {
     expect(history.past).toHaveLength(5);
     expect(history.future).toEqual([]);
   });
-  it("resizes text glyphs when only the horizontal handle coordinate changes", () => {
+  it("moves a text pill without resizing it, and offers it no handles", () => {
     const text: Annotation = {
       id: "text",
       kind: "text",
@@ -93,9 +96,13 @@ describe("editable scene", () => {
       width: 100,
       height: 30,
     };
-    const resized = resize(text, "se", { x: 210, y: 40 });
-    expect(fontSize(resized.style)).toBe(fontSize(style) * 2);
-    expect(bounds(resized)).toEqual({ x: 10, y: 10, width: 200, height: 60 });
+    expect(bounds(translate(text, 5, 5))).toEqual({
+      x: 15,
+      y: 15,
+      width: 100,
+      height: 30,
+    });
+    expect(handles(text)).toEqual([]);
   });
   it("moves annotations without mutating the original scene or shared style", () => {
     const scene = replace(emptyScene(), rectangle);
@@ -169,6 +176,81 @@ describe("editable scene", () => {
   });
 });
 
+describe("finishing a shape", () => {
+  it("returns to Select unless ⌘ or Shift keeps the tool, and never touches Crop", () => {
+    const none = { metaKey: false, shiftKey: false };
+    expect(toolAfterDrawing("arrow", none)).toBe("select");
+    expect(toolAfterDrawing("text", none)).toBe("select");
+    expect(toolAfterDrawing("arrow", { ...none, metaKey: true })).toBe("arrow");
+    expect(toolAfterDrawing("redact", { ...none, shiftKey: true })).toBe(
+      "redact",
+    );
+    expect(toolAfterDrawing("crop", none)).toBe("crop");
+    expect(toolAfterDrawing("select", none)).toBe("select");
+  });
+});
+
+describe("arrow wedge", () => {
+  const width = (polygon: readonly { x: number; y: number }[], x: number) => {
+    const ys = polygon.filter((p) => Math.abs(p.x - x) < 3).map((p) => p.y);
+    return Math.max(...ys) - Math.min(...ys);
+  };
+  it("is one closed polygon whose head is wider than its shaft and tail", () => {
+    const straight: Annotation = {
+      ...arrow,
+      control: { x: 60, y: 10 },
+    };
+    const wedge = arrowWedge(straight);
+    expect(wedge.length).toBeGreaterThan(6);
+    expect(wedge[0]).toEqual(wedge.at(-1));
+    expect(wedge).toContainEqual(straight.end);
+    const tail = width(wedge, 10),
+      shaft = width(wedge, 60),
+      head = width(wedge, 110 - 36);
+    expect(tail).toBeLessThan(shaft);
+    expect(shaft).toBeLessThan(head);
+    expect(head).toBeCloseTo(36);
+    expect(
+      Math.max(
+        ...arrowWedge({ ...straight, style: { ...style, thickness: 6 } }).map(
+          (p) => p.y,
+        ),
+      ),
+    ).toBeGreaterThan(Math.max(...wedge.map((p) => p.y)));
+  });
+  it("follows the curve and vanishes for a zero-length arrow", () => {
+    const wedge = arrowWedge(arrow);
+    const middle = arrowPoint(arrow, 0.5);
+    expect(
+      wedge.some((p) => Math.hypot(p.x - middle.x, p.y - middle.y) < 6),
+    ).toBe(true);
+    expect(
+      arrowWedge({ ...arrow, end: arrow.start, control: arrow.start }),
+    ).toEqual([]);
+  });
+});
+
+describe("text pill", () => {
+  const measure = (line: string) => line.length * 7;
+  it("fits its content, growing with the text and with each line", () => {
+    const short = textLayout("Hi", 24, measure),
+      long = textLayout("Hi there", 24, measure);
+    expect(long.width).toBeGreaterThan(short.width);
+    expect(long.width - short.width).toBe(6 * 7);
+    expect(short.width).toBe(2 * 7 + short.paddingX * 2);
+    expect(textLayout("a\nb", 24, measure).height).toBe(
+      short.height + short.lineHeight,
+    );
+    expect(textLayout("", 24, measure).width).toBeGreaterThan(0);
+  });
+  it("uses dark text on light colours", () => {
+    expect(textColorFor("#facc15")).toBe("#18181b");
+    expect(textColorFor("#ffffff")).toBe("#18181b");
+    expect(textColorFor("#ef4444")).toBe("#ffffff");
+    expect(textColorFor("#18181b")).toBe("#ffffff");
+  });
+});
+
 describe("hit testing", () => {
   it("uses outline distance and padded bounds for eccentric ovals", () => {
     const oval: Annotation = {
@@ -190,10 +272,14 @@ describe("hit testing", () => {
       ),
     ).toBe(false);
   });
-  it("picks the curved stroke instead of its empty bounding box", () => {
+  it("picks the curved wedge instead of its empty bounding box", () => {
     expect(hitTest(arrow, { x: 60, y: 60 })).toBe(true);
     expect(hitTest(arrow, { x: 60, y: 100 })).toBe(false);
     expect(hitTest(arrow, { x: 60, y: 10 })).toBe(false);
+    // The head is wider than the tail, so a point beside the shaft near the end still hits.
+    const straight: Annotation = { ...arrow, control: { x: 60, y: 10 } };
+    expect(hitTest(straight, { x: 80, y: 20 }, 0)).toBe(true);
+    expect(hitTest(straight, { x: 30, y: 20 }, 0)).toBe(false);
   });
   it("picks outline edges, not empty rectangle and oval interiors", () => {
     expect(hitTest(rectangle, { x: 20, y: 60 })).toBe(true);

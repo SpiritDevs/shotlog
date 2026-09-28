@@ -32,6 +32,8 @@ export async function editScreenshot(
   parent.append(container);
   const root = createRoot(container);
   const card = parent.querySelector<HTMLElement>(".card");
+  // The editor grows out of the card's current rectangle and shrinks back into it.
+  const origin = card?.getBoundingClientRect();
   // Keep the underlying dialog out of the accessibility tree while this modal owns focus.
   card?.setAttribute("aria-hidden", "true");
   return new Promise((resolve) => {
@@ -52,6 +54,7 @@ export async function editScreenshot(
         image={image}
         initial={scene}
         labels={labels}
+        origin={origin}
         onFinish={finish}
       />,
     );

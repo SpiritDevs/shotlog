@@ -448,7 +448,7 @@ The hook also exposes `close()` and `clearDraft()`. Closing preserves the draft 
 | Option | Behavior |
 | --- | --- |
 | `enabled` | Default `true`; `false` removes the UI, stops this provider's recording, and makes `open()` a no-op. Children remain rendered. |
-| `position` | `"bottom-right"` (default) or `"bottom-left"` in Standalone Mode; Programmatic Mode centers the card. |
+| `position` | Where the Launcher sits and the card is anchored: `"bottom-right"` (default), `"bottom-left"`, `"bottom-center"`, `"top-left"`, `"top-center"`, `"top-right"`, or `"center"`. Programmatic Mode anchors the card the same way; `"center"` is intended mainly for it. The card grows away from its anchor, and a handle at the opposite corner resizes it (arrow keys move the handle by 16 px, Shift for 64 px); the chosen size lasts while the page lives. |
 | `theme`, `accent` | `"auto"` (default), `"light"`, or `"dark"`; accent accepts a CSS color. |
 | `types` | `readonly ShotlogTypeOption[]`: strings or `{ value, label? }`. Explicit labels win; otherwise Bug/Question/Idea use translated labels, and other values label themselves. Only `value` is delivered. `[]` hides chips and submits Bug. |
 | `draftScope` | Pass the signed-in user's ID. Uses `shotlog:draft:<scope>` in `sessionStorage`, or `shotlog:draft` when omitted. Switching scope resets memory and loads only that scope's draft and pending ID. |
@@ -523,10 +523,10 @@ The widget hides during Page Render and Screen Capture. Large captures and expor
 | Tool | Shortcut | Action |
 | --- | --- | --- |
 | Select / Move | V | Select, move, or resize an Annotation |
-| Arrow | A | Draw an arrow; drag its middle handle to curve it |
+| Arrow | A | Draw a tapered arrow; drag its middle handle to curve it |
 | Rectangle | R | Draw a rectangle; optional rounded corners |
 | Oval | O | Draw an ellipse |
-| Text | T | Add editable text |
+| Text | T | Add a text label on a coloured pill; Enter commits, Shift+Enter adds a line |
 | Freehand | P | Draw a freehand stroke |
 | Highlighter | H | Highlight an area with a stroke |
 | Step Counter | N | Place incrementing numbered markers |
@@ -541,6 +541,7 @@ The widget hides during Page Render and Screen Capture. Large captures and expor
 | Duplicate while moving | Alt/Option+drag |
 | Nudge selected Annotation | Arrow keys; Shift for 10 pixels |
 | Delete selected Annotation | Delete / Backspace |
+| Keep drawing with the same tool | Hold ⌘ or Shift when you finish a shape; otherwise the editor returns to Select with the new shape selected |
 | Done | Ctrl/Cmd+Enter; Enter when the canvas or stage is focused |
 | Cancel | Esc (confirms when there are edits) |
 

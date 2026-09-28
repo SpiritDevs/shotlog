@@ -41,6 +41,26 @@ test("delivery is exactly one of endpoint or onSubmit", () => {
   void both;
 });
 
+test("position accepts the seven anchors and nothing else", () => {
+  expectTypeOf<NonNullable<ShotlogProviderProps["position"]>>().toEqualTypeOf<
+    | "top-left"
+    | "top-center"
+    | "top-right"
+    | "center"
+    | "bottom-left"
+    | "bottom-center"
+    | "bottom-right"
+  >();
+  const centred: ShotlogProviderProps = { endpoint: "/x", position: "center" };
+  const bad: ShotlogProviderProps = {
+    endpoint: "/x",
+    // @ts-expect-error Positions are edge-first; "middle" is not one of them.
+    position: "middle",
+  };
+  void centred;
+  void bad;
+});
+
 test("launcher accepts a boolean or icon/text options", () => {
   const icon: ShotlogProviderProps = { endpoint: "/x" };
   const text: ShotlogProviderProps = {

@@ -175,6 +175,8 @@ export interface ShotlogLabels {
   readonly sending: string;
   /** Success announcement, including the readable Support Log ID. */
   readonly sent: (shortId: string) => string;
+  /** Accessible name of the card's resize handle. */
+  readonly resizeCard: string;
   /** Authentication required. */
   readonly unauthorized: string;
   /** Reporter cannot submit. */
@@ -297,6 +299,19 @@ export type ShotlogTypeOption =
   | { readonly value: string; readonly label?: string };
 
 /**
+ * Where the Launcher sits and the Report Card is anchored.
+ * @public
+ */
+export type ShotlogPosition =
+  | "top-left"
+  | "top-center"
+  | "top-right"
+  | "center"
+  | "bottom-left"
+  | "bottom-center"
+  | "bottom-right";
+
+/**
  * Everything on ShotlogProvider except the delivery choice.
  * @example
  * ```ts
@@ -329,8 +344,13 @@ export interface ShotlogProviderOptions {
    * ```
    */
   readonly launcher?: boolean | ShotlogLauncherOptions;
-  /** Standalone Mode corner; defaults to `bottom-right`. */
-  readonly position?: "bottom-right" | "bottom-left";
+  /**
+   * Where the Launcher sits and the Report Card is anchored; defaults to `bottom-right`.
+   * Corners anchor the card at that corner. `top-center` and `bottom-center` centre the
+   * Launcher on that edge and grow the card away from it. `center` centres the card in the
+   * viewport and is intended mainly for Programmatic Mode, where there is no Launcher.
+   */
+  readonly position?: ShotlogPosition;
   /** Defaults to `auto`, following the system colour scheme. */
   readonly theme?: "light" | "dark" | "auto";
   /** Accent CSS colour; also configurable with `--shotlog-accent`. */

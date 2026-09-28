@@ -251,6 +251,7 @@ export interface ShotlogLabels {
     readonly rateLimited: (minutes: number) => string;
     readonly removeScreenshot: string;
     readonly reporter: string;
+    readonly resizeCard: string;
     readonly retry: string;
     readonly screenCaptureFailed: string;
     readonly screenshot: string;
@@ -273,6 +274,9 @@ export interface ShotlogLauncherOptions {
     readonly content?: "icon" | "text" | "icon-text";
     readonly icon?: ReactNode;
 }
+
+// @public
+export type ShotlogPosition = "top-left" | "top-center" | "top-right" | "center" | "bottom-left" | "bottom-center" | "bottom-right";
 
 // @public
 export function ShotlogProvider(input: ShotlogProviderProps): ReactElement;
@@ -299,7 +303,7 @@ export interface ShotlogProviderOptions {
     readonly onError?: (error: ShotlogError) => void;
     readonly onSubmitted?: (result: ShotlogSubmitResult) => void;
     readonly persistDraft?: boolean;
-    readonly position?: "bottom-right" | "bottom-left";
+    readonly position?: ShotlogPosition;
     readonly reporter?: Reporter | (() => Reporter | Promise<Reporter>);
     readonly shortcut?: string;
     readonly theme?: "light" | "dark" | "auto";

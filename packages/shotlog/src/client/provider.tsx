@@ -18,6 +18,7 @@ import {
 } from "../errors.js";
 import { getShortId } from "../short-id.js";
 import type { SupportLogSubmission } from "../types.js";
+import type { CardSize } from "./card-size.js";
 import {
   acquireDiagnostics,
   getDiagnostics,
@@ -144,6 +145,8 @@ export function ShotlogProvider({
   }, [epoch]);
   const [loaded, setLoaded] = useState(false);
   const [status, setStatus] = useState<Status>({ tag: "idle" });
+  // A chosen card size lives for the page, never in storage.
+  const [cardSize, setCardSize] = useState<CardSize | null>(null);
   // Kept with the draft so a retry after a lost response, even after a reload, reuses the
   // same id and the relay dedupes it. Editing after an attempt starts a new identity.
   const identity = useRef<Identity | null>(null);
@@ -433,6 +436,9 @@ export function ShotlogProvider({
                 message={message}
                 opener={opener.current}
                 origin={launcher ? launcherRef : undefined}
+                position={position}
+                size={cardSize}
+                onResize={setCardSize}
                 closing={phase === "closing"}
                 onClosed={closed}
                 capturing={capturing}

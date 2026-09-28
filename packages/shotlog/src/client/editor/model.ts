@@ -201,19 +201,9 @@ export function transform(a: Annotation, from: Rect, to: Rect): Annotation {
       end: point(a.end),
       control: point(a.control),
     };
-  if (a.kind === "text") {
-    // Text keeps its aspect ratio; horizontal-only drags must resize glyphs too.
-    const factor = Math.abs(sx - 1) > Math.abs(sy - 1) ? sx : sy;
-    const thickness = Math.max(0.5, (fontSize(a.style) * factor - 12) / 4);
-    const ratio = fontSize({ ...a.style, thickness }) / fontSize(a.style);
-    return {
-      ...a,
-      position: point(a.position),
-      width: a.width * ratio,
-      height: a.height * ratio,
-      style: { ...a.style, thickness },
-    };
-  }
+  if (a.kind === "text")
+    // A pill is sized by its text and font, never by a handle.
+    return { ...a, position: point(a.position) };
   if (a.kind === "step")
     return {
       ...a,
@@ -264,6 +254,123 @@ export function duplicate(
   return replace(scene, { ...translate(annotation, offset, offset), id });
 }
 export const fontSize = (style: Style) => 12 + style.thickness * 4;
+export type ArrowMark = Extract<Annotation, { kind: "arrow" }>;
+/** Widths of the tapered wedge, all scaled by the thickness setting. */
+export function arrowWeights(style: Style) {
+  const t = style.thickness;
+  return { tail: t, shaft: t * 4, head: t * 12, headLength: t * 12 };
+}
+/**
+ * The arrow as one closed polygon: a tail that widens along the (possibly curved)
+ * shaft into a solid triangular head. The last point repeats the first.
+ */
+export function arrowWedge(a: ArrowMark): readonly Point[] {
+  const samples = 48;
+  const points = Array.from({ length: samples + 1 }, (_, i) =>
+    arrowPoint(a, i / samples),
+  );
+  const lengths = [0];
+  for (let i = 1; i <= samples; i++) {
+    const p = points[i] as Point,
+      q = points[i - 1] as Point;
+    lengths.push((lengths[i - 1] as number) + Math.hypot(p.x - q.x, p.y - q.y));
+  }
+  const total = lengths[samples] as number;
+  if (total < 1) return [];
+  const w = arrowWeights(a.style);
+  // Short arrows keep a proportional head instead of becoming all head.
+  const headLength = Math.min(w.headLength, total / 2);
+  const headWidth = (w.head * headLength) / w.headLength;
+  const shaftEnd = total - headLength;
+  const normal = (i: number): Point => {
+    const prev = points[Math.max(0, i - 1)] as Point,
+      next = points[Math.min(samples, i + 1)] as Point;
+    const length = Math.hypot(next.x - prev.x, next.y - prev.y) || 1;
+    return { x: -(next.y - prev.y) / length, y: (next.x - prev.x) / length };
+  };
+  const offset = (p: Point, n: Point, d: number): Point => ({
+    x: p.x + n.x * d,
+    y: p.y + n.y * d,
+  });
+  const left: Point[] = [],
+    right: Point[] = [];
+  let i = 0;
+  for (; i <= samples && (lengths[i] as number) < shaftEnd; i++) {
+    const s = lengths[i] as number;
+    const half = (w.tail + ((w.shaft - w.tail) * s) / shaftEnd) / 2;
+    const p = points[i] as Point,
+      n = normal(i);
+    left.push(offset(p, n, half));
+    right.push(offset(p, n, -half));
+  }
+  // The head base sits exactly at the end of the shaft.
+  const after = Math.min(samples, i),
+    before = Math.max(0, after - 1);
+  const span = (lengths[after] as number) - (lengths[before] as number) || 1;
+  const t = (shaftEnd - (lengths[before] as number)) / span;
+  const b = points[before] as Point,
+    c = points[after] as Point;
+  const base = { x: b.x + (c.x - b.x) * t, y: b.y + (c.y - b.y) * t },
+    n = normal(after);
+  left.push(offset(base, n, w.shaft / 2), offset(base, n, headWidth / 2));
+  right.push(offset(base, n, -w.shaft / 2), offset(base, n, -headWidth / 2));
+  const polygon = [...left, a.end, ...right.reverse()];
+  return [...polygon, polygon[0] as Point];
+}
+export interface TextLayout {
+  readonly width: number;
+  readonly height: number;
+  readonly paddingX: number;
+  readonly paddingY: number;
+  readonly radius: number;
+  readonly lineHeight: number;
+}
+/** The pill fits its lines: padding around the measured text, growing as it is typed. */
+export function textLayout(
+  text: string,
+  size: number,
+  measure: (line: string) => number,
+): TextLayout {
+  const lines = text.split("\n");
+  const paddingX = Math.round(size * 0.6),
+    paddingY = Math.round(size * 0.3),
+    lineHeight = size * 1.25;
+  const content = Math.max(size * 0.5, ...lines.map(measure));
+  return {
+    width: content + paddingX * 2,
+    height: lines.length * lineHeight + paddingY * 2,
+    paddingX,
+    paddingY,
+    radius: Math.round(size * 0.45),
+    lineHeight,
+  };
+}
+/** White on saturated colours, near-black on light ones such as yellow or white. */
+export function textColorFor(color: string): string {
+  const hex = /^#([0-9a-f]{6})$/i.exec(color)?.[1];
+  if (!hex) return "#ffffff";
+  const value = Number.parseInt(hex, 16);
+  const luminance =
+    0.299 * (value >> 16) +
+    0.587 * ((value >> 8) & 255) +
+    0.114 * (value & 255);
+  return luminance > 160 ? "#18181b" : "#ffffff";
+}
+/** After a shape completes the editor returns to Select, unless ⌘ or Shift asks to keep drawing. */
+export function toolAfterDrawing(
+  tool: Tool,
+  modifiers: { readonly metaKey: boolean; readonly shiftKey: boolean },
+): Tool {
+  if (tool === "select" || tool === "crop") return tool;
+  return modifiers.metaKey || modifiers.shiftKey ? tool : "select";
+}
+/** A click without a drag leaves nothing worth keeping or selecting. */
+export function isEmpty(a: Annotation): boolean {
+  if (a.kind === "arrow")
+    return Math.hypot(a.end.x - a.start.x, a.end.y - a.start.y) < 1;
+  if ("rect" in a) return a.rect.width < 1 && a.rect.height < 1;
+  return false;
+}
 export function smoothPoints(points: readonly Point[]): readonly Point[] {
   // Quadratic segments through successive midpoints, shared by drawing and picking.
   if (points.length < 3) return points;

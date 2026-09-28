@@ -1,6 +1,7 @@
 import {
   type Annotation,
   arrowPoint,
+  arrowWedge,
   bounds,
   type Point,
   type Rect,
@@ -26,6 +27,19 @@ function distance(p: Point, a: Point, b: Point): number {
     ),
   );
   return Math.hypot(p.x - a.x - t * dx, p.y - a.y - t * dy);
+}
+function polygonContains(polygon: readonly Point[], p: Point): boolean {
+  let inside = false;
+  for (let i = 0, j = polygon.length - 1; i < polygon.length; j = i++) {
+    const a = polygon[i] as Point,
+      b = polygon[j] as Point;
+    if (
+      a.y > p.y !== b.y > p.y &&
+      p.x < ((b.x - a.x) * (p.y - a.y)) / (b.y - a.y) + a.x
+    )
+      inside = !inside;
+  }
+  return inside;
 }
 function ellipseDistance(rect: Rect, p: Point): number {
   let a = rect.width / 2,
@@ -56,11 +70,24 @@ function ellipseDistance(rect: Rect, p: Point): number {
 }
 export function hitTest(a: Annotation, p: Point, tolerance = 6): boolean {
   const margin = tolerance + a.style.thickness / 2;
-  if (a.kind === "arrow" || "points" in a) {
-    const points =
-      a.kind === "arrow"
-        ? Array.from({ length: 33 }, (_, i) => arrowPoint(a, i / 32))
-        : smoothPoints(a.points);
+  if (a.kind === "arrow") {
+    // The wedge itself, plus a tolerance band so the thin tail stays pickable.
+    const wedge = arrowWedge(a);
+    if (!wedge.length)
+      return hitTest(
+        { ...a, kind: "freehand", points: [a.start, a.end] },
+        p,
+        tolerance,
+      );
+    return (
+      polygonContains(wedge, p) ||
+      wedge.some(
+        (q, i) => i > 0 && distance(p, wedge[i - 1] as Point, q) <= tolerance,
+      )
+    );
+  }
+  if ("points" in a) {
+    const points = smoothPoints(a.points);
     const width = a.kind === "highlighter" ? a.style.thickness * 4 : 0;
     return points.some(
       (q, i) =>
@@ -104,6 +131,8 @@ export function handles(a: Annotation): readonly Handle[] {
       { name: "end", point: a.end },
       { name: "curve", point: arrowPoint(a, 0.5) },
     ];
+  // A pill is sized by its text; it moves but never resizes by handle.
+  if (a.kind === "text") return [];
   const b = bounds(a);
   return [
     { name: "nw", point: b },

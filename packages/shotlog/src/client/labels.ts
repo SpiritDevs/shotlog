@@ -109,6 +109,7 @@ export const defaultLabels: ShotlogLabels = {
   retry: "Retry",
   sending: "Sending…",
   sent: (shortId) => `Sent ✓ · ${shortId}`,
+  resizeCard: "Resize report card",
   unauthorized: "Please sign in, then try again.",
   forbidden: "You don't have permission to send a report.",
   rateLimited: (minutes) =>

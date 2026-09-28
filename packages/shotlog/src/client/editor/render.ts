@@ -1,10 +1,13 @@
 import { captureSize, screenshotLimit } from "../capture-size.js";
 import {
   type Annotation,
+  arrowWedge,
   fontSize,
   type Rect,
   type Scene,
   smoothPoints,
+  textColorFor,
+  textLayout,
 } from "./model.js";
 import { redactPixels } from "./redaction.js";
 
@@ -15,19 +18,19 @@ export function contextFor(
   if (!ctx) throw new Error("Canvas is unavailable");
   return ctx;
 }
+export const textFont = (size: number) => `600 ${size}px system-ui, sans-serif`;
+/** Pill geometry from measured text, shared by the canvas, the export and the inline field. */
+export function measureText(a: Extract<Annotation, { kind: "text" }>) {
+  const size = fontSize(a.style);
+  const ctx = contextFor(document.createElement("canvas"));
+  ctx.font = textFont(size);
+  return textLayout(a.text, size, (line) => ctx.measureText(line).width);
+}
 export function textAnnotation(
   a: Extract<Annotation, { kind: "text" }>,
 ): Annotation {
-  const ctx = contextFor(document.createElement("canvas"));
-  ctx.font = `600 ${fontSize(a.style)}px system-ui, sans-serif`;
-  return {
-    ...a,
-    width: Math.max(
-      10,
-      ...a.text.split("\n").map((line) => ctx.measureText(line).width),
-    ),
-    height: a.text.split("\n").length * fontSize(a.style) * 1.25,
-  };
+  const layout = measureText(a);
+  return { ...a, width: layout.width, height: layout.height };
 }
 function drawAnnotation(ctx: CanvasRenderingContext2D, a: Annotation): void {
   ctx.save();
@@ -39,21 +42,12 @@ function drawAnnotation(ctx: CanvasRenderingContext2D, a: Annotation): void {
   ctx.beginPath();
   switch (a.kind) {
     case "arrow": {
-      ctx.moveTo(a.start.x, a.start.y);
-      ctx.quadraticCurveTo(a.control.x, a.control.y, a.end.x, a.end.y);
-      ctx.stroke();
-      const angle = Math.atan2(a.end.y - a.control.y, a.end.x - a.control.x),
-        length = 9 + a.style.thickness * 3;
-      ctx.beginPath();
-      ctx.moveTo(a.end.x, a.end.y);
-      ctx.lineTo(
-        a.end.x - length * Math.cos(angle - 0.45),
-        a.end.y - length * Math.sin(angle - 0.45),
-      );
-      ctx.lineTo(
-        a.end.x - length * Math.cos(angle + 0.45),
-        a.end.y - length * Math.sin(angle + 0.45),
-      );
+      // One filled wedge for preview and export alike.
+      const wedge = arrowWedge(a);
+      const first = wedge[0];
+      if (!first) break;
+      ctx.moveTo(first.x, first.y);
+      for (const p of wedge) ctx.lineTo(p.x, p.y);
       ctx.closePath();
       ctx.fill();
       break;
@@ -84,17 +78,32 @@ function drawAnnotation(ctx: CanvasRenderingContext2D, a: Annotation): void {
       ctx.stroke();
       break;
     }
-    case "text":
-      ctx.font = `600 ${fontSize(a.style)}px system-ui, sans-serif`;
+    case "text": {
+      const size = fontSize(a.style),
+        layout = measureText(a);
+      ctx.roundRect(
+        a.position.x,
+        a.position.y,
+        layout.width,
+        layout.height,
+        layout.radius,
+      );
+      ctx.fill();
+      ctx.fillStyle = textColorFor(a.style.color);
+      ctx.font = textFont(size);
       ctx.textBaseline = "top";
       a.text.split("\n").forEach((line, i) => {
         ctx.fillText(
           line,
-          a.position.x,
-          a.position.y + i * fontSize(a.style) * 1.25,
+          a.position.x + layout.paddingX,
+          a.position.y +
+            layout.paddingY +
+            i * layout.lineHeight +
+            (layout.lineHeight - size) / 2,
         );
       });
       break;
+    }
     case "freehand":
     case "highlighter": {
       if (a.kind === "highlighter") {
@@ -120,10 +129,7 @@ function drawAnnotation(ctx: CanvasRenderingContext2D, a: Annotation): void {
         Math.PI * 2,
       );
       ctx.fill();
-      ctx.fillStyle =
-        a.style.color === "#ffffff" || a.style.color === "#facc15"
-          ? "#18181b"
-          : "#ffffff";
+      ctx.fillStyle = textColorFor(a.style.color);
       ctx.font = `700 ${fontSize(a.style)}px system-ui, sans-serif`;
       ctx.textAlign = "center";
       ctx.textBaseline = "middle";

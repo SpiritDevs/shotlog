@@ -82,8 +82,8 @@ button:disabled { opacity: var(--shotlog-disabled-opacity, 0.55); }
 /* Launcher */
 .launcher {
   position: fixed;
-  bottom: var(--_offset);
-  right: var(--_offset);
+  width: fit-content;
+  height: fit-content;
   display: inline-flex;
   align-items: center;
   justify-content: center;
@@ -97,7 +97,6 @@ button:disabled { opacity: var(--shotlog-disabled-opacity, 0.55); }
   font-weight: var(--shotlog-strong-weight, 600);
   box-shadow: 0 1px 2px #00000029, 0 10px 28px -8px #00000066;
   pointer-events: auto;
-  transform-origin: 100% 100%;
   transition: transform 220ms var(--_ease-out), opacity 160ms ease-out 40ms, box-shadow 200ms ease, visibility 0s;
 }
 .launcher[data-content="icon"] { width: var(--_launcher); padding: 0; border-radius: var(--shotlog-launcher-radius, 50%); }
@@ -127,32 +126,74 @@ button:disabled { opacity: var(--shotlog-disabled-opacity, 0.55); }
 .overlay[data-state="closing"] { pointer-events: none; animation: fade-out 200ms var(--_ease-in) both; }
 .card {
   position: fixed;
-  bottom: var(--_offset);
-  right: var(--_offset);
-  width: var(--shotlog-card-width, 384px);
+  display: flex;
+  flex-direction: column;
+  width: var(--_card-w, var(--shotlog-card-width, 384px));
+  height: fit-content;
+  min-height: min(var(--_card-h, 0px), calc(100dvh - var(--_offset) * 2));
   max-width: calc(100vw - var(--_offset) * 2);
   max-height: calc(100dvh - var(--_offset) * 2);
-  overflow: auto;
-  overscroll-behavior: contain;
-  padding: 20px;
+  overflow: hidden;
   border: 1px solid var(--_line);
   border-radius: var(--_radius);
   background: var(--_surface);
   box-shadow: var(--_shadow);
-  transform-origin: 100% 100%;
   animation: card-open 280ms var(--_ease-out) both;
 }
-[data-position="bottom-left"] .launcher,
-[data-position="bottom-left"] .card { right: auto; left: var(--_offset); transform-origin: 0 100%; }
-.overlay[data-state="closing"] .card { animation: card-close 200ms var(--_ease-in) both; }
-[data-mode="programmatic"] .card {
-  inset: 0;
-  margin: auto;
-  height: fit-content;
-  transform-origin: 50% 50%;
-  animation-name: card-open-centre;
+.card > .heading { flex: none; padding: 20px 20px 0; }
+.card-body {
+  flex: 1 1 auto;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+  overflow: auto;
+  overscroll-behavior: contain;
+  padding: 0 20px 20px;
 }
-[data-mode="programmatic"] .overlay[data-state="closing"] .card { animation-name: card-close-centre; }
+.card-body > * { flex: none; }
+.card-body > form { flex: 1 0 auto; display: flex; flex-direction: column; }
+.card-body > form > * { flex: none; }
+.card-body > form > .field { flex: 1 0 auto; }
+/* The Launcher and the card share an anchor; the morph scales from that point. */
+[data-position="bottom-right"] :is(.launcher, .card) { inset: auto var(--_offset) var(--_offset) auto; transform-origin: 100% 100%; }
+[data-position="bottom-left"] :is(.launcher, .card) { inset: auto auto var(--_offset) var(--_offset); transform-origin: 0 100%; }
+[data-position="top-right"] :is(.launcher, .card) { inset: var(--_offset) var(--_offset) auto auto; transform-origin: 100% 0; }
+[data-position="top-left"] :is(.launcher, .card) { inset: var(--_offset) auto auto var(--_offset); transform-origin: 0 0; }
+[data-position="top-center"] :is(.launcher, .card) { inset: var(--_offset) 0 auto 0; margin-inline: auto; transform-origin: 50% 0; }
+[data-position="bottom-center"] :is(.launcher, .card) { inset: auto 0 var(--_offset) 0; margin-inline: auto; transform-origin: 50% 100%; }
+[data-position="center"] :is(.launcher, .card) { inset: 0; margin: auto; transform-origin: 50% 50%; }
+.overlay[data-state="closing"] .card { animation: card-close 200ms var(--_ease-in) both; }
+/* Without a Launcher to morph from, the card scales and fades from its anchor. */
+[data-mode="programmatic"] .card { animation-name: card-open-anchor; }
+[data-mode="programmatic"] .overlay[data-state="closing"] .card { animation-name: card-close-anchor; }
+
+/* Resize handle, diagonally opposite the anchor */
+.resize {
+  position: absolute;
+  z-index: 1;
+  display: grid;
+  place-items: center;
+  width: 22px;
+  height: 22px;
+  padding: 0;
+  border: 0;
+  border-radius: 6px;
+  background: transparent;
+  color: var(--_muted);
+  opacity: 0.55;
+  touch-action: none;
+  transition: opacity 120ms ease, color 120ms ease;
+}
+.resize:hover, .resize:focus-visible { opacity: 1; color: var(--_text); }
+.resize:focus-visible { outline-offset: -2px; }
+.resize svg { width: 11px; height: 11px; }
+[data-corner="bottom-right"] .resize { right: 3px; bottom: 3px; cursor: nwse-resize; }
+[data-corner="top-left"] .resize { left: 3px; top: 3px; cursor: nwse-resize; }
+[data-corner="top-left"] .resize svg { transform: rotate(180deg); }
+[data-corner="top-right"] .resize { right: 3px; top: 3px; cursor: nesw-resize; }
+[data-corner="top-right"] .resize svg { transform: rotate(-90deg); }
+[data-corner="bottom-left"] .resize { left: 3px; bottom: 3px; cursor: nesw-resize; }
+[data-corner="bottom-left"] .resize svg { transform: rotate(90deg); }
 .heading, form > *, .success-mark, .status {
   animation: rise 320ms var(--_ease-out) both;
   animation-delay: calc(70ms + var(--_i, 0) * 30ms);
@@ -216,7 +257,7 @@ legend { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: re
 .chip input { position: absolute; inset: 0; width: 100%; height: 100%; margin: 0; opacity: 0; cursor: inherit; }
 
 /* Description */
-.field { display: grid; gap: 6px; margin-bottom: 12px; }
+.field { display: grid; grid-template-rows: auto 1fr; gap: 6px; margin-bottom: 12px; }
 .field label { font-weight: 500; }
 textarea {
   display: block;
@@ -380,6 +421,9 @@ textarea:disabled { opacity: var(--shotlog-disabled-opacity, 0.55); }
   transition: filter 120ms ease, transform 100ms ease;
 }
 .submit:hover:not(:disabled) { filter: brightness(1.08); }
+.submit { display: inline-flex; align-items: center; justify-content: center; gap: 8px; }
+.spinner { width: 14px; height: 14px; flex: none; border: 2px solid currentColor; border-right-color: transparent; border-radius: 50%; animation: spin 720ms linear infinite; }
+.sr-only { position: absolute; width: 1px; height: 1px; margin: 0; padding: 0; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; }
 .submit:active:not(:disabled) { transform: scale(0.99); }
 .status { margin-top: 10px; font-size: 13px; color: var(--_muted); overflow-wrap: anywhere; }
 .status:empty { display: none; }
@@ -391,6 +435,8 @@ textarea:disabled { opacity: var(--shotlog-disabled-opacity, 0.55); }
 .success-mark circle { animation-delay: 120ms; }
 .success-mark path { animation-duration: 320ms; animation-delay: 460ms; }
 
+@keyframes spin { to { transform: rotate(360deg); } }
+@keyframes pulse { 50% { opacity: 0.35; } }
 @keyframes fade-in { from { opacity: 0; } }
 @keyframes fade-out { to { opacity: 0; } }
 @keyframes rise { from { opacity: 0; transform: translateY(6px); } }
@@ -404,10 +450,11 @@ textarea:disabled { opacity: var(--shotlog-disabled-opacity, 0.55); }
   55% { opacity: 1; }
   to { opacity: 0; transform: scale(var(--_sx, 0.14), var(--_sy, 0.1)); }
 }
-@keyframes card-open-centre { from { opacity: 0; transform: scale(0.94); } }
-@keyframes card-close-centre { to { opacity: 0; transform: scale(0.96); } }
+@keyframes card-open-anchor { from { opacity: 0; transform: scale(0.94); } }
+@keyframes card-close-anchor { to { opacity: 0; transform: scale(0.96); } }
 
 @media (prefers-reduced-motion: reduce) {
   *, *::before, *::after { animation: none !important; transition: none !important; }
+  .spinner { animation: pulse 1.8s ease-in-out infinite !important; }
 }
 `;

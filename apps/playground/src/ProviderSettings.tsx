@@ -25,6 +25,18 @@ const defaults: Settings = {
   network: true,
   types: "default",
 };
+const positions: readonly [
+  NonNullable<ShotlogProviderProps["position"]>,
+  string,
+][] = [
+  ["top-left", "Top left"],
+  ["top-center", "Top centre"],
+  ["top-right", "Top right"],
+  ["center", "Centre"],
+  ["bottom-left", "Bottom left"],
+  ["bottom-center", "Bottom centre"],
+  ["bottom-right", "Bottom right"],
+];
 const customTypes = ["Bug", "Billing", "Other"];
 const emptyTypes: readonly string[] = [];
 
@@ -41,7 +53,8 @@ function isSettings(value: unknown): value is Settings {
       value.launcherContent === "text" ||
       value.launcherContent === "icon-text") &&
     "position" in value &&
-    (value.position === "bottom-right" || value.position === "bottom-left") &&
+    typeof value.position === "string" &&
+    positions.some(([position]) => position === value.position) &&
     "theme" in value &&
     (value.theme === "auto" ||
       value.theme === "light" ||
@@ -163,13 +176,17 @@ export function ProviderSettings({
           <select
             value={settings.position}
             onChange={(event) => {
-              const position = event.currentTarget.value;
-              if (position === "bottom-right" || position === "bottom-left")
-                onChange({ ...settings, position });
+              const position = positions.find(
+                ([value]) => value === event.currentTarget.value,
+              )?.[0];
+              if (position) onChange({ ...settings, position });
             }}
           >
-            <option value="bottom-right">Bottom right</option>
-            <option value="bottom-left">Bottom left</option>
+            {positions.map(([value, label]) => (
+              <option key={value} value={value}>
+                {label}
+              </option>
+            ))}
           </select>
         </label>
         <label className="select-label">
