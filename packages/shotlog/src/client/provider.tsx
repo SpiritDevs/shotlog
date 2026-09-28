@@ -13,7 +13,9 @@ import { createPortal } from "react-dom";
 import { type ShotlogError, ValidationFailed } from "../errors.js";
 import { getShortId } from "../short-id.js";
 import type { SupportLogSubmission } from "../types.js";
+import { acquireDiagnostics, getDiagnostics } from "./diagnostics.js";
 import { captureEnvironment } from "./environment.js";
+import { type IncludedContext, IncludedDetails } from "./included-details.js";
 import { defaultLabels, errorMessage } from "./labels.js";
 import { type Draft, ReportCard } from "./report-card.js";
 import { matchesShortcut } from "./shortcut.js";
@@ -56,11 +58,35 @@ export function ShotlogProvider({
   labels: overrides,
   reporter,
   metadata,
+  diagnostics,
   shortcut,
   onSubmitted,
   onError,
 }: ShotlogProviderProps): ReactElement {
   const labels = { ...defaultLabels, ...overrides };
+  const recordConsole =
+    enabled && diagnostics !== false && diagnostics?.console !== false;
+  const recordNetwork =
+    enabled && diagnostics !== false && diagnostics?.network !== false;
+  useEffect(
+    () =>
+      acquireDiagnostics(endpoint, {
+        console: recordConsole,
+        network: recordNetwork,
+      }),
+    [endpoint, recordConsole, recordNetwork],
+  );
+  const collectContext = useCallback(async (): Promise<IncludedContext> => {
+    const [resolvedReporter, resolvedMetadata] = await Promise.all([
+      typeof reporter === "function" ? reporter() : reporter,
+      typeof metadata === "function" ? metadata() : metadata,
+    ]);
+    return {
+      environment: captureEnvironment(),
+      ...(resolvedReporter === undefined ? {} : { reporter: resolvedReporter }),
+      ...(resolvedMetadata === undefined ? {} : { metadata: resolvedMetadata }),
+    };
+  }, [reporter, metadata]);
   const [root, setRoot] = useState<ShadowRoot | null>(null);
   const [isOpen, setIsOpen] = useState(false);
   const [draft, setDraft] = useState<Draft>({
@@ -193,22 +219,22 @@ export function ShotlogProvider({
     setStatus({ tag: "sending" });
     let log: SupportLogSubmission;
     try {
-      const [resolvedReporter, resolvedMetadata] = await Promise.all([
-        typeof reporter === "function" ? reporter() : reporter,
-        typeof metadata === "function" ? metadata() : metadata,
-      ]);
+      const context = await collectContext();
+      const trail = getDiagnostics();
       log = {
         schemaVersion: 1,
         ...identity.current,
         type: selectedType,
         description: draft.description,
-        environment: captureEnvironment(),
-        ...(resolvedReporter === undefined
-          ? {}
-          : { reporter: resolvedReporter }),
-        ...(resolvedMetadata === undefined
-          ? {}
-          : { metadata: resolvedMetadata }),
+        ...context,
+        ...(recordConsole || recordNetwork
+          ? {
+              diagnostics: {
+                console: recordConsole ? trail.console : [],
+                network: recordNetwork ? trail.network : [],
+              },
+            }
+          : {}),
       };
     } catch (cause) {
       const error = new ValidationFailed(
@@ -283,6 +309,14 @@ export function ShotlogProvider({
                 state={status.tag}
                 message={message}
                 opener={opener.current}
+                includedDetails={
+                  <IncludedDetails
+                    labels={labels}
+                    collectContext={collectContext}
+                    consoleEnabled={recordConsole}
+                    networkEnabled={recordNetwork}
+                  />
+                }
                 onClose={close}
                 onChange={setDraft}
                 onSubmit={() => {

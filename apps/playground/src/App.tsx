@@ -1,13 +1,25 @@
-import { useEffect, useState } from "react";
+import { type ComponentProps, useEffect, useState } from "react";
 import { useShotlog } from "shotlog";
 import { metadata, reporter } from "./context.js";
 import { Inbox } from "./Inbox.js";
+import { ProviderSettings } from "./ProviderSettings.js";
 import { SettingsStrip } from "./SettingsStrip.js";
+import { TroubleButtons } from "./TroubleButtons.js";
 import { useInbox } from "./useInbox.js";
 
 const currentView = () => (location.hash === "#/inbox" ? "inbox" : "home");
 
-export function App() {
+export function App({
+  providerSettings,
+  onProviderSettingsChange,
+}: {
+  readonly providerSettings: ComponentProps<
+    typeof ProviderSettings
+  >["settings"];
+  readonly onProviderSettingsChange: ComponentProps<
+    typeof ProviderSettings
+  >["onChange"];
+}) {
   const [view, setView] = useState(currentView);
   const { open } = useShotlog();
   const inbox = useInbox();
@@ -56,6 +68,10 @@ export function App() {
         </div>
 
         <SettingsStrip />
+        <ProviderSettings
+          settings={providerSettings}
+          onChange={onProviderSettingsChange}
+        />
 
         {view === "home" ? (
           <div className="two-column home-grid">
@@ -64,9 +80,14 @@ export function App() {
               <h2>Two ways to open it</h2>
               <p>
                 Use the button below to call <code>useShotlog().open()</code>,
-                or use the Standalone Launcher in the bottom-right corner.
+                or use the Standalone Launcher when it is enabled.
               </p>
-              <button type="button" className="primary" onClick={open}>
+              <button
+                type="button"
+                className="primary"
+                onClick={open}
+                disabled={!providerSettings.enabled}
+              >
                 Open report card (Programmatic)
               </button>
               <p className="hint">
@@ -82,6 +103,7 @@ export function App() {
                 <code>{JSON.stringify({ reporter, metadata }, null, 2)}</code>
               </pre>
             </section>
+            <TroubleButtons />
           </div>
         ) : (
           <section aria-label="Inbox">

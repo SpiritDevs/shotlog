@@ -55,7 +55,7 @@ button, textarea, .chip {
   border-radius: var(--shotlog-control-radius, 8px);
   border: var(--shotlog-border-width, 1px) solid var(--shotlog-border, var(--_border));
 }
-button:focus-visible, textarea:focus-visible, .chip:has(input:focus-visible) {
+button:focus-visible, textarea:focus-visible, summary:focus-visible, .details-content:focus-visible, .chip:has(input:focus-visible) {
   outline: var(--shotlog-focus-width, 3px) solid var(--shotlog-focus, var(--_focus));
   outline-offset: var(--shotlog-focus-offset, 3px);
 }
@@ -126,6 +126,17 @@ legend, .description-label { display: block; font-weight: var(--shotlog-strong-w
 .chip:has(input:checked) { background: var(--shotlog-accent, #4f46e5); border-color: var(--shotlog-accent, #4f46e5); color: var(--shotlog-accent-text, #ffffff); }
 .chip input { position: absolute; opacity: 0; width: 1px; height: 1px; }
 textarea { display: block; width: 100%; min-height: var(--shotlog-textarea-height, 144px); padding: calc(var(--shotlog-space, 8px) * 2); resize: vertical; color: var(--shotlog-text, var(--_text)); background: var(--shotlog-field, var(--_field)); }
+.included-details { margin-top: calc(var(--shotlog-space, 8px) * 2); font-size: 12px; }
+.included-details summary { cursor: pointer; padding: var(--shotlog-space, 8px) 0; overflow-wrap: anywhere; }
+.details-content { max-height: 240px; overflow: auto; overscroll-behavior: contain; padding: var(--shotlog-space, 8px); background: var(--shotlog-field, var(--_field)); border-radius: var(--shotlog-control-radius, 8px); }
+.details-content h3, .details-content h4 { margin: var(--shotlog-space, 8px) 0; font-size: inherit; }
+.details-content p { margin: var(--shotlog-space, 8px) 0; }
+.details-note, .detail-rows dt { color: var(--shotlog-muted, var(--_muted)); }
+.details-content ol { margin: 0; padding-left: calc(var(--shotlog-space, 8px) * 2); }
+.detail-rows { margin: 0 0 var(--shotlog-space, 8px); }
+.detail-rows > div { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 2fr); gap: var(--shotlog-space, 8px); padding: 3px 0; }
+.detail-rows dt, .detail-rows dd { margin: 0; min-width: 0; overflow-wrap: anywhere; }
+.detail-rows code { font-family: ui-monospace, SFMono-Regular, Consolas, monospace; white-space: pre-wrap; }
 .submit { width: 100%; margin-top: calc(var(--shotlog-space, 8px) * 2); }
 .status { margin-top: calc(var(--shotlog-space, 8px) * 2); color: var(--shotlog-muted, var(--_muted)); overflow-wrap: anywhere; }
 .status:empty { margin: 0; }

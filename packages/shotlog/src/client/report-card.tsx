@@ -1,4 +1,4 @@
-import { useEffect, useId, useRef } from "react";
+import { type ReactNode, useEffect, useId, useRef } from "react";
 import type { ShotlogLabels } from "./types.js";
 
 export interface Draft {
@@ -14,6 +14,7 @@ interface ReportCardProps {
   readonly state: "idle" | "sending" | "sent" | "error";
   readonly message: string;
   readonly opener: HTMLElement | null;
+  readonly includedDetails: ReactNode;
   readonly onClose: () => void;
   readonly onChange: (draft: Draft) => void;
   readonly onSubmit: () => void;
@@ -27,6 +28,7 @@ export function ReportCard({
   state,
   message,
   opener,
+  includedDetails,
   onClose,
   onChange,
   onSubmit,
@@ -48,9 +50,9 @@ export function ReportCard({
     const focusables = () =>
       Array.from(
         dialog.querySelectorAll<HTMLElement>(
-          "button:not(:disabled), textarea:not(:disabled), input:not(:disabled):checked",
+          "button:not(:disabled), textarea:not(:disabled), input:not(:disabled):checked, summary, [tabindex='0']",
         ),
-      );
+      ).filter((node) => node.getClientRects().length > 0);
     const focusFirst = () => (focusables()[0] ?? dialog).focus();
     if (description.current && !description.current.disabled)
       description.current.focus();
@@ -175,7 +177,7 @@ export function ReportCard({
             }}
           />
           <div data-shotlog-slot="screenshot" />
-          <div data-shotlog-slot="included-details" />
+          <div data-shotlog-slot="included-details">{includedDetails}</div>
           <button
             className="submit"
             type="submit"

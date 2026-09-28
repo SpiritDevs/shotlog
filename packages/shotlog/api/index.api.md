@@ -172,17 +172,30 @@ export type ShotlogError = Unauthorized | Forbidden | RateLimited | PayloadTooLa
 export interface ShotlogLabels {
     readonly bug: string;
     readonly close: string;
+    readonly consoleEntries: string;
     readonly deliveryFailed: string;
     readonly description: string;
     readonly descriptionRequired: string;
+    readonly detailKey: (key: string) => string;
+    readonly detailsEmpty: string;
+    readonly detailsLoading: string;
+    readonly detailsRefresh: string;
+    readonly detailsUnavailable: string;
+    readonly diagnosticsDisabled: string;
+    readonly diagnosticTrail: string;
+    readonly environment: string;
     readonly forbidden: string;
     readonly idea: string;
+    readonly includedDetails: (consoleCount: number, networkCount: number) => string;
     readonly launcher: string;
+    readonly metadata: string;
+    readonly networkEntries: string;
     readonly offline: string;
     readonly payloadTooLarge: string;
     readonly providerNotInstalled: string;
     readonly question: string;
     readonly rateLimited: (minutes: number) => string;
+    readonly reporter: string;
     readonly retry: string;
     readonly sending: string;
     readonly sent: (shortId: string) => string;
@@ -202,6 +215,10 @@ export function ShotlogProvider(input: ShotlogProviderProps): ReactElement;
 export interface ShotlogProviderProps {
     readonly accent?: string;
     readonly children?: ReactNode;
+    readonly diagnostics?: false | {
+        readonly console?: boolean;
+        readonly network?: boolean;
+    };
     readonly enabled?: boolean;
     readonly endpoint: string;
     readonly labels?: Partial<ShotlogLabels>;

@@ -32,6 +32,35 @@ export interface ShotlogLabels {
   readonly description: string;
   /** Missing or whitespace-only description. */
   readonly descriptionRequired: string;
+  /** Collapsed Included Details summary, including Diagnostic Trail counts. */
+  readonly includedDetails: (
+    consoleCount: number,
+    networkCount: number,
+  ) => string;
+  /** Environment section heading. */
+  readonly environment: string;
+  /** Reporter section heading. */
+  readonly reporter: string;
+  /** Metadata section heading. */
+  readonly metadata: string;
+  /** Diagnostic Trail section heading. */
+  readonly diagnosticTrail: string;
+  /** Console entries heading. */
+  readonly consoleEntries: string;
+  /** Failed network requests heading. */
+  readonly networkEntries: string;
+  /** Display name for a payload key; unknown Host Context keys can be returned unchanged. */
+  readonly detailKey: (key: string) => string;
+  /** Empty section. */
+  readonly detailsEmpty: string;
+  /** Host Context is resolving. */
+  readonly detailsLoading: string;
+  /** Environment or Host Context could not be collected. */
+  readonly detailsUnavailable: string;
+  /** Diagnostic recording is disabled. */
+  readonly diagnosticsDisabled: string;
+  /** Explains that the preview is refreshed on submission. */
+  readonly detailsRefresh: string;
   /** Submit button. */
   readonly submit: string;
   /** Retry button. */
@@ -110,9 +139,21 @@ export interface ShotlogProviderProps {
   readonly types?: readonly string[];
   /** Overrides for the English labels. */
   readonly labels?: Partial<ShotlogLabels>;
-  /** Current Reporter, resolved at submit time. */
+  /**
+   * Diagnostic Trail recording starts on mount while enabled. Defaults to both channels on.
+   * False disables recording; omitted channel flags default to true. Only failed requests
+   * are recorded, without query strings, fragments, bodies, headers, or Relay requests.
+   * @example
+   * ```tsx
+   * <ShotlogProvider endpoint="/api/support" diagnostics={{ network: false }} />
+   * ```
+   */
+  readonly diagnostics?:
+    | false
+    | { readonly console?: boolean; readonly network?: boolean };
+  /** Current Reporter, resolved when Included Details expands and on every submission. */
   readonly reporter?: Reporter | (() => Reporter | Promise<Reporter>);
-  /** Current JSON Host Context, resolved at submit time. */
+  /** Current JSON Host Context, resolved when Included Details expands and on every submission. */
   readonly metadata?:
     | { readonly [key: string]: JsonValue }
     | (() =>

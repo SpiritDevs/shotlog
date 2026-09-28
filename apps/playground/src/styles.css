@@ -395,3 +395,23 @@ footer {
     margin-left: 0;
   }
 }
+
+.provider-controls {
+  gap: 16px 24px;
+}
+.provider-controls input[type="color"] {
+  width: 48px;
+  height: 40px;
+  padding: 3px;
+  border: 1px solid #d2d6d0;
+  border-radius: 7px;
+  background: #fff;
+}
+.trouble-panel {
+  grid-column: 1 / -1;
+}
+.trouble-buttons {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+}
