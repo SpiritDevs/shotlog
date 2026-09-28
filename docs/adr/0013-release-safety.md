@@ -36,6 +36,8 @@ A **blocking real-provider Smoke Test runs before any production release**. That
 - If any check fails, the release stops. A documented manual override exists only for the case where a provider itself is down.
 - Generic SMTP is covered by the in-process SMTP catcher and is not part of the Smoke Test.
 
+The implementation and operator procedures are in [the release runbook](../release.md). `pnpm smoke` exercises built package exports; the production gate sets `SMOKE_REQUIRE_ALL=1` so absent provider credentials also block release. Resend is checked through provider delivery status, SES through provider acceptance (inbox inspection remains manual), and both UploadFile access modes require fetching the exact PNG from the delivered URL before cleanup. These checks do not assert inbox placement. The emergency override is a manual workflow dispatch with a required outage reason, recorded in the job summary. A separate `next` snapshot dispatch retains the CI checks and provenance without the production smoke.
+
 The Smoke Test is **not required** for:
 - Staging deploys
 - Prerelease npm tags (`next`, `canary`)
