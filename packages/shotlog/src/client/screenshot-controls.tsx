@@ -21,6 +21,8 @@ interface ScreenshotControlsProps {
   readonly error: string;
   readonly onError: (error: string) => void;
   readonly acquireCapture: () => (() => void) | undefined;
+  /** Resolves after the countdown; rejects with an AbortError when cancelled. */
+  readonly countdown: (seconds: number) => Promise<void>;
 }
 
 export function ScreenshotControls({
@@ -33,6 +35,7 @@ export function ScreenshotControls({
   error,
   onError: setError,
   acquireCapture,
+  countdown,
 }: ScreenshotControlsProps) {
   const id = useId();
   const [optionsOpen, setOptionsOpen] = useState(false);
@@ -101,14 +104,20 @@ export function ScreenshotControls({
       try {
         const blob = await getImage();
         if (blob) await attachScreenshot(blob);
-      } catch {
-        setError(failure);
+      } catch (error) {
+        // A cancelled countdown is the Reporter's choice, not a failure.
+        if (!(error instanceof DOMException && error.name === "AbortError"))
+          setError(failure);
       } finally {
         release();
       }
     },
     [locked, acquireCapture, attachScreenshot, setError],
   );
+
+  const pageFailure = screenSupported
+    ? labels.pageCaptureFailed
+    : labels.pageCaptureFailedWithoutScreen;
 
   const upload = useCallback(
     (file: Blob) => void capture(() => imageToPng(file), labels.imageFailed),
@@ -178,14 +187,7 @@ export function ScreenshotControls({
               className="attachment-main"
               type="button"
               disabled={locked || busy}
-              onClick={() =>
-                void capture(
-                  () => capturePage(host),
-                  screenSupported
-                    ? labels.pageCaptureFailed
-                    : labels.pageCaptureFailedWithoutScreen,
-                )
-              }
+              onClick={() => void capture(() => capturePage(host), pageFailure)}
             >
               <CameraIcon />
               {busy ? labels.capturingScreenshot : labels.screenshot}
@@ -220,16 +222,20 @@ export function ScreenshotControls({
       >
         <button
           type="button"
-          onClick={() =>
-            void capture(
-              () => capturePage(host),
-              screenSupported
-                ? labels.pageCaptureFailed
-                : labels.pageCaptureFailedWithoutScreen,
-            )
-          }
+          onClick={() => void capture(() => capturePage(host), pageFailure)}
         >
           {labels.capturePage}
+        </button>
+        <button
+          type="button"
+          onClick={() =>
+            void capture(async () => {
+              await countdown(5);
+              return capturePage(host);
+            }, pageFailure)
+          }
+        >
+          {labels.captureDelayed}
         </button>
         {screenSupported && (
           <button

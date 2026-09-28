@@ -112,6 +112,38 @@ test("keyboard focus stays inside the card and Esc restores the Launcher", async
   );
 });
 
+test("Capture in 5 seconds leaves the page usable, cancels with Esc, then captures", async ({
+  page,
+}) => {
+  await openReport(page);
+  const startCountdown = async () => {
+    await card(page)
+      .getByRole("button", { name: "Screenshot options" })
+      .click();
+    await card(page)
+      .getByRole("button", { name: "Capture in 5 seconds" })
+      .click();
+    await expect(
+      page.getByRole("status").filter({ hasText: /^Capturing in \d…$/ }),
+    ).toBeVisible();
+    await expect(card(page)).toBeHidden();
+  };
+  await startCountdown();
+  await page.keyboard.press("Escape");
+  await expect(card(page)).toBeVisible();
+  await expect(
+    card(page).getByRole("button", { name: "Screenshot", exact: true }),
+  ).toBeFocused();
+  await startCountdown();
+  const authorize = page.getByRole("combobox", {
+    name: "Authorize",
+    exact: true,
+  });
+  await authorize.focus();
+  await expect(authorize).toBeFocused();
+  await expect(editor(page)).toBeVisible({ timeout: 10_000 });
+});
+
 test("open Report Card has no serious or critical axe violations", async ({
   page,
 }) => {

@@ -43,6 +43,12 @@ export interface ShotlogLabels {
   readonly capturePage: string;
   /** Screen Capture option, only shown when supported. */
   readonly captureScreen: string;
+  /** Page Render after a countdown, so the Reporter can open a menu or hover state first. */
+  readonly captureDelayed: string;
+  /** Countdown announcement while the card is out of the way. */
+  readonly countdown: (seconds: number) => string;
+  /** Stops the countdown and brings the card back. */
+  readonly cancelCountdown: string;
   /** Image file picker. */
   readonly uploadImage: string;
   /** Screenshot thumbnail alternative text. */

@@ -13,6 +13,7 @@
   - Pending report IDs retained for safe retries and per-channel relay deduplication.
   - Environment, Host Context, and a bounded Diagnostic Trail with an Included Details preview.
   - Page Render, Screen Capture, and image paste/upload with one optional Screenshot.
+  - Capture in 5 seconds: a countdown that moves the card aside so menus and hover states can be captured.
   - Full-viewport Annotation Editor with shapes, arrows, text, crop, undo, and baked-in redaction.
   - Fetch-standard server handler and streaming Node adapter for framework integration.
   - Authorization hooks, rate limits, schema validation, and bounded multipart requests.

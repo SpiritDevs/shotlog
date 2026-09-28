@@ -9,7 +9,7 @@ shotlog adds a report button to a React app. A user describes a problem, capture
 
 The browser never holds provider keys or destinations. Everything sensitive stays on the server.
 
-Docs: https://shotlog-spiritdevs.vercel.app/docs/
+Docs: https://shotlog.dev/docs/
 Source: https://github.com/SpiritDevs/shotlog
 
 ## Install
@@ -328,7 +328,7 @@ Every error is a plain `Error` subclass with a `_tag`. Narrow on `_tag` or use `
 ## What users can do in the widget
 
 - Pick a type and write a description. The description is required, up to 10,000 characters.
-- Attach one screenshot. Options are capture the page, capture the exact screen (desktop browsers that support screen sharing), or paste or upload an image.
+- Attach one screenshot. Options are capture the page, capture the page after a 5-second countdown (so an open menu or hover state shows), capture the exact screen (desktop browsers that support screen sharing), or paste or upload an image.
 - Annotate in a full-screen editor. Tools and shortcuts: select V, arrow A, rectangle R, oval O, text T, freehand P, highlighter H, numbered step N, spotlight S, pixelate or solid redact X, crop C. It has undo, redo, colours and three sizes.
 - Review everything that will be sent under "Included details" before submitting.
 - Resize the card by dragging its free corner.

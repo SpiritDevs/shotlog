@@ -138,9 +138,10 @@ function App() {
                 editable until Done.
               </p>
               <p className="feature-detail">
-                Capture the page, use exact screen capture where supported, or
-                paste an image. Solid redaction covers sensitive pixels before
-                the final PNG is flattened.
+                Capture the page now or after a 5-second countdown, use exact
+                screen capture where supported, or paste an image. Solid
+                redaction covers sensitive pixels before the final PNG is
+                flattened.
               </p>
               <a
                 className="text-link"

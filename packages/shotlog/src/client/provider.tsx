@@ -143,6 +143,32 @@ export function ShotlogProvider({
       setCapturing(false);
     };
   }, [epoch]);
+  // Seconds left before a delayed capture; the card steps aside while it runs.
+  const [countdown, setCountdown] = useState<number | null>(null);
+  const cancelCountdown = useRef<(() => void) | null>(null);
+  const startCountdown = useCallback(
+    (seconds: number) =>
+      new Promise<void>((resolve, reject) => {
+        cancelCountdown.current?.();
+        let left = seconds;
+        const timer = setInterval(() => {
+          if (--left > 0) return setCountdown(left);
+          finish();
+          resolve();
+        }, 1000);
+        const finish = () => {
+          clearInterval(timer);
+          cancelCountdown.current = null;
+          setCountdown(null);
+        };
+        cancelCountdown.current = () => {
+          finish();
+          reject(new DOMException("Countdown cancelled", "AbortError"));
+        };
+        setCountdown(left);
+      }),
+    [],
+  );
   const [loaded, setLoaded] = useState(false);
   const [status, setStatus] = useState<Status>({ tag: "idle" });
   // A chosen card size lives for the page, never in storage.
@@ -183,6 +209,7 @@ export function ShotlogProvider({
   const sending = useRef(false);
   const resetDraft = useCallback(() => {
     draftEpoch.current++;
+    cancelCountdown.current?.();
     identity.current = null;
     sending.current = false;
     captureOwner.current = null;
@@ -243,6 +270,11 @@ export function ShotlogProvider({
       setRoot(null);
     };
   }, [enabled]);
+
+  useEffect(() => {
+    if (phase !== "open") cancelCountdown.current?.();
+  }, [phase]);
+  useEffect(() => () => cancelCountdown.current?.(), []);
 
   useEffect(() => {
     if (loaded) return;
@@ -436,6 +468,8 @@ export function ShotlogProvider({
                 closing={phase === "closing"}
                 onClosed={closed}
                 capturing={capturing}
+                countdown={countdown}
+                onCancelCountdown={() => cancelCountdown.current?.()}
                 screenshotControls={
                   <ScreenshotControls
                     host={root.host as HTMLElement}
@@ -448,6 +482,7 @@ export function ShotlogProvider({
                       if (draftEpoch.current === epoch) setCaptureError(error);
                     }}
                     acquireCapture={acquireCapture}
+                    countdown={startCountdown}
                     onChange={(next) => {
                       if (draftEpoch.current !== epoch) return;
                       if (identity.current?.attempted) identity.current = null;

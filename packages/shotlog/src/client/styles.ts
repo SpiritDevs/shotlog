@@ -121,6 +121,7 @@ button:disabled { opacity: var(--shotlog-disabled-opacity, 0.55); }
   inset: 0;
   pointer-events: auto;
   background: var(--_backdrop);
+  transition: background-color 200ms ease;
   animation: fade-in 260ms var(--_ease-out) both;
 }
 .overlay[data-state="closing"] { pointer-events: none; animation: fade-out 200ms var(--_ease-in) both; }
@@ -155,13 +156,13 @@ button:disabled { opacity: var(--shotlog-disabled-opacity, 0.55); }
 .card-body > form > * { flex: none; }
 .card-body > form > .field { flex: 1 0 auto; }
 /* The Launcher and the card share an anchor; the morph scales from that point. */
-[data-position="bottom-right"] :is(.launcher, .card) { inset: auto var(--_offset) var(--_offset) auto; transform-origin: 100% 100%; }
-[data-position="bottom-left"] :is(.launcher, .card) { inset: auto auto var(--_offset) var(--_offset); transform-origin: 0 100%; }
-[data-position="top-right"] :is(.launcher, .card) { inset: var(--_offset) var(--_offset) auto auto; transform-origin: 100% 0; }
-[data-position="top-left"] :is(.launcher, .card) { inset: var(--_offset) auto auto var(--_offset); transform-origin: 0 0; }
-[data-position="top-center"] :is(.launcher, .card) { inset: var(--_offset) 0 auto 0; margin-inline: auto; transform-origin: 50% 0; }
-[data-position="bottom-center"] :is(.launcher, .card) { inset: auto 0 var(--_offset) 0; margin-inline: auto; transform-origin: 50% 100%; }
-[data-position="center"] :is(.launcher, .card) { inset: 0; margin: auto; transform-origin: 50% 50%; }
+[data-position="bottom-right"] :is(.launcher, .card, .countdown) { inset: auto var(--_offset) var(--_offset) auto; transform-origin: 100% 100%; }
+[data-position="bottom-left"] :is(.launcher, .card, .countdown) { inset: auto auto var(--_offset) var(--_offset); transform-origin: 0 100%; }
+[data-position="top-right"] :is(.launcher, .card, .countdown) { inset: var(--_offset) var(--_offset) auto auto; transform-origin: 100% 0; }
+[data-position="top-left"] :is(.launcher, .card, .countdown) { inset: var(--_offset) auto auto var(--_offset); transform-origin: 0 0; }
+[data-position="top-center"] :is(.launcher, .card, .countdown) { inset: var(--_offset) 0 auto 0; margin-inline: auto; transform-origin: 50% 0; }
+[data-position="bottom-center"] :is(.launcher, .card, .countdown) { inset: auto 0 var(--_offset) 0; margin-inline: auto; transform-origin: 50% 100%; }
+[data-position="center"] :is(.launcher, .card, .countdown) { inset: 0; margin: auto; transform-origin: 50% 50%; }
 .overlay[data-state="closing"] .card { animation: card-close 200ms var(--_ease-in) both; }
 /* Success: the card settles to its compact content, shrinking toward its anchor. */
 .card[data-sent] {
@@ -173,6 +174,60 @@ button:disabled { opacity: var(--shotlog-disabled-opacity, 0.55); }
 /* Without a Launcher to morph from, the card scales and fades from its anchor. */
 [data-mode="programmatic"] .card { animation-name: card-open-anchor; }
 [data-mode="programmatic"] .overlay[data-state="closing"] .card { animation-name: card-close-anchor; }
+
+/* Countdown: the card steps aside so the Reporter can open a menu before the capture. */
+.overlay[data-waiting] { background: transparent; pointer-events: none; }
+.overlay[data-waiting] .card { visibility: hidden; }
+.countdown {
+  position: fixed;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  width: max-content;
+  height: max-content;
+  padding: 6px 6px 6px 8px;
+  border-radius: 999px;
+  background: var(--_text);
+  color: var(--_surface);
+  box-shadow: var(--_shadow);
+  font-weight: 500;
+  white-space: nowrap;
+  pointer-events: auto;
+  animation: menu-in 180ms var(--_ease-out) both;
+}
+/* A centred card would put the pill over the very thing being shown. */
+[data-position="center"] .countdown { inset: auto 0 var(--_offset) 0; margin: 0 auto; }
+.countdown-dial {
+  position: relative;
+  display: grid;
+  place-items: center;
+  width: 28px;
+  height: 28px;
+  font-size: 13px;
+  font-weight: 600;
+  font-variant-numeric: tabular-nums;
+}
+.countdown-dial svg {
+  position: absolute;
+  inset: 0;
+  transform: rotate(-90deg);
+  fill: none;
+  stroke: currentColor;
+  stroke-width: 2.5;
+  stroke-linecap: round;
+  stroke-dasharray: 1;
+  animation: deplete var(--_countdown, 5s) linear both;
+}
+.countdown-dial > span { animation: tick 260ms var(--_ease-out) both; }
+.countdown button {
+  min-height: 28px;
+  padding: 0 12px;
+  border: 0;
+  border-radius: 999px;
+  background: color-mix(in srgb, var(--_surface) 16%, transparent);
+}
+.countdown button:hover { background: color-mix(in srgb, var(--_surface) 26%, transparent); }
+.countdown button:focus-visible { outline-color: var(--_surface); }
 
 /* Resize handle, diagonally opposite the anchor */
 .resize {
@@ -458,6 +513,8 @@ textarea:disabled { opacity: var(--shotlog-disabled-opacity, 0.55); }
 @keyframes fade-out { to { opacity: 0; } }
 @keyframes rise { from { opacity: 0; transform: translateY(6px); } }
 @keyframes menu-in { from { opacity: 0; transform: scale(0.96); } }
+@keyframes deplete { to { stroke-dashoffset: 1; } }
+@keyframes tick { from { opacity: 0; transform: scale(1.35); } }
 @keyframes draw { from { stroke-dashoffset: 1; } to { stroke-dashoffset: 0; } }
 @keyframes card-open {
   from { opacity: 0; transform: scale(var(--_sx, 0.14), var(--_sy, 0.1)); }

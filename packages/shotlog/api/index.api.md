@@ -179,12 +179,15 @@ export type ShotlogError = Unauthorized | Forbidden | RateLimited | PayloadTooLa
 // @public
 export interface ShotlogLabels {
     readonly bug: string;
+    readonly cancelCountdown: string;
+    readonly captureDelayed: string;
     readonly capturePage: string;
     readonly captureScreen: string;
     readonly capturingScreenshot: string;
     readonly close: string;
     readonly consoleCount: (count: number) => string;
     readonly consoleEntries: string;
+    readonly countdown: (seconds: number) => string;
     readonly deliveryFailed: string;
     readonly description: string;
     readonly descriptionRequired: string;

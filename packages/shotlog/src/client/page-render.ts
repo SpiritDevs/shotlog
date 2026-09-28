@@ -44,7 +44,15 @@ export async function renderPage(
       transform: string;
     }
   >();
+  // Clones copy attributes, not live state, so changed toggles carry theirs across.
+  const toggleMarker = "data-shotlog-capture-checked";
+  const toggles = new Map<HTMLInputElement, string | null>();
   const restore = () => {
+    for (const [node, previous] of toggles) {
+      if (previous === null) node.removeAttribute(toggleMarker);
+      else node.setAttribute(toggleMarker, previous);
+    }
+    toggles.clear();
     for (const { node, previous } of media.values()) {
       if (previous === null) node.removeAttribute(mediaMarker);
       else node.setAttribute(mediaMarker, previous);
@@ -59,6 +67,15 @@ export async function renderPage(
   signal?.throwIfAborted();
   signal?.addEventListener("abort", restore, { once: true });
   try {
+    for (const input of Array.from(
+      document.querySelectorAll<HTMLInputElement>(
+        "input[type=checkbox], input[type=radio]",
+      ),
+    )) {
+      if (input.checked === input.defaultChecked) continue;
+      toggles.set(input, input.getAttribute(toggleMarker));
+      input.setAttribute(toggleMarker, String(input.checked));
+    }
     // Only mark live parents. Insert blank media boxes after their children clone.
     for (const parent of new Set(
       Array.from(
@@ -151,6 +168,19 @@ export async function renderPage(
       onCloneEachNode: (node) => {
         signal?.throwIfAborted();
         if (!(node instanceof HTMLElement)) return;
+        const checked = node.getAttribute(toggleMarker);
+        if (checked !== null) {
+          node.removeAttribute(toggleMarker);
+          node.toggleAttribute("checked", checked === "true");
+        }
+        // modern-screenshot records live values as a value attribute, which selects
+        // and textareas ignore when rendering.
+        const value = node.getAttribute("value");
+        if (value !== null && node instanceof HTMLSelectElement)
+          for (const option of Array.from(node.options))
+            option.toggleAttribute("selected", option.value === value);
+        if (value !== null && node instanceof HTMLTextAreaElement)
+          node.textContent = value;
         const mediaKey = node.getAttribute(mediaMarker);
         const blank = mediaKey === null ? undefined : media.get(mediaKey);
         if (blank) {

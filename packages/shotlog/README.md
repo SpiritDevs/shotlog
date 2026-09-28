@@ -515,6 +515,7 @@ One optional Screenshot per Support Log. Capture or upload opens the full-viewpo
 | Capture Method | What to expect |
 | --- | --- |
 | **Page Render** | Default, permission-free DOM reconstruction of the current viewport. Video and all iframes are omitted; cross-origin images without CORS, canvas/WebGL, and some CSS effects may differ or fail. |
+| **Capture in 5 seconds** | Page Render after a countdown. The card steps aside so the Reporter can open a menu or hover state first; Esc or Cancel stops it. |
 | **Screen Capture** | “Capture exact screen” uses `getDisplayMedia` and prompts for a surface. Offered only when the API exists; generally unavailable on mobile, including iOS Safari. Choose the intended tab/window/screen. |
 | **Paste / Upload** | Supply an image from the clipboard or file picker; shotlog converts it to PNG. |
 
@@ -643,7 +644,7 @@ AI coding agents can install a short guide to shotlog as a skill:
 
 ```sh
 mkdir -p ~/.claude/skills/shotlog
-curl -fsSL https://shotlog-spiritdevs.vercel.app/skills/shotlog/SKILL.md -o ~/.claude/skills/shotlog/SKILL.md
+curl -fsSL https://shotlog.dev/skills/shotlog/SKILL.md -o ~/.claude/skills/shotlog/SKILL.md
 ```
 
 The source is [`skills/shotlog/SKILL.md`](https://github.com/SpiritDevs/shotlog/blob/main/skills/shotlog/SKILL.md).

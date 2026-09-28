@@ -7,6 +7,7 @@ import {
   useId,
   useLayoutEffect,
   useRef,
+  useState,
 } from "react";
 import {
   type CardSize,
@@ -45,6 +46,9 @@ interface ReportCardProps {
   readonly includedDetails: ReactNode;
   readonly screenshotControls: ReactNode;
   readonly capturing: boolean;
+  /** Seconds left before a delayed capture; null when none is running. */
+  readonly countdown: number | null;
+  readonly onCancelCountdown: () => void;
   readonly onClose: () => void;
   readonly onClosed: () => void;
   readonly onChange: (draft: Draft) => void;
@@ -73,6 +77,8 @@ export function ReportCard({
   includedDetails,
   screenshotControls,
   capturing,
+  countdown,
+  onCancelCountdown,
   onClose,
   onClosed,
   onChange,
@@ -88,6 +94,12 @@ export function ReportCard({
   const locked = state === "sending" || state === "sent";
   const sent = state === "sent";
   const corner = resizeCorner(position);
+  // The page is the Reporter's during a countdown: no focus trap, and Escape cancels.
+  const waiting = countdown !== null;
+  const suspended = useRef(waiting);
+  suspended.current = waiting;
+  const onCancel = useRef(onCancelCountdown);
+  onCancel.current = onCancelCountdown;
 
   // Runs during commit, before first paint, so the morph's first frame matches the Launcher.
   const attach = useCallback(
@@ -122,7 +134,12 @@ export function ReportCard({
       description.current.focus();
     else focusFirst();
     const onKeyDown = (event: KeyboardEvent) => {
-      if (event.key === "Escape") {
+      if (suspended.current) {
+        if (event.key !== "Escape") return;
+        event.preventDefault();
+        event.stopPropagation();
+        onCancel.current();
+      } else if (event.key === "Escape") {
         event.preventDefault();
         event.stopPropagation();
         onClose();
@@ -142,6 +159,7 @@ export function ReportCard({
       }
     };
     const onFocus = (event: FocusEvent) => {
+      if (suspended.current) return;
       if (!event.composedPath().includes(dialog)) focusFirst();
     };
     document.addEventListener("keydown", onKeyDown, true);
@@ -292,8 +310,16 @@ export function ReportCard({
       ref={overlay}
       className="overlay"
       data-state={closing ? "closing" : "open"}
+      data-waiting={waiting || undefined}
       aria-hidden={closing || undefined}
     >
+      {waiting && (
+        <Countdown
+          seconds={countdown}
+          labels={labels}
+          onCancel={onCancelCountdown}
+        />
+      )}
       <div
         ref={attach}
         className="card"
@@ -507,6 +533,40 @@ export function ReportCard({
           </div>
         </div>
       </div>
+    </div>
+  );
+}
+
+function Countdown({
+  seconds,
+  labels,
+  onCancel,
+}: {
+  readonly seconds: number;
+  readonly labels: ShotlogLabels;
+  readonly onCancel: () => void;
+}) {
+  const cancel = useRef<HTMLButtonElement>(null);
+  // The dial drains once over the whole countdown, not once per tick.
+  const [total] = useState(seconds);
+  useEffect(() => cancel.current?.focus(), []);
+  return (
+    <div
+      className="countdown"
+      style={{ "--_countdown": `${total}s` } as CSSProperties}
+    >
+      <span className="countdown-dial" aria-hidden="true">
+        <svg viewBox="0 0 36 36" aria-hidden="true" focusable="false">
+          <circle cx="18" cy="18" r="16" pathLength="1" />
+        </svg>
+        <span key={seconds}>{seconds}</span>
+      </span>
+      <span role="status" aria-live="polite" aria-atomic="true">
+        {labels.countdown(seconds)}
+      </span>
+      <button ref={cancel} type="button" onClick={onCancel}>
+        {labels.cancelCountdown}
+      </button>
     </div>
   );
 }
