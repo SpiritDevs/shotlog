@@ -14,6 +14,7 @@ import {
   commit,
   duplicate,
   emptyScene,
+  fontSize,
   historyFor,
   nudge,
   redo,
@@ -22,6 +23,7 @@ import {
   smoothPoints,
   textColorFor,
   textLayout,
+  textScaleFor,
   toolAfterDrawing,
   translate,
   undo,
@@ -326,4 +328,17 @@ describe("hit testing", () => {
       ),
     ).toBe(true);
   });
+});
+
+it("text sizes grow Small < Medium < Large and scale with the screenshot's resolution", () => {
+  const style = { color: "#ef4444", rounded: false, solid: false };
+  const [small, medium, large] = [1.5, 3, 6].map((thickness) =>
+    fontSize({ ...style, thickness, textScale: textScaleFor(2560) }),
+  );
+  expect(small).toBeLessThan(medium as number);
+  expect(medium).toBeLessThan(large as number);
+  expect(
+    fontSize({ ...style, thickness: 3, textScale: textScaleFor(1280) }),
+  ).toBe((medium as number) / 2);
+  expect(textScaleFor(400)).toBe(1);
 });

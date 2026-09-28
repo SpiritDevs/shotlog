@@ -23,6 +23,8 @@ export interface Style {
   readonly thickness: number;
   readonly rounded: boolean;
   readonly solid: boolean;
+  /** Text size multiplier for the screenshot's resolution (see textScaleFor). */
+  readonly textScale?: number;
 }
 interface Base {
   readonly id: string;
@@ -253,7 +255,13 @@ export function duplicate(
 ): Scene {
   return replace(scene, { ...translate(annotation, offset, offset), id });
 }
-export const fontSize = (style: Style) => 12 + style.thickness * 4;
+/** Small / Medium / Large text, keyed by the thickness setting, in px at a 1280px-wide screenshot. */
+const textSizes: Readonly<Record<number, number>> = { 1.5: 12, 3: 20, 6: 30 };
+export const fontSize = (style: Style) =>
+  (textSizes[style.thickness] ?? 20) * (style.textScale ?? 1);
+/** Retina captures are wider in pixels; scale text so it reads the same size on screen. */
+export const textScaleFor = (imageWidth: number) =>
+  Math.max(1, imageWidth / 1280);
 export type ArrowMark = Extract<Annotation, { kind: "arrow" }>;
 /** Widths of the tapered wedge, all scaled by the thickness setting. */
 export function arrowWeights(style: Style) {

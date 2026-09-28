@@ -45,4 +45,6 @@ export const editorStyles = `
 @keyframes sl-confirm-fade { from { opacity: 0; } }
 @keyframes sl-confirm-in { from { opacity: 0; transform: translateY(8px) scale(0.96); } }
 @media (prefers-reduced-motion: reduce) { .sl-confirm-backdrop, .sl-confirm { animation: none; } }
+.sl-text-size { font-weight: 700; line-height: 1; }
+.sl-history-icon { width: 18px; height: 18px; fill: none; stroke: currentColor; stroke-width: 2; stroke-linecap: round; stroke-linejoin: round; }
 `;

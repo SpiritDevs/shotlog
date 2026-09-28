@@ -22,6 +22,7 @@ import {
   type Style,
   type Tool,
   textColorFor,
+  textScaleFor,
   toolAfterDrawing,
   translate,
   undo,
@@ -302,7 +303,13 @@ export function Editor({ image, initial, labels, origin, onFinish }: Props) {
     };
   };
   const makeAnnotation = (p: Point): Annotation | null => {
-    const base = { id: newId(), style: styles[tool] ?? defaultStyle };
+    const base = {
+      id: newId(),
+      style: {
+        ...(styles[tool] ?? defaultStyle),
+        textScale: textScaleFor(image.naturalWidth),
+      },
+    };
     switch (tool) {
       case "arrow":
         return { ...base, kind: tool, start: p, end: p, control: p };
@@ -966,11 +973,16 @@ export function Editor({ image, initial, labels, origin, onFinish }: Props) {
             ))}
             <span className="sl-divider" aria-hidden="true" />
             {[1.5, 3, 6].map((thickness, i) => {
-              const label = [
-                labels.editorThin,
-                labels.editorMedium,
-                labels.editorThick,
-              ][i];
+              const text = (active?.kind ?? tool) === "text";
+              const label = (
+                text
+                  ? [
+                      labels.editorTextSmall,
+                      labels.editorTextMedium,
+                      labels.editorTextLarge,
+                    ]
+                  : [labels.editorThin, labels.editorMedium, labels.editorThick]
+              )[i];
               return (
                 <button
                   type="button"
@@ -981,14 +993,24 @@ export function Editor({ image, initial, labels, origin, onFinish }: Props) {
                   aria-pressed={style.thickness === thickness}
                   onClick={() => changeStyle({ thickness })}
                 >
-                  <svg width="18" height="18" aria-hidden="true">
-                    <path
-                      d="M2 9h14"
-                      stroke="currentColor"
-                      strokeWidth={thickness}
-                      strokeLinecap="round"
-                    />
-                  </svg>
+                  {text ? (
+                    <span
+                      className="sl-text-size"
+                      style={{ fontSize: [11, 15, 20][i] }}
+                      aria-hidden="true"
+                    >
+                      A
+                    </span>
+                  ) : (
+                    <svg width="18" height="18" aria-hidden="true">
+                      <path
+                        d="M2 9h14"
+                        stroke="currentColor"
+                        strokeWidth={thickness}
+                        strokeLinecap="round"
+                      />
+                    </svg>
+                  )}
                 </button>
               );
             })}
@@ -1023,7 +1045,14 @@ export function Editor({ image, initial, labels, origin, onFinish }: Props) {
                 setCropDraft(null);
               }}
             >
-              ↶
+              <svg
+                className="sl-history-icon"
+                viewBox="0 0 24 24"
+                aria-hidden="true"
+              >
+                <path d="M9 14 4 9l5-5" />
+                <path d="M4 9h10.5a5.5 5.5 0 0 1 0 11H11" />
+              </svg>
             </button>
             <button
               type="button"
@@ -1035,7 +1064,14 @@ export function Editor({ image, initial, labels, origin, onFinish }: Props) {
                 setCropDraft(null);
               }}
             >
-              ↷
+              <svg
+                className="sl-history-icon"
+                viewBox="0 0 24 24"
+                aria-hidden="true"
+              >
+                <path d="m15 14 5-5-5-5" />
+                <path d="M20 9H9.5a5.5 5.5 0 0 0 0 11H13" />
+              </svg>
             </button>
           </fieldset>
         </footer>

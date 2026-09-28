@@ -227,6 +227,11 @@ export interface ShotlogLabels {
     readonly editorStyle: string;
     readonly editorText: string;
     readonly editorTextInput: string;
+    // (undocumented)
+    readonly editorTextLarge: string;
+    // (undocumented)
+    readonly editorTextMedium: string;
+    readonly editorTextSmall: string;
     readonly editorThick: string;
     readonly editorThin: string;
     readonly editorTitle: string;

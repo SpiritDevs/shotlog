@@ -77,6 +77,10 @@ export interface ShotlogLabels {
   readonly editorKeepEditing: string;
   /** Confirms discarding the annotation changes. */
   readonly editorDiscard: string;
+  /** Text size options, shown instead of line thickness for the Text tool. */
+  readonly editorTextSmall: string;
+  readonly editorTextMedium: string;
+  readonly editorTextLarge: string;
   /** Tool toolbar accessible name. */
   readonly editorTools: string;
   /** Style controls accessible name. */

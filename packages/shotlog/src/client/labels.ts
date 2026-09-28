@@ -58,6 +58,9 @@ export const defaultLabels: ShotlogLabels = {
   editorDiscardChanges: "Discard your annotation changes?",
   editorKeepEditing: "Keep editing",
   editorDiscard: "Discard",
+  editorTextSmall: "Small text",
+  editorTextMedium: "Medium text",
+  editorTextLarge: "Large text",
   editorTools: "Annotation tools",
   editorStyle: "Annotation style",
   editorCanvas:
