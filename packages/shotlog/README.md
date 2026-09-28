@@ -6,7 +6,7 @@ Your Host App controls access and delivers reports through its own backend.
 - **Report Card:** Type, Description, optional Screenshot, and an Included Details preview.
 - **Shottr-style Annotation Editor:** full-viewport editing with arrows, shapes, text, redaction, and keyboard shortcuts.
 - **Diagnostic Trail:** recent console warnings/errors and failed network requests.
-- **Email / Webhook delivery:** Resend, Amazon SES, SMTP, or signed JSON webhooks; use both channels together.
+- **Email, Slack, and Webhook delivery:** Resend, Amazon SES, SMTP, a Slack channel (fixed, or chosen by the Reporter), or signed JSON webhooks; combine any of them.
 - **Security:** server-owned destinations, an Authorize Hook, rate limits, bounded requests, and schema validation.
 
 ## Install
@@ -307,7 +307,31 @@ export function webhookReceiver(
 
 `acceptOnce` must atomically dedupe and durably store or enqueue the report; an existing ID should succeed. Comparing the header to the signed body's `id` prevents deduplication using an unsigned replacement ID. Signature verification allows 300 seconds of clock skew in either direction by default (`toleranceSeconds` changes it).
 
-### Both at once
+### Slack
+
+Create a Slack app, add a bot token with the `chat:write` and `files:write` scopes, install it, and invite it to the channels it should post to. Then set `delivery.slack`:
+
+```ts
+import type { DeliveryConfig } from "shotlog/server";
+
+// Every report goes to one channel (an ID, or a name like "#support"):
+export const fixed: DeliveryConfig = {
+  slack: { token: process.env.SLACK_BOT_TOKEN!, channel: "C0123456789" },
+};
+
+// No channel: the Report Card shows a "Slack channel" dropdown.
+export const reporterChooses: DeliveryConfig = {
+  slack: { token: process.env.SLACK_BOT_TOKEN!, channels: ["#support", "#bugs"] },
+};
+```
+
+Each report is one message: the Type and Reference, the Description, the Reporter, page, browser and viewport, Metadata, and the last few Diagnostic Trail entries. The Screenshot is uploaded first and shared as a reply in the message's thread. Reporter text is escaped, so `<!channel>` and similar mentions never ping anyone.
+
+Without `channel`, the Report Card asks the Relay Endpoint (`GET`, behind your Authorize Hook) which channels to offer, and shows them in a dropdown. The list is `channels` when set, otherwise every channel the app is a member of; listing needs the `channels:read` and `groups:read` scopes. The Relay Endpoint rejects any channel it did not offer, so a Reporter can't post anywhere else. The list is cached for a minute. Any Reporter who passes `authorize` can see the offered channel names, so prefer setting `channels` to exactly the ones you want offered.
+
+Each Slack API call times out after 5 seconds (`timeoutMs`) and retries twice on network errors, timeouts, HTTP 429, and 5xx. Slack errors such as `not_in_channel` or `missing_scope` fail without retry and are logged on the server. If the message posts but sharing the Screenshot fails, the report still counts as delivered, so a retry can't post it twice; the failure is logged.
+
+### Several at once
 
 ```ts
 import { resend, type DeliveryConfig } from "shotlog/server";
@@ -324,7 +348,7 @@ export const delivery: DeliveryConfig = {
 };
 ```
 
-Pass this as `createSupportHandler`'s `delivery`. Both channels are attempted; a retry skips channels already recorded as delivered.
+Pass this as `createSupportHandler`'s `delivery`. Add `slack` alongside them too. Every configured channel is attempted; a retry skips channels already recorded as delivered.
 
 **Delivery is at least once. Dedupe on `x-shotlog-id` / `log.id`.** Delivered-ID records last 24 hours. Lost acknowledgements, racing instances, expiry, eviction, and restarts can produce duplicates. A shared `ShotlogStore` reduces repeats across instances but cannot guarantee exactly-once delivery.
 
@@ -592,7 +616,7 @@ Public errors are ordinary `Error` subclasses, exported from `shotlog`, `shotlog
 | `RateLimited` | `retryAfterSeconds` |
 | `PayloadTooLarge` | `limitBytes` |
 | `ValidationFailed` | `issues` |
-| `DeliveryFailed` | `channel`: `"email"`, `"webhook"`, or `"custom"` |
+| `DeliveryFailed` | `channel`: `"email"`, `"webhook"`, `"slack"`, or `"custom"` |
 | `UploadFailed` | Storage upload failed; the Server Helper normally falls back to base64 |
 | `Offline` | Browser offline or Relay network request failed |
 | `ProviderNotInstalled` | `packageName`, `installCommand` |

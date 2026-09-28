@@ -335,6 +335,26 @@ textarea {
 textarea:hover { border-color: var(--_line-strong); }
 textarea:focus-visible { background: var(--_surface); border-color: transparent; outline-offset: 0; }
 textarea:disabled { opacity: var(--shotlog-disabled-opacity, 0.55); }
+.destination { display: flex; align-items: center; justify-content: space-between; gap: 12px; margin-bottom: 12px; }
+.destination label { font-weight: 500; }
+.destination select {
+  min-width: 0;
+  max-width: 60%;
+  height: 34px;
+  padding: 0 32px 0 12px;
+  border: 1px solid transparent;
+  border-radius: var(--_control-radius);
+  background: var(--_field) url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16'%3E%3Cpath d='m4.5 6.5 3.5 3.5 3.5-3.5' fill='none' stroke='%2362646c' stroke-width='1.75' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E") no-repeat right 10px center / 16px;
+  font: inherit;
+  color: inherit;
+  text-overflow: ellipsis;
+  appearance: none;
+  cursor: pointer;
+  transition: border-color 120ms ease;
+}
+.destination select:hover:not(:disabled) { border-color: var(--_line-strong); }
+.destination select:focus-visible { outline: var(--shotlog-focus-width, 2px) solid var(--_focus); outline-offset: 0; }
+.destination select:disabled { cursor: default; opacity: var(--shotlog-disabled-opacity, 0.55); }
 
 /* Screenshot */
 .screenshot-controls { position: relative; }

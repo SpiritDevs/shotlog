@@ -317,6 +317,54 @@ async function smokeSes(): Promise<string> {
   return "provider accepted (inbox receipt not checked)";
 }
 
+async function smokeSlack(): Promise<string> {
+  const slackApi = "https://slack.com/api/";
+  const answers = new Map<string, Record<string, unknown>>();
+  const originalFetch = globalThis.fetch;
+  // Observe Slack's answers without mocking them; the relay itself swallows a failed share.
+  globalThis.fetch = async (input, init) => {
+    const response = await originalFetch(input, init);
+    const url = String(input);
+    if (url.startsWith(slackApi))
+      answers.set(url.slice(slackApi.length), await response.clone().json());
+    return response;
+  };
+  try {
+    await send(submission("Slack"), {
+      slack: {
+        token: env("SMOKE_SLACK_TOKEN"),
+        channel: env("SMOKE_SLACK_CHANNEL"),
+      },
+    });
+  } finally {
+    globalThis.fetch = originalFetch;
+  }
+  const posted = answers.get("chat.postMessage");
+  check(posted?.ok === true, "Slack did not accept the message");
+  check(
+    answers.get("files.completeUploadExternal")?.ok === true,
+    "Slack did not share the Screenshot in the thread",
+  );
+  const fileId = record(
+    answers.get("files.getUploadURLExternal") ?? {},
+  ).file_id;
+  const clean = async (method: string, params: Record<string, string>) => {
+    const response = await fetch(`${slackApi}${method}`, {
+      method: "POST",
+      headers: { authorization: `Bearer ${env("SMOKE_SLACK_TOKEN")}` },
+      body: new URLSearchParams(params),
+      signal: AbortSignal.timeout(10_000),
+    });
+    check(record(await response.json()).ok === true, `Slack ${method} failed`);
+  };
+  await clean("files.delete", { file: String(fileId) });
+  await clean("chat.delete", {
+    channel: String(posted.channel),
+    ts: String(posted.ts),
+  });
+  return "posted; Screenshot shared in thread; deleted";
+}
+
 interface CleanupApi {
   deleteFiles(
     keys: string[],
@@ -449,6 +497,7 @@ await run(
   ],
   smokeSes,
 );
+await run("Slack", ["SMOKE_SLACK_TOKEN", "SMOKE_SLACK_CHANNEL"], smokeSlack);
 await run("UploadFile public", ["UPLOADFILE_TOKEN", ...webhookEnv], () =>
   smokeUpload("public-read"),
 );

@@ -2,6 +2,7 @@ import { Offline, ValidationFailed } from "../errors.js";
 import {
   Field,
   fromWire,
+  type SlackChannelOption,
   type SubmitErrorBody,
   type SubmitSuccessBody,
 } from "../internal/wire.js";
@@ -18,6 +19,7 @@ export async function submitReport(
   endpoint: string,
   log: SupportLogSubmission,
   screenshot?: Blob,
+  slackChannel?: string,
 ): Promise<ShotlogSubmitResult> {
   if (typeof navigator !== "undefined" && navigator.onLine === false)
     throw new Offline();
@@ -35,6 +37,7 @@ export async function submitReport(
     );
   }
   if (screenshot) form.append(Field.screenshot, screenshot, "screenshot.png");
+  if (slackChannel !== undefined) form.append(Field.slackChannel, slackChannel);
   const controller = new AbortController();
   const { signal } = controller;
   const timer = setTimeout(() => controller.abort(), deadlineMs);
@@ -72,6 +75,41 @@ export async function submitReport(
   } finally {
     clearTimeout(timer);
   }
+}
+
+/**
+ * Asks the Relay Endpoint which Slack channels to offer. Null means none to choose, including
+ * from Relay Endpoints that predate the GET route; a throw means ask again next time.
+ */
+export async function loadSlackChannels(
+  endpoint: string,
+): Promise<readonly SlackChannelOption[] | null> {
+  const response = await fetch(endpoint, {
+    headers: { accept: "application/json" },
+    signal: AbortSignal.timeout(15_000),
+  });
+  if (response.status === 405) return null;
+  if (!response.ok) throw new Error(`Relay options failed: ${response.status}`);
+  const body: unknown = await response.json();
+  const channels =
+    typeof body === "object" && body !== null && "slackChannels" in body
+      ? body.slackChannels
+      : undefined;
+  if (channels === undefined) return null;
+  if (
+    !Array.isArray(channels) ||
+    !channels.every(
+      (channel: unknown) =>
+        typeof channel === "object" &&
+        channel !== null &&
+        "id" in channel &&
+        typeof channel.id === "string" &&
+        "name" in channel &&
+        typeof channel.name === "string",
+    )
+  )
+    throw new Error("Relay options are invalid");
+  return channels as readonly SlackChannelOption[];
 }
 
 function isSuccessBody(body: unknown): body is SubmitSuccessBody {
@@ -137,6 +175,7 @@ function isErrorBody(body: unknown): body is SubmitErrorBody {
         "channel" in error &&
         (error.channel === "email" ||
           error.channel === "webhook" ||
+          error.channel === "slack" ||
           error.channel === "custom")
       );
     default:

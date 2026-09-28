@@ -18,7 +18,13 @@ import { smtp } from "shotlog/smtp";
 import { uploadfile } from "shotlog/uploadfile";
 import { SMTPServer } from "smtp-server";
 import { createServer as createViteServer } from "vite";
-import { type InboxEntry, isSettings, type Settings } from "./shared.js";
+import {
+  type InboxEntry,
+  isSettings,
+  type Settings,
+  type SlackBlock,
+  type SlackEntry,
+} from "./shared.js";
 
 const port = Number(process.env.PLAYGROUND_PORT ?? 5199);
 const smtpPort = Number(process.env.SMTP_PORT ?? 2525);
@@ -30,7 +36,16 @@ const origin = `http://${host}:${port}`;
 const webhookSecret = "shotlog-playground-dev-secret";
 const inbox: InboxEntry[] = [];
 const subscribers = new Set<ServerResponse>();
-let settings: Settings = { authorize: "allow", rateLimit: true };
+let settings: Settings = { authorize: "allow", rateLimit: true, slack: "off" };
+// A local stand-in for the Slack Web API. Set SLACK_BOT_TOKEN (and SLACK_CHANNEL for the
+// fixed mode) to post to a real workspace instead.
+const slackToken = process.env.SLACK_BOT_TOKEN ?? "xoxb-playground";
+const slackChannels = [
+  { id: "C0SUPPORT", name: "support" },
+  { id: "C0BUGS", name: "bugs" },
+  { id: "C0DESIGN", name: "design-feedback" },
+];
+const slackUploads = new Map<string, Buffer>();
 
 function createRelay() {
   return toNodeHandler(
@@ -49,6 +64,19 @@ function createRelay() {
             ? { screenshotMode: "upload", storage: uploadfile() }
             : {}),
         },
+        ...(settings.slack === "off" || !settings.slack
+          ? {}
+          : {
+              slack: {
+                token: slackToken,
+                ...(process.env.SLACK_BOT_TOKEN
+                  ? {}
+                  : { apiUrl: `${origin}/_slack/api` }),
+                ...(settings.slack === "fixed"
+                  ? { channel: process.env.SLACK_CHANNEL ?? "C0SUPPORT" }
+                  : {}),
+              },
+            }),
       },
       authorize: () => {
         if (settings.authorize === "unauthorized") throw new Unauthorized();
@@ -153,10 +181,12 @@ function subscribe(res: ServerResponse) {
 async function route(req: IncomingMessage, res: ServerResponse) {
   const path = new URL(req.url ?? "/", origin).pathname;
   if (path === "/api/support") {
-    if (req.method !== "POST") return methodNotAllowed(res, "POST");
+    if (req.method !== "POST" && req.method !== "GET")
+      return methodNotAllowed(res, "GET, POST");
     relay(req, res);
     return;
   }
+  if (path.startsWith("/_slack/")) return fakeSlack(path, req, res);
   if (path === "/_inbox/webhook") {
     if (req.method !== "POST") return methodNotAllowed(res, "POST");
     const payload = await text(req);
@@ -198,11 +228,17 @@ async function route(req: IncomingMessage, res: ServerResponse) {
     if (req.method !== "PUT") return methodNotAllowed(res, "GET, PUT");
     const next: unknown = JSON.parse(await text(req));
     if (!isSettings(next)) return json(res, { error: "Invalid settings" }, 400);
+    const slack = next.slack ?? "off";
     if (
       settings.authorize !== next.authorize ||
-      settings.rateLimit !== next.rateLimit
+      settings.rateLimit !== next.rateLimit ||
+      settings.slack !== slack
     ) {
-      settings = { authorize: next.authorize, rateLimit: next.rateLimit };
+      settings = {
+        authorize: next.authorize,
+        rateLimit: next.rateLimit,
+        slack,
+      };
       relay = createRelay();
     }
     return json(res, settings);
@@ -211,6 +247,81 @@ async function route(req: IncomingMessage, res: ServerResponse) {
     return json(res, { error: "Not found" }, 404);
   }
   vite.middlewares(req, res);
+}
+
+async function fakeSlack(
+  path: string,
+  req: IncomingMessage,
+  res: ServerResponse,
+) {
+  if (req.method !== "POST") return methodNotAllowed(res, "POST");
+  if (path.startsWith("/_slack/upload/")) {
+    const chunks: Buffer[] = [];
+    for await (const chunk of req) chunks.push(chunk as Buffer);
+    slackUploads.set(
+      path.slice("/_slack/upload/".length),
+      Buffer.concat(chunks),
+    );
+    res.writeHead(200).end("OK");
+    return;
+  }
+  if (req.headers.authorization !== `Bearer ${slackToken}`)
+    return json(res, { ok: false, error: "invalid_auth" });
+  const params = new URLSearchParams(await text(req));
+  switch (path.slice("/_slack/api/".length)) {
+    case "users.conversations":
+      return json(res, { ok: true, channels: slackChannels });
+    case "files.getUploadURLExternal": {
+      const fileId = `F${randomUUID().slice(0, 8)}`;
+      return json(res, {
+        ok: true,
+        file_id: fileId,
+        upload_url: `${origin}/_slack/upload/${fileId}`,
+      });
+    }
+    case "chat.postMessage": {
+      const requested = params.get("channel")?.replace(/^#/, "") ?? "";
+      const channel = slackChannels.find(
+        ({ id, name }) => id === requested || name === requested,
+      );
+      if (!channel) return json(res, { ok: false, error: "channel_not_found" });
+      const ts = `${Date.now() / 1000}`;
+      const entry: SlackEntry = {
+        kind: "slack",
+        id: ts,
+        receivedAt: new Date().toISOString(),
+        channel: channel.name,
+        text: params.get("text") ?? "",
+        blocks: JSON.parse(params.get("blocks") ?? "[]") as SlackBlock[],
+      };
+      inbox.unshift(entry);
+      inbox.length = Math.min(inbox.length, 100);
+      notifyInbox();
+      return json(res, { ok: true, channel: channel.id, ts });
+    }
+    case "files.completeUploadExternal": {
+      const [file] = JSON.parse(params.get("files") ?? "[]") as {
+        id: string;
+      }[];
+      const bytes = file && slackUploads.get(file.id);
+      const index = inbox.findIndex(
+        (entry) =>
+          entry.kind === "slack" && entry.id === params.get("thread_ts"),
+      );
+      const entry = inbox[index];
+      if (!bytes || entry?.kind !== "slack")
+        return json(res, { ok: false, error: "file_not_found" });
+      slackUploads.delete(file.id);
+      inbox[index] = {
+        ...entry,
+        screenshot: `data:image/png;base64,${bytes.toString("base64")}`,
+      };
+      notifyInbox();
+      return json(res, { ok: true, files: [file] });
+    }
+    default:
+      return json(res, { ok: false, error: "unknown_method" });
+  }
 }
 
 const server = createServer((req, res) => {

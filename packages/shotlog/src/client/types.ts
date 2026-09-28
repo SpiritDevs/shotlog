@@ -49,6 +49,10 @@ export interface ShotlogLabels {
   readonly countdown: (seconds: number) => string;
   /** Stops the countdown and brings the card back. */
   readonly cancelCountdown: string;
+  /** Slack channel picker, shown when the server lets Reporters choose. */
+  readonly slackChannel: string;
+  /** The Slack app is in no channels it may offer. */
+  readonly slackNoChannels: string;
   /** Image file picker. */
   readonly uploadImage: string;
   /** Screenshot thumbnail alternative text. */

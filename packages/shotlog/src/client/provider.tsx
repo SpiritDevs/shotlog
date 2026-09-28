@@ -16,6 +16,7 @@ import {
   type ShotlogError,
   ValidationFailed,
 } from "../errors.js";
+import type { SlackChannelOption } from "../internal/wire.js";
 import { getShortId } from "../short-id.js";
 import type { SupportLogSubmission } from "../types.js";
 import type { CardSize } from "./card-size.js";
@@ -31,7 +32,7 @@ import { type Draft, ReportCard } from "./report-card.js";
 import { ScreenshotControls } from "./screenshot-controls.js";
 import { matchesShortcut } from "./shortcut.js";
 import { styles } from "./styles.js";
-import { submitReport } from "./submit.js";
+import { loadSlackChannels, submitReport } from "./submit.js";
 import type {
   ShotlogControls,
   ShotlogLauncherOptions,
@@ -169,6 +170,21 @@ export function ShotlogProvider({
       }),
     [],
   );
+  // Slack channels the Relay Endpoint lets Reporters choose.
+  const [slackOptions, setSlackOptions] = useState<{
+    readonly endpoint: string;
+    readonly channels: readonly SlackChannelOption[] | null;
+  }>();
+  const [slackChannel, setSlackChannel] = useState<string>();
+  const slackChannels =
+    slackOptions && slackOptions.endpoint === endpoint
+      ? slackOptions.channels
+      : undefined;
+  const chosenSlackChannel = slackChannels?.some(
+    ({ id }) => id === slackChannel,
+  )
+    ? slackChannel
+    : slackChannels?.[0]?.id;
   const [loaded, setLoaded] = useState(false);
   const [status, setStatus] = useState<Status>({ tag: "idle" });
   // A chosen card size lives for the page, never in storage.
@@ -274,6 +290,21 @@ export function ShotlogProvider({
   useEffect(() => {
     if (phase !== "open") cancelCountdown.current?.();
   }, [phase]);
+  // Asked on every open so server changes show up; the last answer stays until replaced.
+  useEffect(() => {
+    if (phase !== "open" || endpoint === undefined) return;
+    let current = true;
+    loadSlackChannels(endpoint).then(
+      (channels) => {
+        if (current) setSlackOptions({ endpoint, channels });
+      },
+      // Offline or refused: the next open asks again, and Submit reports the real error.
+      () => {},
+    );
+    return () => {
+      current = false;
+    };
+  }, [phase, endpoint]);
   useEffect(() => () => cancelCountdown.current?.(), []);
 
   useEffect(() => {
@@ -390,7 +421,12 @@ export function ShotlogProvider({
     let result: ShotlogSubmitResult;
     try {
       if (endpoint !== undefined)
-        result = await submitReport(endpoint, log, screenshot);
+        result = await submitReport(
+          endpoint,
+          log,
+          screenshot,
+          chosenSlackChannel,
+        );
       else {
         await onSubmit({ log, ...(screenshot ? { screenshot } : {}) });
         result = { id: log.id, shortId: log.shortId, duplicate: false };
@@ -468,6 +504,9 @@ export function ShotlogProvider({
                 closing={phase === "closing"}
                 onClosed={closed}
                 capturing={capturing}
+                slackChannels={slackChannels ?? null}
+                slackChannel={chosenSlackChannel}
+                onSlackChannelChange={setSlackChannel}
                 countdown={countdown}
                 onCancelCountdown={() => cancelCountdown.current?.()}
                 screenshotControls={

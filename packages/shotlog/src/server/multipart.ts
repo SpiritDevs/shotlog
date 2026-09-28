@@ -131,17 +131,26 @@ export const parseSubmission = Effect.fn("parseSupportSubmission")(function* (
   const form = yield* parseForm(request, totalBodyLimit(screenshotBytes));
   let unexpected = false;
   form.forEach((_, key) => {
-    if (key !== Field.supportLog && key !== Field.screenshot) unexpected = true;
+    if (
+      key !== Field.supportLog &&
+      key !== Field.screenshot &&
+      key !== Field.slackChannel
+    )
+      unexpected = true;
   });
   if (
     unexpected ||
     form.getAll(Field.supportLog).length !== 1 ||
-    form.getAll(Field.screenshot).length > 1
+    form.getAll(Field.screenshot).length > 1 ||
+    form.getAll(Field.slackChannel).length > 1
   ) {
     return yield* invalid(
-      "Expected one supportLog part and at most one screenshot part",
+      "Expected one supportLog part and at most one screenshot and slackChannel part",
     );
   }
+  const channel = form.get(Field.slackChannel);
+  if (channel !== null && (typeof channel !== "string" || channel.length > 100))
+    return yield* invalid("slackChannel must be a channel ID");
   const part = form.get(Field.supportLog);
   if (part === null) return yield* invalid("supportLog is required");
   const size =
@@ -176,5 +185,9 @@ export const parseSubmission = Effect.fn("parseSupportSubmission")(function* (
     return yield* invalid("screenshot must be a PNG file");
   const screenshot =
     file === null ? undefined : yield* parseScreenshot(file, screenshotBytes);
-  return { submission, screenshot };
+  return {
+    submission,
+    screenshot,
+    slackChannel: channel === null ? undefined : channel,
+  };
 });

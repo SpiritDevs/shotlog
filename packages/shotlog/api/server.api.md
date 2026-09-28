@@ -30,16 +30,22 @@ export const defaultEmailLabels: EmailLabels;
 export type DeliveryConfig = {
     readonly email: EmailConfig;
     readonly webhook?: WebhookConfig;
+    readonly slack?: SlackConfig;
 } | {
     readonly webhook: WebhookConfig;
     readonly email?: EmailConfig;
+    readonly slack?: SlackConfig;
+} | {
+    readonly slack: SlackConfig;
+    readonly email?: EmailConfig;
+    readonly webhook?: WebhookConfig;
 };
 
 // @public
 export class DeliveryFailed extends Error {
-    constructor(channel: "email" | "webhook" | "custom", message?: string, options?: ErrorOptions);
+    constructor(channel: "email" | "webhook" | "slack" | "custom", message?: string, options?: ErrorOptions);
     // (undocumented)
-    readonly channel: "email" | "webhook" | "custom";
+    readonly channel: "email" | "webhook" | "slack" | "custom";
     // (undocumented)
     readonly _tag = "DeliveryFailed";
 }
@@ -334,6 +340,15 @@ export interface Size {
     readonly height: number;
     // (undocumented)
     readonly width: number;
+}
+
+// @public
+export interface SlackConfig {
+    readonly apiUrl?: string;
+    readonly channel?: string;
+    readonly channels?: readonly string[];
+    readonly timeoutMs?: number;
+    readonly token: string;
 }
 
 // @public

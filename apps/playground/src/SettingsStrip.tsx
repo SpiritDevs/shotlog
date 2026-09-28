@@ -108,6 +108,21 @@ export function SettingsStrip() {
             <option value="forbidden">Forbidden · 403</option>
           </select>
         </label>
+        <label className="select-label">
+          Slack
+          <select
+            value={settings?.slack ?? "off"}
+            disabled={disabled}
+            onChange={(event) => {
+              const next = { ...settings, slack: event.target.value };
+              if (isSettings(next)) void save(next);
+            }}
+          >
+            <option value="off">Off</option>
+            <option value="fixed">Fixed · #support</option>
+            <option value="choose">Reporter chooses</option>
+          </select>
+        </label>
         <label className="checkbox-label">
           <input
             type="checkbox"

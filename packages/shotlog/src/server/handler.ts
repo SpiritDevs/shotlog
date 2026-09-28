@@ -4,10 +4,15 @@ import {
   Forbidden,
   type InternalError,
   Unauthorized,
+  ValidationFailed,
 } from "../internal/errors.js";
 import { runPublic } from "../internal/runtime.js";
 import { socketAddresses } from "../internal/socket.js";
-import { errorResponse, type SubmitSuccessBody } from "../internal/wire.js";
+import {
+  errorResponse,
+  type RelayOptionsBody,
+  type SubmitSuccessBody,
+} from "../internal/wire.js";
 import type { SupportLogSubmission } from "../types.js";
 import type { SupportHandlerConfig } from "./config.js";
 import { Delivery } from "./delivery.js";
@@ -17,6 +22,7 @@ import {
   type ParsedScreenshot,
   parseSubmission,
 } from "./multipart.js";
+import { slackChannels, slackLayer } from "./slack.js";
 import { checkRateLimit, Store, storeLayer } from "./store.js";
 import { webhookLayer } from "./webhook.js";
 
@@ -55,10 +61,9 @@ function positive(name: string, value: number | undefined): void {
     throw new TypeError(`shotlog: ${name} must be a positive finite number`);
 }
 
-function respondToFailure(
-  error: unknown,
-  channel: "email" | "webhook",
-): Response {
+type Channel = "email" | "webhook" | "slack";
+
+function respondToFailure(error: unknown, channel: Channel): Response {
   if (
     error instanceof Public.Unauthorized ||
     error instanceof Public.Forbidden ||
@@ -72,10 +77,7 @@ function respondToFailure(
   return defectResponse(error, channel);
 }
 
-function defectResponse(
-  error: unknown,
-  channel: "email" | "webhook",
-): Response {
+function defectResponse(error: unknown, channel: Channel): Response {
   console.error("shotlog: unexpected Relay Endpoint failure", error);
   const response = errorResponse(
     new Public.DeliveryFailed(
@@ -118,6 +120,13 @@ export function createSupportHandler(
     positive("rateLimit.windowSeconds", config.rateLimit.windowSeconds);
   }
   positive("delivery.webhook.timeoutMs", config.delivery.webhook?.timeoutMs);
+  positive("delivery.slack.timeoutMs", config.delivery.slack?.timeoutMs);
+  const slack = config.delivery.slack;
+  if (slack && !slack.token.trim())
+    throw new TypeError("shotlog: delivery.slack.token is required");
+  // Without a fixed channel, Reporters choose one from this list.
+  const chooseSlackChannel =
+    slack && !slack.channel?.trim() ? slackChannels(slack) : undefined;
   if (
     config.delivery.webhook?.screenshotMode === "upload" &&
     !config.delivery.webhook.storage
@@ -132,7 +141,11 @@ export function createSupportHandler(
         ? headerIp(request, config.ipHeader)
         : socketAddresses.get(request);
   const services = storeLayer(config.store);
-  const channel = config.delivery.email ? "email" : "webhook";
+  const channel: Channel = config.delivery.email
+    ? "email"
+    : config.delivery.webhook
+      ? "webhook"
+      : "slack";
   const channels = [
     ...(config.delivery.email
       ? [{ name: "email", layer: emailLayer(config.delivery.email) }]
@@ -140,6 +153,7 @@ export function createSupportHandler(
     ...(config.delivery.webhook
       ? [{ name: "webhook", layer: webhookLayer(config.delivery.webhook) }]
       : []),
+    ...(slack ? [{ name: "slack", layer: slackLayer(slack) }] : []),
   ];
   let warnedNoIp = false;
   const warnNoIp = () => {
@@ -153,6 +167,7 @@ export function createSupportHandler(
   const deliverOnce = Effect.fn("deliverSupportLogOnce")(function* (
     submission: SupportLogSubmission,
     screenshot: ParsedScreenshot | undefined,
+    target: { readonly slackChannel?: string },
   ) {
     const existing = inFlight.get(submission.id);
     if (existing) return yield* Deferred.await(existing).pipe(Effect.as(true));
@@ -168,7 +183,7 @@ export function createSupportHandler(
             const key = `shotlog:delivered:${submission.id}:${name}`;
             if ((yield* store.get(key)) !== undefined) return true;
             const delivery = yield* Delivery;
-            yield* delivery.deliver(submission, screenshot);
+            yield* delivery.deliver(submission, screenshot, target);
             yield* store.increment(key, 24 * 60 * 60);
             return false;
           }).pipe(Effect.provide(layer), Effect.either),
@@ -187,8 +202,21 @@ export function createSupportHandler(
   const handle = Effect.fn("handleSupportRequest")(function* (
     request: Request,
   ) {
+    if (request.method === "GET") {
+      // The Report Card asks what to offer when it opens; Reporters must be allowed to report.
+      if (config.authorize) yield* authorizeRequest(request, config.authorize);
+      const body: RelayOptionsBody = chooseSlackChannel
+        ? { slackChannels: yield* chooseSlackChannel }
+        : {};
+      return Response.json(body, {
+        headers: { "cache-control": "private, no-store" },
+      });
+    }
     if (request.method !== "POST")
-      return new Response(null, { status: 405, headers: { allow: "POST" } });
+      return new Response(null, {
+        status: 405,
+        headers: { allow: "GET, POST" },
+      });
     yield* checkRequest(request, screenshotBytes);
     const reporterId = config.authorize
       ? yield* authorizeRequest(request, config.authorize)
@@ -199,14 +227,24 @@ export function createSupportHandler(
       if (ip) yield* checkRateLimit("ip", ip, config.rateLimit ?? {});
       else warnNoIp();
     }
-    const { submission, screenshot } = yield* parseSubmission(
+    const { submission, screenshot, slackChannel } = yield* parseSubmission(
       request,
       screenshotBytes,
     );
     // Only an authenticated id: a body-supplied reporter.id would let anyone exhaust another user's limit.
     if (config.rateLimit !== false && reporterId !== undefined)
       yield* checkRateLimit("reporter", reporterId, config.rateLimit ?? {});
-    const duplicate = yield* deliverOnce(submission, screenshot);
+    // Never trust the browser's channel: it must be one this server offers.
+    if (chooseSlackChannel) {
+      const offered = yield* chooseSlackChannel;
+      if (!offered.some(({ id }) => id === slackChannel))
+        return yield* new ValidationFailed({
+          issues: ["slackChannel: Choose one of the offered Slack channels"],
+        });
+    }
+    const duplicate = yield* deliverOnce(submission, screenshot, {
+      ...(slackChannel !== undefined ? { slackChannel } : {}),
+    });
     const body: SubmitSuccessBody = {
       ok: true,
       id: submission.id,

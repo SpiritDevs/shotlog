@@ -185,8 +185,11 @@ test("warns once at creation when authorization is omitted", async () => {
 test("checks method, multipart content type, and declared size before authorization", async () => {
   const authorize = vi.fn(() => true);
   const handle = handler({ authorize, limits: { screenshotBytes: 100 } });
-  const method = await handle(new Request("https://app.example.com/support"));
+  const method = await handle(
+    new Request("https://app.example.com/support", { method: "PUT" }),
+  );
   expect(method.status).toBe(405);
+  expect(method.headers.get("allow")).toBe("GET, POST");
   expect(await method.text()).toBe("");
   expect(
     (

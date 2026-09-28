@@ -15,6 +15,7 @@ CI is the publish path. The Release workflow follows successful push CI on `main
 | `AWS_SESSION_TOKEN` | Required only for temporary AWS credentials |
 | `UPLOADFILE_TOKEN` | UploadFile app token permitting upload, private signing, and deletion |
 | `SMOKE_WEBHOOK_URL`, `SMOKE_WEBHOOK_SECRET` | Optional external receiver and its shared signing secret; otherwise the test starts a local receiver with an ephemeral signing key |
+| `SMOKE_SLACK_TOKEN`, `SMOKE_SLACK_CHANNEL` | Slack bot token (`chat:write`, `files:write`) and the test channel ID it is a member of; the smoke message and file are deleted afterwards |
 | `VERCEL_TOKEN`, `VERCEL_ORG_ID`, `VERCEL_PROJECT_ID` | Site deployment credentials and project identity; all three are needed for production deployment |
 
 `GITHUB_TOKEN` is supplied by Actions. Enable Actions permission to create pull requests. Keep `id-token: write` and `NPM_CONFIG_PROVENANCE=true` enabled.

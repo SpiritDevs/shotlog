@@ -14,7 +14,7 @@ export class ValidationFailed extends Data.TaggedError("ValidationFailed")<
   Details & { readonly issues: readonly string[] }
 > {}
 export class DeliveryFailed extends Data.TaggedError("DeliveryFailed")<
-  Details & { readonly channel: "email" | "webhook" }
+  Details & { readonly channel: "email" | "webhook" | "slack" }
 > {}
 export class UploadFailed extends Data.TaggedError("UploadFailed")<Details> {}
 export class Offline extends Data.TaggedError("Offline")<Details> {}

@@ -29,7 +29,7 @@
 - **Relay Endpoint**: A route in the Host App's backend that receives a Support Log from the browser and passes it to the Server Helper.
 - **Server Helper**: The server-only part of the package that delivers a Support Log through a Delivery Channel.
 - **Authorize Hook**: A function the Host App gives the Server Helper to decide whether a request may submit a Support Log (e.g. "is there a logged-in admin session?").
-- **Delivery Channel**: Where a Support Log ends up. Either **Email** (the default) or **Webhook**.
+- **Delivery Channel**: Where a Support Log ends up: **Email** (the default), **Slack**, or **Webhook**. Any combination can be configured.
 - **Email Provider**: The service used to send Email. One of Resend, Amazon SES, or generic SMTP.
 - **Screenshot Mode**: How a Webhook carries the Screenshot: `base64` (embedded in the JSON; the default) or `upload` (a link from a Storage Adapter).
 - **Storage Adapter**: A server-side component that uploads the Screenshot and returns a URL. One is built in for **UploadFile** (the in-house service, `@uploadfile/core`), and the interface is open for others (S3, R2, ...).

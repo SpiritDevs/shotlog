@@ -3,6 +3,7 @@ import {
   test as base,
   expect,
   type Page,
+  type Route,
 } from "@playwright/test";
 import { PNG } from "pngjs";
 import type { Screenshot, SupportLogSubmission } from "shotlog";
@@ -66,6 +67,20 @@ export async function openReport(page: Page, text?: string) {
     .click();
   await expect(card(page)).toBeVisible();
   if (text) await description(page).fill(text);
+}
+
+/** Intercepts the next submission only. The card's channel-options GET passes through. */
+export async function routeSubmissionOnce(
+  page: Page,
+  handler: (route: Route) => Promise<void> | void,
+) {
+  let pending = true;
+  await page.route("**/api/support", async (route) => {
+    if (!pending || route.request().method() !== "POST")
+      return route.fallback();
+    pending = false;
+    await handler(route);
+  });
 }
 
 export async function submit(page: Page, button = "Submit") {

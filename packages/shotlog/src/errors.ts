@@ -110,7 +110,7 @@ export class ValidationFailed extends Error {
 export class DeliveryFailed extends Error {
   readonly _tag = "DeliveryFailed";
   constructor(
-    readonly channel: "email" | "webhook" | "custom",
+    readonly channel: "email" | "webhook" | "slack" | "custom",
     message = `Support Log delivery through ${channel} failed`,
     options?: ErrorOptions,
   ) {

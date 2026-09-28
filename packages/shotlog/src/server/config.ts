@@ -53,7 +53,42 @@ export type WebhookConfig = {
 );
 
 /**
- * At least one server-owned delivery destination. When both are configured, both receive the report.
+ * Slack delivery through a Slack app's bot token. The report is posted with Block Kit and the
+ * Screenshot is shared in its thread.
+ *
+ * Bot token scopes: `chat:write` and `files:write`; to let Reporters choose a channel, also
+ * `channels:read` and `groups:read`. Invite the app to every channel it should post to.
+ * @example
+ * ```ts
+ * import type { SlackConfig } from "shotlog/server";
+ * // Every report goes to one channel:
+ * const fixed: SlackConfig = { token: process.env.SLACK_BOT_TOKEN!, channel: "C0123456789" };
+ * // Reporters pick from a dropdown of these channels:
+ * const choose: SlackConfig = { token: process.env.SLACK_BOT_TOKEN!, channels: ["#support", "#bugs"] };
+ * ```
+ * @public
+ */
+export interface SlackConfig {
+  /** Bot token (`xoxb-…`). It stays on the server. */
+  readonly token: string;
+  /**
+   * Channel ID or name that receives every report. When omitted, the Report Card shows a
+   * channel dropdown and the Relay Endpoint only accepts a channel from that list.
+   */
+  readonly channel?: string;
+  /**
+   * With no `channel`: the IDs or names Reporters may choose from, in the app's channels.
+   * Defaults to every channel the app is a member of.
+   */
+  readonly channels?: readonly string[];
+  /** Timeout per Slack API call in milliseconds. Defaults to 5,000; at most two retries. */
+  readonly timeoutMs?: number;
+  /** Slack Web API base URL, for proxies and tests. Defaults to `https://slack.com/api`. */
+  readonly apiUrl?: string;
+}
+
+/**
+ * At least one server-owned delivery destination. Every configured destination receives the report.
  * @example
  * ```ts
  * import type { DeliveryConfig } from "shotlog/server";
@@ -62,8 +97,21 @@ export type WebhookConfig = {
  * @public
  */
 export type DeliveryConfig =
-  | { readonly email: EmailConfig; readonly webhook?: WebhookConfig }
-  | { readonly webhook: WebhookConfig; readonly email?: EmailConfig };
+  | {
+      readonly email: EmailConfig;
+      readonly webhook?: WebhookConfig;
+      readonly slack?: SlackConfig;
+    }
+  | {
+      readonly webhook: WebhookConfig;
+      readonly email?: EmailConfig;
+      readonly slack?: SlackConfig;
+    }
+  | {
+      readonly slack: SlackConfig;
+      readonly email?: EmailConfig;
+      readonly webhook?: WebhookConfig;
+    };
 
 /**
  * Shared storage for rate limits and delivered IDs. Use a shared backend for multiple instances.

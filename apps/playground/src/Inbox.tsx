@@ -1,4 +1,95 @@
-import type { InboxEntry } from "../shared.js";
+import type { InboxEntry, SlackEntry } from "../shared.js";
+
+// Enough mrkdwn for a preview: links and dates show their labels, *bold*, ```code```.
+function Mrkdwn({ text }: { readonly text: string }) {
+  const plain = (value: string) =>
+    value
+      .replace(/<[^|>]+\|([^>]+)>/g, "$1")
+      .replace(/&lt;/g, "<")
+      .replace(/&gt;/g, ">")
+      .replace(/&amp;/g, "&");
+  return (
+    <>
+      {text.split(/```([\s\S]*?)```/).map((part, index) =>
+        index % 2 ? (
+          // biome-ignore lint/suspicious/noArrayIndexKey: static split of one string
+          <pre key={index} className="slack-code">
+            {plain(part)}
+          </pre>
+        ) : (
+          plain(part)
+            .split(/\*([^*\n]+)\*/)
+            .map((piece, inner) =>
+              inner % 2 ? (
+                // biome-ignore lint/suspicious/noArrayIndexKey: static split of one string
+                <strong key={`${index}-${inner}`}>{piece}</strong>
+              ) : (
+                piece
+              ),
+            )
+        ),
+      )}
+    </>
+  );
+}
+
+function SlackMessage({ entry }: { readonly entry: SlackEntry }) {
+  return (
+    <article className="panel inbox-entry slack-entry">
+      <div className="entry-heading">
+        <h2>#{entry.channel}</h2>
+        <span className="muted">slack</span>
+      </div>
+      <div className="slack-message">
+        {entry.blocks.map((block, index) => {
+          const key = `${block.type}-${index}`;
+          if (block.type === "header")
+            return (
+              <h3 key={key} className="slack-header">
+                {block.text.text.replace(/:\w+: /, "")}
+              </h3>
+            );
+          if (block.type === "context")
+            return (
+              <p key={key} className="slack-context">
+                {block.elements.map((element) => (
+                  <Mrkdwn key={element.text} text={element.text} />
+                ))}
+              </p>
+            );
+          return (
+            <div key={key} className="slack-section">
+              {block.text && (
+                <p>
+                  <Mrkdwn text={block.text.text} />
+                </p>
+              )}
+              {block.fields && (
+                <div className="slack-fields">
+                  {block.fields.map((field) => (
+                    <p key={field.text}>
+                      <Mrkdwn text={field.text} />
+                    </p>
+                  ))}
+                </div>
+              )}
+            </div>
+          );
+        })}
+      </div>
+      {entry.screenshot && (
+        <div className="slack-thread">
+          <span className="muted">Thread reply</span>
+          <img
+            className="screenshot"
+            src={entry.screenshot}
+            alt={`Screenshot in the thread for ${entry.text}`}
+          />
+        </div>
+      )}
+    </article>
+  );
+}
 
 export function Inbox({
   entries,
@@ -21,6 +112,12 @@ export function Inbox({
   return (
     <ol className="inbox-list" aria-label="Received Support Logs">
       {entries.map((entry) => {
+        if (entry.kind === "slack")
+          return (
+            <li key={entry.id}>
+              <SlackMessage entry={entry} />
+            </li>
+          );
         if (entry.kind === "email") {
           return (
             <li key={entry.id}>

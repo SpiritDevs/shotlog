@@ -4,6 +4,7 @@ import {
   card,
   delivered,
   description,
+  editor,
   expect,
   expectRedactedPng,
   expectSent,
@@ -12,6 +13,7 @@ import {
   recordedSubmission,
   recordSubmissions,
   resetRelay,
+  routeSubmissionOnce,
   submit,
   test,
 } from "./helpers.js";
@@ -53,6 +55,37 @@ test("standalone capture, annotations, and solid redaction reach both delivery c
       size: image.size,
     }),
   );
+});
+
+test("Slack: the Reporter picks a channel and the Screenshot lands in its thread", async ({
+  page,
+  request,
+}) => {
+  const settings = { authorize: "allow", rateLimit: false, slack: "choose" };
+  expect((await request.put("/_settings", { data: settings })).ok()).toBe(true);
+  const text = "Slack should get this in #design-feedback.";
+  await openReport(page, text);
+  const channel = card(page).getByRole("combobox", { name: "Slack channel" });
+  await expect(channel.getByRole("option")).toHaveText([
+    "#bugs",
+    "#design-feedback",
+    "#support",
+  ]);
+  await channel.selectOption({ label: "#design-feedback" });
+  await capture(page);
+  await editor(page).getByRole("button", { name: "Done" }).click();
+  expect((await submit(page)).status()).toBe(200);
+  await expect
+    .poll(async () =>
+      (await inbox(request)).find(
+        (entry) => entry.kind === "slack" && entry.screenshot,
+      ),
+    )
+    .toMatchObject({
+      channel: "design-feedback",
+      text: expect.stringContaining(text),
+      screenshot: expect.stringMatching(/^data:image\/png;base64,/),
+    });
 });
 
 test("programmatic mode submits the host context without a screenshot", async ({
@@ -172,23 +205,19 @@ test("lost response survives reload and Submit deduplicates both channels", asyn
   let deliveredId = "";
   let deliveredShortId = "";
   await recordSubmissions(page);
-  await page.route(
-    "**/api/support",
-    async (route) => {
-      const recorded = await recordedSubmission(page);
-      const response = await route.fetch({
-        postData: recorded.body,
-        headers: { ...route.request().headers(), ...recorded.headers },
-      });
-      expect(response.status()).toBe(200);
-      const result = await response.json();
-      expect(result.duplicate).toBe(false);
-      deliveredId = result.id;
-      deliveredShortId = result.shortId;
-      await route.abort("failed");
-    },
-    { times: 1 },
-  );
+  await routeSubmissionOnce(page, async (route) => {
+    const recorded = await recordedSubmission(page);
+    const response = await route.fetch({
+      postData: recorded.body,
+      headers: { ...route.request().headers(), ...recorded.headers },
+    });
+    expect(response.status()).toBe(200);
+    const result = await response.json();
+    expect(result.duplicate).toBe(false);
+    deliveredId = result.id;
+    deliveredShortId = result.shortId;
+    await route.abort("failed");
+  });
   await openReport(page, text);
   await card(page).getByRole("button", { name: "Submit", exact: true }).click();
   await expect(
@@ -236,14 +265,10 @@ test("editing after a failed attempt creates a new ID and delivers the edited re
 }) => {
   let failedId = "";
   await recordSubmissions(page);
-  await page.route(
-    "**/api/support",
-    async (route) => {
-      failedId = (await recordedSubmission(page)).log.id;
-      await route.abort("failed");
-    },
-    { times: 1 },
-  );
+  await routeSubmissionOnce(page, async (route) => {
+    failedId = (await recordedSubmission(page)).log.id;
+    await route.abort("failed");
+  });
   await openReport(page, "Original description before failure.");
   await card(page).getByRole("button", { name: "Submit", exact: true }).click();
   await expect(
@@ -267,10 +292,13 @@ test("stalled relay reaches the 60-second Offline deadline and Retry succeeds", 
 }) => {
   await page.clock.install();
   // Leave one routed request pending, then advance the actual client timer.
-  await page.route("**/api/support", () => {}, { times: 1 });
+  await routeSubmissionOnce(page, () => {});
   const text = "The relay stopped responding.";
   await openReport(page, text);
-  const pending = page.waitForRequest("**/api/support");
+  const pending = page.waitForRequest(
+    (request) =>
+      request.url().endsWith("/api/support") && request.method() === "POST",
+  );
   await card(page).getByRole("button", { name: "Submit", exact: true }).click();
   await pending;
   await page.clock.fastForward(60_001);

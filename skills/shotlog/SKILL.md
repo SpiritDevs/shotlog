@@ -1,11 +1,11 @@
 ---
 name: shotlog
-description: Add shotlog to a React app. Covers the report widget, the server endpoint, email and webhook delivery, screenshot storage, receiving signed webhooks, and the Support Log payload. Use when a user wants in-app bug reports or support requests with an annotated screenshot and debugging context.
+description: Add shotlog to a React app. Covers the report widget, the server endpoint, email, Slack and webhook delivery, screenshot storage, receiving signed webhooks, and the Support Log payload. Use when a user wants in-app bug reports or support requests with an annotated screenshot and debugging context.
 ---
 
 # shotlog
 
-shotlog adds a report button to a React app. A user describes a problem, captures and annotates a screenshot, and submits. The browser posts the report to an endpoint in the app's own backend. That endpoint delivers it by email, by signed webhook, or both.
+shotlog adds a report button to a React app. A user describes a problem, captures and annotates a screenshot, and submits. The browser posts the report to an endpoint in the app's own backend. That endpoint delivers it by email, to Slack, by signed webhook, or any combination.
 
 The browser never holds provider keys or destinations. Everything sensitive stays on the server.
 
@@ -152,7 +152,7 @@ Hono, Bun, Deno and Cloudflare Workers take the handler as it is. It has the sig
 
 | Option | Default | Purpose |
 | --- | --- | --- |
-| `delivery` | required | `email`, `webhook`, or both |
+| `delivery` | required | Any of `email`, `slack` and `webhook`; at least one |
 | `authorize` | none | Return `false` for 403. Throw `Unauthorized` for 401. Return `{ reporterId }` to also rate-limit per user. The server logs a warning at startup if this is missing |
 | `rateLimit` | 5 per 600 s | `{ max, windowSeconds }` or `false`. Applies per IP and per `reporterId` |
 | `limits` | 5 MiB PNG, 16 concurrent | `{ screenshotBytes, concurrentRequests }` |
@@ -200,7 +200,24 @@ The webhook receives a POST with a JSON body and these headers:
 
 Each attempt times out after 10 s. Network errors and 5xx responses get two retries. Redirects are not followed.
 
-Set both `email` and `webhook` to deliver to both. Each channel is tracked separately, so a retry resends only the channel that failed.
+### Slack
+
+```ts
+createSupportHandler({
+  delivery: {
+    slack: { token: process.env.SLACK_BOT_TOKEN!, channel: "C0123456789" },
+  },
+  authorize,
+});
+```
+
+The token is a Slack app bot token with `chat:write` and `files:write`. Invite the app to the channel. The report posts as one Block Kit message, and the screenshot is shared as a reply in its thread. Reporter text is escaped, so it can't mention `@channel`.
+
+Leave out `channel` to let the reporter pick. The card then shows a "Slack channel" dropdown, filled from a `GET` to the same endpoint (it runs `authorize` first). It offers `channels` if you set it (IDs or names), otherwise every channel the app is in, which also needs `channels:read` and `groups:read`. The server rejects any channel it didn't offer.
+
+Each Slack call times out after 5 s and gets two retries on network errors, 429 and 5xx. Slack errors like `not_in_channel` fail at once and are logged on the server.
+
+Set any combination of `email`, `slack` and `webhook`. Each channel is tracked separately, so a retry resends only the channel that failed.
 
 ### Screenshot storage for webhooks
 

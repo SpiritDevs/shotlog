@@ -113,6 +113,8 @@ jobs:
           UPLOADFILE_TOKEN: ${{ secrets.UPLOADFILE_TOKEN }}
           SMOKE_WEBHOOK_URL: ${{ secrets.SMOKE_WEBHOOK_URL }}
           SMOKE_WEBHOOK_SECRET: ${{ secrets.SMOKE_WEBHOOK_SECRET }}
+          SMOKE_SLACK_TOKEN: ${{ secrets.SMOKE_SLACK_TOKEN }}
+          SMOKE_SLACK_CHANNEL: ${{ secrets.SMOKE_SLACK_CHANNEL }}
       - name: Publish next snapshot (no production smoke)
         if: github.event_name == 'workflow_dispatch' && inputs.tag == 'next'
         run: |

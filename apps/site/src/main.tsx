@@ -257,8 +257,9 @@ function App() {
                 Your inbox.
               </h2>
               <p>
-                Email with Resend, Amazon SES, or SMTP. Signed JSON webhooks to
-                your own tools. Or both at once. Your backend owns delivery.
+                Email with Resend, Amazon SES, or SMTP. A Slack channel, fixed
+                or picked by the reporter. Signed JSON webhooks to your own
+                tools. Or all of them. Your backend owns delivery.
               </p>
               <p className="feature-detail">
                 Keep the PNG inline, or use UploadFile or a custom Storage
@@ -280,6 +281,7 @@ function App() {
                 </span>
                 <span className="route-destinations">
                   <span>Email</span>
+                  <span>Slack</span>
                   <span>Signed webhook</span>
                   <span>Screenshot storage</span>
                 </span>

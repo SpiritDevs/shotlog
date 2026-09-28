@@ -41,6 +41,8 @@ export const defaultLabels: ShotlogLabels = {
   captureDelayed: "Capture in 5 seconds",
   countdown: (seconds) => `Capturing in ${seconds}…`,
   cancelCountdown: "Cancel",
+  slackChannel: "Slack channel",
+  slackNoChannels: "No channels available",
   uploadImage: "Upload image",
   screenshotPreview: "Attached screenshot",
   removeScreenshot: "Remove",

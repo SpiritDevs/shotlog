@@ -4,7 +4,20 @@ import * as Public from "../errors.js";
 export const Field = {
   supportLog: "supportLog",
   screenshot: "screenshot",
+  slackChannel: "slackChannel",
 } as const;
+
+/** A Slack channel a Reporter may choose. */
+export interface SlackChannelOption {
+  readonly id: string;
+  readonly name: string;
+}
+
+/** GET body: what the Report Card should offer. `slackChannels` is present only when
+ * Slack has no fixed channel. */
+export interface RelayOptionsBody {
+  readonly slackChannels?: readonly SlackChannelOption[];
+}
 
 /** 200 body. `duplicate` is true when this Support Log ID was already delivered. */
 export interface SubmitSuccessBody {
@@ -44,7 +57,7 @@ export type SubmitErrorBody = {
     | {
         readonly _tag: "DeliveryFailed";
         readonly message: string;
-        readonly channel: "email" | "webhook" | "custom";
+        readonly channel: "email" | "webhook" | "slack" | "custom";
       }
     | { readonly _tag: "UploadFailed"; readonly message: string };
 };

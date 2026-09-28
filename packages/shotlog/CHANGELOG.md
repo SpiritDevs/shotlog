@@ -18,6 +18,7 @@
   - Fetch-standard server handler and streaming Node adapter for framework integration.
   - Authorization hooks, rate limits, schema validation, and bounded multipart requests.
   - Resend, Amazon SES, and SMTP email delivery, plus signed webhooks.
+  - Slack delivery: one Block Kit message per report with the Screenshot in its thread, to a fixed channel or one the Reporter picks.
   - Base64 screenshots or storage uploads with inline fallback and an optional UploadFile adapter.
   - Versioned JSON Schema, plain TypeScript public APIs, and separate client/server exports.
   - ESM-only distribution; Node ≥20.19 for Node deployments and React / React DOM ≥18 for the client.

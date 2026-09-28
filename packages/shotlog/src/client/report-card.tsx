@@ -9,6 +9,7 @@ import {
   useRef,
   useState,
 } from "react";
+import type { SlackChannelOption } from "../internal/wire.js";
 import {
   type CardSize,
   dragSize,
@@ -46,6 +47,10 @@ interface ReportCardProps {
   readonly includedDetails: ReactNode;
   readonly screenshotControls: ReactNode;
   readonly capturing: boolean;
+  /** Slack channels to choose from; null when the server decides. */
+  readonly slackChannels: readonly SlackChannelOption[] | null;
+  readonly slackChannel: string | undefined;
+  readonly onSlackChannelChange: (channel: string) => void;
   /** Seconds left before a delayed capture; null when none is running. */
   readonly countdown: number | null;
   readonly onCancelCountdown: () => void;
@@ -77,6 +82,9 @@ export function ReportCard({
   includedDetails,
   screenshotControls,
   capturing,
+  slackChannels,
+  slackChannel,
+  onSlackChannelChange,
   countdown,
   onCancelCountdown,
   onClose,
@@ -463,6 +471,29 @@ export function ReportCard({
                   ))}
                 </div>
               </fieldset>
+            )}
+            {slackChannels && (
+              <div className="destination">
+                <label htmlFor={`${id}-slack`}>{labels.slackChannel}</label>
+                <select
+                  id={`${id}-slack`}
+                  value={slackChannel ?? ""}
+                  disabled={locked || slackChannels.length === 0}
+                  onChange={(event) =>
+                    onSlackChannelChange(event.currentTarget.value)
+                  }
+                >
+                  {slackChannels.length === 0 ? (
+                    <option value="">{labels.slackNoChannels}</option>
+                  ) : (
+                    slackChannels.map((channel) => (
+                      <option key={channel.id} value={channel.id}>
+                        #{channel.name}
+                      </option>
+                    ))
+                  )}
+                </select>
+              </div>
             )}
             <div className="field">
               <label htmlFor={`${id}-description`}>{labels.description}</label>

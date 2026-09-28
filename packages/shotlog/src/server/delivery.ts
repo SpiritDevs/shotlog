@@ -9,6 +9,8 @@ export class Delivery extends Context.Tag("shotlog/Delivery")<
     readonly deliver: (
       log: SupportLogSubmission,
       screenshot?: ParsedScreenshot,
+      /** Per-report routing; only Slack reads it. */
+      target?: { readonly slackChannel?: string },
     ) => Effect.Effect<void, DeliveryFailed>;
   }
 >() {}
