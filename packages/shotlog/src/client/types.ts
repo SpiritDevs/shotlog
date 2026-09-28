@@ -56,6 +56,80 @@ export interface ShotlogLabels {
   readonly screenCaptureFailed: string;
   /** A pasted or uploaded image could not be decoded. */
   readonly imageFailed: string;
+  /** Reopen the Screenshot with editable annotations. */
+  readonly editScreenshot: string;
+  /** Annotation Editor dialog heading. */
+  readonly editorTitle: string;
+  /** Cancel the editor. */
+  readonly editorCancel: string;
+  /** Flatten and attach the Screenshot. */
+  readonly editorDone: string;
+  /** PNG encoding progress. */
+  readonly editorSaving: string;
+  /** PNG encoding failure. */
+  readonly editorFailed: string;
+  /** Confirmation before discarding edits. */
+  readonly editorDiscardChanges: string;
+  /** Tool toolbar accessible name. */
+  readonly editorTools: string;
+  /** Style controls accessible name. */
+  readonly editorStyle: string;
+  /** Drawing surface accessible name. */
+  readonly editorCanvas: string;
+  /** Select tool. */
+  readonly editorSelect: string;
+  /** Arrow tool. */
+  readonly editorArrow: string;
+  /** Rectangle tool. */
+  readonly editorRectangle: string;
+  /** Oval tool. */
+  readonly editorOval: string;
+  /** Text tool. */
+  readonly editorText: string;
+  /** Inline text input accessible name. */
+  readonly editorTextInput: string;
+  /** Freehand tool. */
+  readonly editorFreehand: string;
+  /** Highlighter tool. */
+  readonly editorHighlighter: string;
+  /** Step Counter tool. */
+  readonly editorStep: string;
+  /** Spotlight tool. */
+  readonly editorSpotlight: string;
+  /** Pixelate/Redact tool. */
+  readonly editorRedact: string;
+  /** Crop tool. */
+  readonly editorCrop: string;
+  /** Apply the pending crop. */
+  readonly editorApplyCrop: string;
+  /** Pending crop instruction. */
+  readonly editorCropHint: string;
+  /** Red palette swatch. */
+  readonly editorRed: string;
+  /** Yellow palette swatch. */
+  readonly editorYellow: string;
+  /** Green palette swatch. */
+  readonly editorGreen: string;
+  /** Blue palette swatch. */
+  readonly editorBlue: string;
+  /** Neutral palette swatch; click again to switch black/white. */
+  readonly editorBlackWhite: string;
+  /** Thin stroke. */
+  readonly editorThin: string;
+  /** Medium stroke. */
+  readonly editorMedium: string;
+  /** Thick stroke. */
+  readonly editorThick: string;
+  /** Rounded rectangle option. */
+  readonly editorRounded: string;
+  /** Destructive solid redaction option. */
+  readonly editorSolid: string;
+  /** Undo accessible name and tooltip. */
+  readonly editorUndo: string;
+  /** Redo accessible name and tooltip. */
+  readonly editorRedo: string;
+  /** Selected tool announcement. */
+  readonly editorToolSelected: (tool: string) => string;
   /** Collapsed Included Details summary, including Diagnostic Trail counts. */
   readonly includedDetails: (
     consoleCount: number,
