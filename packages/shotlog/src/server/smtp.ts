@@ -9,6 +9,7 @@ import { emailTimeoutMs, failed, lazySdk } from "./transport.js";
  * Node-only SMTP connection settings. STARTTLS is negotiated when offered unless secure uses TLS immediately.
  * @example
  * ```ts
+ * import type { SmtpOptions } from "shotlog/smtp";
  * const options: SmtpOptions = { host: "localhost", port: 2525 };
  * ```
  * @public

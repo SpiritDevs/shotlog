@@ -2,6 +2,7 @@
  * The Relay Endpoint requires authentication.
  * @example
  * ```ts
+ * import { Unauthorized } from "shotlog";
  * throw new Unauthorized();
  * ```
  * @public
@@ -18,6 +19,7 @@ export class Unauthorized extends Error {
  * The Authorize Hook denied this Reporter.
  * @example
  * ```ts
+ * import { Forbidden } from "shotlog";
  * throw new Forbidden();
  * ```
  * @public
@@ -37,6 +39,7 @@ export class Forbidden extends Error {
  * The Reporter must wait before submitting again.
  * @example
  * ```ts
+ * import { RateLimited } from "shotlog";
  * throw new RateLimited(60);
  * ```
  * @public
@@ -57,6 +60,7 @@ export class RateLimited extends Error {
  * A Support Log or Screenshot exceeded a size limit.
  * @example
  * ```ts
+ * import { PayloadTooLarge } from "shotlog";
  * throw new PayloadTooLarge(5 * 1024 * 1024);
  * ```
  * @public
@@ -77,6 +81,7 @@ export class PayloadTooLarge extends Error {
  * A Support Log failed validation.
  * @example
  * ```ts
+ * import { ValidationFailed } from "shotlog";
  * throw new ValidationFailed(["description is required"]);
  * ```
  * @public
@@ -97,6 +102,7 @@ export class ValidationFailed extends Error {
  * A Delivery Channel could not deliver the Support Log. `custom` means a Host App `onSubmit` failed.
  * @example
  * ```ts
+ * import { DeliveryFailed } from "shotlog";
  * throw new DeliveryFailed("webhook");
  * ```
  * @public
@@ -117,6 +123,7 @@ export class DeliveryFailed extends Error {
  * A Storage Adapter could not upload the Screenshot.
  * @example
  * ```ts
+ * import { UploadFailed } from "shotlog";
  * throw new UploadFailed("Screenshot upload timed out");
  * ```
  * @public
@@ -130,9 +137,10 @@ export class UploadFailed extends Error {
 }
 
 /**
- * The browser is offline.
+ * The browser is offline, or a Relay Endpoint request failed or timed out.
  * @example
  * ```ts
+ * import { Offline } from "shotlog";
  * throw new Offline();
  * ```
  * @public
@@ -149,7 +157,8 @@ export class Offline extends Error {
  * A configured provider's optional peer dependency is missing.
  * @example
  * ```ts
- * throw new ProviderNotInstalled("resend");
+ * import { ProviderNotInstalled } from "shotlog/server";
+ * throw new ProviderNotInstalled("nodemailer");
  * ```
  * @public
  */
@@ -171,6 +180,7 @@ export class ProviderNotInstalled extends Error {
  * A feature cannot run in the current runtime, such as SMTP on an edge runtime.
  * @example
  * ```ts
+ * import { UnsupportedRuntime } from "shotlog";
  * throw new UnsupportedRuntime("SMTP requires Node.js");
  * ```
  * @public
@@ -190,6 +200,7 @@ export class UnsupportedRuntime extends Error {
  * All expected public failures, discriminated by `_tag`.
  * @example
  * ```ts
+ * import type { ShotlogError } from "shotlog";
  * function retryDelay(error: ShotlogError) {
  *   return error._tag === "RateLimited" ? error.retryAfterSeconds : 0;
  * }

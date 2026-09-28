@@ -57,12 +57,10 @@ export interface Environment {
     readonly route: string;
     // (undocumented)
     readonly screen: Size;
-    // (undocumented)
     readonly timeOnPageMs: number;
     readonly timezone: string;
     // (undocumented)
     readonly title: string;
-    // (undocumented)
     readonly url: string;
     // (undocumented)
     readonly userAgent: string;
@@ -166,6 +164,15 @@ export interface ShotlogControls {
 }
 
 // @public
+export type ShotlogDelivery = {
+    readonly endpoint: string;
+    readonly onSubmit?: never;
+} | {
+    readonly endpoint?: never;
+    readonly onSubmit: (submission: ShotlogSubmission) => Promise<void>;
+};
+
+// @public
 export type ShotlogError = Unauthorized | Forbidden | RateLimited | PayloadTooLarge | ValidationFailed | DeliveryFailed | UploadFailed | Offline | ProviderNotInstalled | UnsupportedRuntime;
 
 // @public
@@ -261,7 +268,41 @@ export interface ShotlogLabels {
 export function ShotlogProvider(input: ShotlogProviderProps): ReactElement;
 
 // @public
+export interface ShotlogProviderOptions {
+    readonly accent?: string;
+    readonly children?: ReactNode;
+    readonly diagnostics?: false | {
+        readonly console?: boolean;
+        readonly network?: boolean;
+    };
+    readonly enabled?: boolean;
+    readonly labels?: Partial<ShotlogLabels>;
+    readonly launcher?: boolean;
+    readonly metadata?: {
+        readonly [key: string]: JsonValue;
+    } | (() => {
+        readonly [key: string]: JsonValue;
+    } | Promise<{
+        readonly [key: string]: JsonValue;
+    }>);
+    readonly onError?: (error: ShotlogError) => void;
+    readonly onSubmitted?: (result: ShotlogSubmitResult) => void;
+    readonly position?: "bottom-right" | "bottom-left";
+    readonly reporter?: Reporter | (() => Reporter | Promise<Reporter>);
+    readonly shortcut?: string;
+    readonly theme?: "light" | "dark" | "auto";
+    readonly types?: readonly string[];
+}
+
+// @public
 export type ShotlogProviderProps = ShotlogDelivery & ShotlogProviderOptions;
+
+// @public
+export interface ShotlogSubmission {
+    // (undocumented)
+    readonly log: SupportLogSubmission;
+    readonly screenshot?: Blob;
+}
 
 // @public
 export interface ShotlogSubmitResult {

@@ -55,9 +55,10 @@ type Status =
  * `[data-shotlog]` host.
  * @example
  * ```tsx
- * <ShotlogProvider endpoint="/api/support" enabled={isAdmin} theme="auto">
- *   <App />
- * </ShotlogProvider>
+ * import { ShotlogProvider } from "shotlog";
+ * function Support({ isAdmin }: { isAdmin: boolean }) {
+ *   return <ShotlogProvider endpoint="/api/support" enabled={isAdmin} theme="auto" />;
+ * }
  * ```
  * @public
  */
@@ -467,6 +468,7 @@ function randomId(): string {
  * Controls the nearest provider's Report Card. Must be called inside ShotlogProvider.
  * @example
  * ```tsx
+ * import { useShotlog } from "shotlog";
  * function HelpButton() {
  *   const { open } = useShotlog();
  *   return <button onClick={open}>Get help</button>;

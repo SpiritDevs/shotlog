@@ -2,7 +2,11 @@
  * A binary email attachment. Set contentId to reference it from HTML with `cid:`.
  * @example
  * ```ts
- * const attachment: EmailAttachment = { filename: "screenshot.png", contentType: "image/png", content: png };
+ * import type { EmailAttachment } from "shotlog/server";
+ * const attachment: EmailAttachment = {
+ *   filename: "details.txt", contentType: "text/plain",
+ *   content: new TextEncoder().encode("Support Log details"),
+ * };
  * ```
  * @public
  */
@@ -17,7 +21,11 @@ export interface EmailAttachment {
  * A rendered email, independent of a provider SDK.
  * @example
  * ```ts
- * await provider.send(message);
+ * import type { EmailMessage } from "shotlog/server";
+ * const message: EmailMessage = {
+ *   from: "reports@example.com", to: ["support@example.com"],
+ *   subject: "Support Log", html: "<p>Save failed</p>", text: "Save failed", attachments: [],
+ * };
  * ```
  * @public
  */
@@ -38,7 +46,21 @@ export interface EmailMessage {
  * overlap an unfinished send. Built-in providers supply their own transport timeouts.
  * @example
  * ```ts
- * const provider: EmailProvider = { name: "custom", send: async (message) => mailer.send(message) };
+ * import type { EmailProvider } from "shotlog/server";
+ * const provider: EmailProvider = {
+ *   name: "internal-mail-service",
+ *   async send(message) {
+ *     const response = await fetch("https://mail.example.com/send", {
+ *       method: "POST", signal: AbortSignal.timeout(15000),
+ *       headers: { "content-type": "application/json" },
+ *       body: JSON.stringify({ ...message, attachments: message.attachments.map((file) => ({
+ *         ...file, content: Array.from(file.content),
+ *       })) }),
+ *     });
+ *     await response.body?.cancel();
+ *     if (!response.ok) throw new Error("Mail delivery failed");
+ *   },
+ * };
  * ```
  * @public
  */
@@ -51,6 +73,7 @@ export interface EmailProvider {
  * Replaceable text in Support Log emails. Host-supplied context keys keep their original names.
  * @example
  * ```ts
+ * import type { EmailLabels } from "shotlog/server";
  * const labels: Partial<EmailLabels> = { description: "What happened", screenshot: "Screen capture" };
  * ```
  * @public
@@ -99,6 +122,7 @@ export interface EmailLabels {
  * English defaults for every email label.
  * @example
  * ```ts
+ * import { defaultEmailLabels } from "shotlog/server";
  * const labels = { ...defaultEmailLabels, description: "Issue" };
  * ```
  * @public

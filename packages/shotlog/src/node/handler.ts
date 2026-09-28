@@ -10,9 +10,11 @@ import { socketAddresses } from "../internal/socket.js";
  * @example
  * ```ts
  * import { createServer } from "node:http";
- * import { createSupportHandler } from "shotlog/server";
+ * import { createSupportHandler, type SupportHandlerConfig } from "shotlog/server";
  * import { toNodeHandler } from "shotlog/node";
- * createServer(toNodeHandler(createSupportHandler(config))).listen(3000);
+ * function supportServer(config: SupportHandlerConfig) {
+ *   return createServer(toNodeHandler(createSupportHandler(config)));
+ * }
  * ```
  * @public
  */

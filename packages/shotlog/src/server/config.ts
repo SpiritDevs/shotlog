@@ -5,7 +5,12 @@ import type { StorageAdapter } from "./storage-types.js";
  * Server-owned email destination, transport, and template labels.
  * @example
  * ```ts
- * const email: EmailConfig = { to: "support@example.com", from: "reports@example.com", provider: resend({ apiKey }) };
+ * import { resend, type EmailConfig } from "shotlog/server";
+ * const email: EmailConfig = {
+ *   to: "support@example.com",
+ *   from: "reports@example.com",
+ *   provider: resend({ apiKey: process.env.RESEND_API_KEY! }),
+ * };
  * ```
  * @public
  */
@@ -20,6 +25,7 @@ export interface EmailConfig {
  * Webhook delivery settings. Credentials and destinations stay on the server.
  * @example
  * ```ts
+ * import type { WebhookConfig } from "shotlog/server";
  * const webhook: WebhookConfig = { url: "https://support.example.com/logs", secret: "shared-secret" };
  * ```
  * @public
@@ -41,6 +47,7 @@ export interface WebhookConfig {
  * At least one server-owned delivery destination. When both are configured, both receive the report.
  * @example
  * ```ts
+ * import type { DeliveryConfig } from "shotlog/server";
  * const delivery: DeliveryConfig = { webhook: { url: "https://support.example.com/logs", secret: "shared-secret" } };
  * ```
  * @public
@@ -54,7 +61,10 @@ export type DeliveryConfig =
  * Store operations must be atomic; Shotlog supplies namespaced keys and expiry durations.
  * @example
  * ```ts
- * const handler = createSupportHandler({ delivery, store: redisBackedStore });
+ * import type { ShotlogStore } from "shotlog/server";
+ * async function delivered(store: ShotlogStore, id: string) {
+ *   return (await store.get(`shotlog:delivered:${id}:webhook`)) !== undefined;
+ * }
  * ```
  * @public
  */
@@ -66,10 +76,11 @@ export interface ShotlogStore {
 }
 
 /**
- * Fixed-window limits applied independently per client IP and per authenticated reporter
- * (the `reporterId` returned by `authorize`).
+ * Fixed-window limits applied per client IP and per authenticated Reporter.
+ * The Reporter key is the `reporterId` returned by `authorize`.
  * @example
  * ```ts
+ * import type { RateLimitConfig } from "shotlog/server";
  * const rateLimit: RateLimitConfig = { max: 5, windowSeconds: 600 };
  * ```
  * @public
@@ -85,6 +96,7 @@ export interface RateLimitConfig {
  * Multipart limits. JSON is always capped at 256 KiB; framing has a 16 KiB allowance.
  * @example
  * ```ts
+ * import type { SupportHandlerLimits } from "shotlog/server";
  * const limits: SupportHandlerLimits = { screenshotBytes: 2 * 1024 * 1024 };
  * ```
  * @public
@@ -100,8 +112,13 @@ export interface SupportHandlerLimits {
 }
 
 /**
- * What `authorize` may return. `reporterId` should come from your session, not the request
- * body; it keys the per-reporter rate limit so one user can't exhaust another's.
+ * The Authorize Hook result: allow, deny, or allow with an authenticated Reporter ID.
+ * `reporterId` must come from your session; it keys the per-reporter rate limit.
+ * @example
+ * ```ts
+ * import type { AuthorizeResult } from "shotlog/server";
+ * const allowed: AuthorizeResult = { reporterId: "authenticated-user-42" };
+ * ```
  * @public
  */
 export type AuthorizeResult = boolean | { readonly reporterId: string };
@@ -110,6 +127,7 @@ export type AuthorizeResult = boolean | { readonly reporterId: string };
  * Server-side Relay Endpoint configuration.
  * @example
  * ```ts
+ * import type { SupportHandlerConfig } from "shotlog/server";
  * const config: SupportHandlerConfig = {
  *   delivery: { webhook: { url: "https://support.example.com/logs", secret: "shared-secret" } },
  *   authorize: (request) => request.headers.get("authorization") === "Bearer host-session",
@@ -154,9 +172,10 @@ export interface SupportHandlerConfig {
  * Inputs for checking a signed Webhook. Preserve the raw request body before parsing JSON.
  * @example
  * ```ts
- * const options: VerifyWebhookSignatureOptions = {
- *   payload: await request.text(), header: request.headers.get("x-shotlog-signature"), secret,
- * };
+ * import type { VerifyWebhookSignatureOptions } from "shotlog/server";
+ * async function signatureOptions(request: Request, secret: string): Promise<VerifyWebhookSignatureOptions> {
+ *   return { payload: await request.text(), header: request.headers.get("x-shotlog-signature"), secret };
+ * }
  * ```
  * @public
  */

@@ -57,12 +57,10 @@ export interface Environment {
     readonly route: string;
     // (undocumented)
     readonly screen: Size;
-    // (undocumented)
     readonly timeOnPageMs: number;
     readonly timezone: string;
     // (undocumented)
     readonly title: string;
-    // (undocumented)
     readonly url: string;
     // (undocumented)
     readonly userAgent: string;

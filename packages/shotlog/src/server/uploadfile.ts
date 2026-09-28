@@ -8,6 +8,7 @@ import { lazySdk } from "./transport.js";
  * UploadFile credentials and Screenshot access policy, held only on the server.
  * @example
  * ```ts
+ * import type { UploadfileOptions } from "shotlog/uploadfile";
  * const options: UploadfileOptions = { acl: "private", signedUrlExpiresIn: 3600 };
  * ```
  * @public

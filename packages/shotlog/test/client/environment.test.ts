@@ -3,9 +3,9 @@ import { captureEnvironment } from "../../src/client/environment.js";
 
 afterEach(() => vi.unstubAllGlobals());
 
-test("strips credentials and queries from both the page URL and referrer", () => {
+test("strips credentials, queries and fragments from both the page URL and referrer", () => {
   vi.stubGlobal("location", {
-    href: "https://username:password@example.test/page?secret=1#section",
+    href: "https://username:password@example.test/page?secret=1#access_token=abc",
     pathname: "/page",
   });
   vi.stubGlobal("document", {
@@ -21,7 +21,7 @@ test("strips credentials and queries from both the page URL and referrer", () =>
   });
 
   expect(captureEnvironment()).toMatchObject({
-    url: "https://example.test/page#section",
+    url: "https://example.test/page",
     referrer: "https://example.test/referrer",
   });
 });

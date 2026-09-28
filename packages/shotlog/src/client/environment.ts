@@ -70,10 +70,10 @@ export function captureEnvironment(): Environment {
           : "unknown";
 
   return {
-    url: withoutQuery(location.href),
+    url: withoutSecrets(location.href),
     route: location.pathname,
     title: document.title,
-    referrer: document.referrer ? withoutQuery(document.referrer) : "",
+    referrer: document.referrer ? withoutSecrets(document.referrer) : "",
     timeOnPageMs: Math.max(0, Math.round(performance.now())),
     userAgent: ua,
     browser,
@@ -98,10 +98,12 @@ export function captureEnvironment(): Environment {
   };
 }
 
-function withoutQuery(value: string): string {
+function withoutSecrets(value: string): string {
   const url = new URL(value);
   url.username = "";
   url.password = "";
   url.search = "";
+  // Fragments can carry OAuth tokens (#access_token=...).
+  url.hash = "";
   return url.href;
 }

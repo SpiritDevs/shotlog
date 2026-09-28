@@ -4,9 +4,19 @@
  * The handler allows 30 seconds, then falls back to inline PNG delivery.
  * @example
  * ```ts
+ * import type { StorageAdapter } from "shotlog/server";
  * const storage: StorageAdapter = {
  *   name: "custom",
- *   upload: (png, info) => uploadPng(png, info),
+ *   async upload(png, { id, filename, signal }) {
+ *     const url = `https://files.example.com/screenshots/${encodeURIComponent(id)}/${encodeURIComponent(filename)}`;
+ *     const response = await fetch(url, {
+ *       method: "PUT", body: new Uint8Array(png), signal,
+ *       headers: { "content-type": "image/png" },
+ *     });
+ *     await response.body?.cancel();
+ *     if (!response.ok) throw new Error("Upload failed");
+ *     return { url, key: `${id}/${filename}` };
+ *   },
  * };
  * ```
  * @public

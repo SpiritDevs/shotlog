@@ -3,9 +3,11 @@ import type { ShotlogError } from "../errors.js";
 import type { JsonValue, Reporter, SupportLogSubmission } from "../types.js";
 
 /**
- * Replaceable Report Card text. Custom `types` supply their own chip labels.
+ * Replaceable Launcher, Report Card, and Annotation Editor text.
+ * Custom `types` supply their own chip labels.
  * @example
  * ```ts
+ * import type { ShotlogLabels } from "shotlog";
  * const labels: Partial<ShotlogLabels> = {
  *   submit: "Envoyer",
  *   sent: (shortId) => `Envoyé ✓ · ${shortId}`,
@@ -190,9 +192,10 @@ export interface ShotlogLabels {
 }
 
 /**
- * Acknowledgement from the Relay Endpoint, including safe retry deduplication.
+ * Submission acknowledgement, including Relay Endpoint deduplication status.
  * @example
  * ```ts
+ * import type { ShotlogSubmitResult } from "shotlog";
  * const onSubmitted = (result: ShotlogSubmitResult) => console.log(result.shortId);
  * ```
  * @public
@@ -208,6 +211,17 @@ export interface ShotlogSubmitResult {
 
 /**
  * A Support Log ready for delivery, handed to a custom `onSubmit`.
+ * @example
+ * ```ts
+ * import type { ShotlogProviderProps } from "shotlog";
+ * const send: NonNullable<ShotlogProviderProps["onSubmit"]> = async ({ log, screenshot }) => {
+ *   const body = new FormData();
+ *   body.set("supportLog", JSON.stringify(log));
+ *   if (screenshot) body.set("screenshot", screenshot, "screenshot.png");
+ *   const response = await fetch("/api/custom-support", { method: "POST", body });
+ *   if (!response.ok) throw new Error("Delivery failed");
+ * };
+ * ```
  * @public
  */
 export interface ShotlogSubmission {
@@ -218,6 +232,11 @@ export interface ShotlogSubmission {
 
 /**
  * Where Support Logs go: the Relay Endpoint (default), or the Host App's own `onSubmit`.
+ * @example
+ * ```ts
+ * import type { ShotlogProviderProps } from "shotlog";
+ * const delivery: ShotlogProviderProps = { endpoint: "/api/support" };
+ * ```
  * @public
  */
 export type ShotlogDelivery =
@@ -230,7 +249,7 @@ export type ShotlogDelivery =
       readonly endpoint?: never;
       /**
        * Deliver the Support Log yourself (your database, Slack, ...). Throw a shotlog
-       * error class to show its message; any other throw shows as a delivery failure.
+       * error class to select its translated label; any other throw shows as a delivery failure.
        */
       readonly onSubmit: (submission: ShotlogSubmission) => Promise<void>;
     };
@@ -239,11 +258,13 @@ export type ShotlogDelivery =
  * Host App configuration for Standalone or Programmatic Mode.
  * Functions supplying Host Context run on every submission attempt.
  * @example
- * ```tsx
- * <ShotlogProvider endpoint="/api/support" labels={{ submit: "Send" }}
- *   reporter={() => ({ id: currentUser.id })}>
- *   <App />
- * </ShotlogProvider>
+ * ```ts
+ * import type { ShotlogProviderProps } from "shotlog";
+ * const options: ShotlogProviderProps = {
+ *   endpoint: "/api/support",
+ *   reporter: () => ({ id: "user-42" }),
+ *   labels: { submit: "Send" },
+ * };
  * ```
  * @public
  */
@@ -251,6 +272,11 @@ export type ShotlogProviderProps = ShotlogDelivery & ShotlogProviderOptions;
 
 /**
  * Everything on ShotlogProvider except the delivery choice.
+ * @example
+ * ```ts
+ * import type { ShotlogProviderProps } from "shotlog";
+ * const options: ShotlogProviderProps = { endpoint: "/api/support", launcher: false, theme: "dark" };
+ * ```
  * @public
  */
 export interface ShotlogProviderOptions {
@@ -276,6 +302,7 @@ export interface ShotlogProviderOptions {
    * are recorded, without query strings, fragments, bodies, headers, or Relay requests.
    * @example
    * ```tsx
+   * import { ShotlogProvider } from "shotlog";
    * <ShotlogProvider endpoint="/api/support" diagnostics={{ network: false }} />
    * ```
    */
@@ -292,7 +319,7 @@ export interface ShotlogProviderOptions {
         | Promise<{ readonly [key: string]: JsonValue }>);
   /** Opt-in opening shortcut, e.g. `Mod+Shift+.`; Mod is Cmd on macOS, Ctrl elsewhere. */
   readonly shortcut?: string;
-  /** Called after the Relay Endpoint acknowledges delivery, even if the card was closed. */
+  /** Called after Relay Endpoint acknowledgement or custom onSubmit resolution, even if the card was closed. */
   readonly onSubmitted?: (result: ShotlogSubmitResult) => void;
   /** Called for each failed attempt with a public tagged error. */
   readonly onError?: (error: ShotlogError) => void;
@@ -302,7 +329,11 @@ export interface ShotlogProviderOptions {
  * Programmatic controls for the nearest ShotlogProvider.
  * @example
  * ```tsx
- * const { open, close, isOpen }: ShotlogControls = useShotlog();
+ * import { useShotlog, type ShotlogControls } from "shotlog";
+ * function HelpButton() {
+ *   const { open, isOpen }: ShotlogControls = useShotlog();
+ *   return <button onClick={open} disabled={isOpen}>Get help</button>;
+ * }
  * ```
  * @public
  */

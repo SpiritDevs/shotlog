@@ -90,17 +90,17 @@ function defectResponse(
 }
 
 /**
- * Create a Fetch-standard Relay Endpoint with authorization, bounded multipart parsing,
- * rate limits, per-channel deduplication, and Email / signed Webhook delivery.
- * Successful channel deliveries expire after 24 hours.
+ * Create a Fetch-standard Relay Endpoint for Email and signed Webhook delivery.
+ * Applies authorization, bounded multipart parsing, rate limits, and per-channel deduplication.
+ * Delivered-ID records expire after 24 hours; delivery itself is not undone.
  * Delivery is at least once: a lost response, or two instances receiving the same ID at
  * the same moment, can deliver twice. Receivers should dedupe on `x-shotlog-id` / `log.id`.
  * @example
  * ```ts
- * export const POST = createSupportHandler({
- *   delivery: { webhook: { url: "https://support.example.com/logs", secret: "shared-secret" } },
- *   authorize: async (request) => Boolean(await getSession(request)),
- * });
+ * import { createSupportHandler, type DeliveryConfig, type AuthorizeResult } from "shotlog/server";
+ * function supportRoute(delivery: DeliveryConfig, authorize: (request: Request) => Promise<AuthorizeResult>) {
+ *   return createSupportHandler({ delivery, authorize, ipHeader: "x-real-ip" });
+ * }
  * ```
  * @public
  */

@@ -7,6 +7,7 @@ import { failed, timedProvider } from "./transport.js";
  * Resend credentials, held only on the server.
  * @example
  * ```ts
+ * import type { ResendOptions } from "shotlog/server";
  * const options: ResendOptions = { apiKey: process.env.RESEND_API_KEY! };
  * ```
  * @public
@@ -20,6 +21,7 @@ export interface ResendOptions {
  * Sends once, with a 15-second timeout that aborts the request.
  * @example
  * ```ts
+ * import { resend } from "shotlog/server";
  * const provider = resend({ apiKey: process.env.RESEND_API_KEY! });
  * ```
  * @public

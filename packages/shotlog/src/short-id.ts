@@ -5,6 +5,7 @@ import { ValidationFailed } from "./errors.js";
  * The full UUID remains the identity for safe retries; short IDs can collide.
  * @example
  * ```ts
+ * import { getShortId } from "shotlog/node";
  * getShortId("00000000-0000-4000-8000-000000000001"); // "SL-0001"
  * ```
  * @public

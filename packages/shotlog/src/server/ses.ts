@@ -7,7 +7,11 @@ import { failed, lazySdk, timedProvider } from "./transport.js";
  * Explicit AWS credentials. Omit credentials in SesOptions to use the SDK's default chain.
  * @example
  * ```ts
- * const credentials: SesCredentials = { accessKeyId, secretAccessKey };
+ * import type { SesCredentials } from "shotlog/ses";
+ * const credentials: SesCredentials = {
+ *   accessKeyId: process.env.AWS_ACCESS_KEY_ID!,
+ *   secretAccessKey: process.env.AWS_SECRET_ACCESS_KEY!,
+ * };
  * ```
  * @public
  */
@@ -21,6 +25,7 @@ export interface SesCredentials {
  * SES region and optional static or refreshed credentials, without SDK types in the public API.
  * @example
  * ```ts
+ * import type { SesOptions } from "shotlog/ses";
  * const options: SesOptions = { region: "ap-southeast-2" };
  * ```
  * @public
