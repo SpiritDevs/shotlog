@@ -10,7 +10,7 @@
     "dev": "pnpm --filter @shotlog/playground dev",
     "build": "pnpm --filter shotlog build",
     "smoke": "pnpm build && tsx scripts/smoke.ts",
-    "typecheck": "tsc --noEmit && pnpm --filter shotlog build && pnpm --filter next-example typecheck && tsc --noEmit -p e2e/tsconfig.json",
+    "typecheck": "tsc --noEmit && pnpm --filter shotlog build && pnpm --filter next-example typecheck && tsc --noEmit -p e2e/tsconfig.json && pnpm --filter site typecheck",
     "lint": "biome check .",
     "test": "vitest run --typecheck",
     "api:check": "tsx scripts/api.ts",
