@@ -157,6 +157,8 @@ export default defineConfig(async () => {
     root,
     appType: "mpa" as const,
     resolve: { dedupe: ["react", "react-dom"] },
+    // Lets previews be shared through a Cloudflare quick tunnel.
+    preview: { allowedHosts: [".trycloudflare.com"] },
     build: {
       rollupOptions: {
         input: { main: `${root}index.html`, docs: `${root}docs/index.html` },
