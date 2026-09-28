@@ -3,5 +3,10 @@
   "framework": "vite",
   "buildCommand": "pnpm --filter shotlog build && pnpm --filter site build",
   "outputDirectory": "dist",
-  "trailingSlash": true
+  "trailingSlash": true,
+  "git": {
+    "deploymentEnabled": {
+      "main": false
+    }
+  }
 }

@@ -18,7 +18,7 @@ Sent as `multipart/form-data`: one JSON part holding the Support Log, and one bi
 The **Screenshot Mode** can be set to one of:
 - **`base64`** (default): the PNG is embedded in the JSON body as `{ _tag: "Inline", data, width, height, size, mimeType }`. This needs no extra infrastructure.
 - **`upload`**: the Server Helper uploads the PNG through a **Storage Adapter** and sends `{ _tag: "Uploaded", url, key, width, height, size, mimeType }`. `size` is the PNG byte length; `mimeType` is `"image/png"`.
-  - Set `delivery.webhook.screenshotMode: "upload"` and `delivery.webhook.storage`. Upload mode without storage throws `TypeError` when the handler is created.
+  - Set `delivery.webhook.screenshotMode: "upload"` and `delivery.webhook.storage`. The public discriminated union requires storage for upload and excludes it for base64. Upload mode without storage also throws `TypeError` when the handler is created, defending JavaScript callers.
   - The built-in adapter is `uploadfile()` from **`shotlog/uploadfile`**, for the in-house UploadFile service (`../uploadfile`, production at `https://www.uploadfile.dev`). It uses `UFApi` and `UFFile` from `@uploadfile/core/server` (0.2.0).
   - `token` defaults to `process.env.UPLOADFILE_TOKEN`, read when `uploadfile()` is called. A missing token fails the upload and uses the inline fallback.
   - The public `StorageAdapter` interface in `shotlog/server` permits custom S3, R2, etc. implementations, with no Effect or SDK types:

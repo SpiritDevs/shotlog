@@ -41,6 +41,8 @@ jobs:
        github.event.workflow_run.head_branch == 'main')
     runs-on: ubuntu-latest
     timeout-minutes: 15
+    outputs:
+      published: ${{ steps.latest.outputs.published }}
     steps:
       - name: Validate release commit and record any override
         uses: actions/github-script@v7
@@ -91,6 +93,7 @@ jobs:
       # GitHub remote (type: git, url: git+https://github.com/OWNER/REPO.git,
       # directory: packages/shotlog) once that remote is established. Provenance needs it.
       - name: Version PR or gated latest publish
+        id: latest
         if: inputs.tag != 'next'
         uses: changesets/action@v1
         with:
@@ -122,3 +125,38 @@ jobs:
           NPM_TOKEN: ${{ secrets.NPM_TOKEN }}
           NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
           NPM_CONFIG_PROVENANCE: "true"
+
+  deploy-site:
+    needs: publish
+    if: >-
+      needs.publish.result == 'success' &&
+      needs.publish.outputs.published == 'true' &&
+      inputs.tag != 'next' && inputs.skip_smoke != true
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    permissions:
+      contents: read
+    env:
+      VERCEL_TOKEN: ${{ secrets.VERCEL_TOKEN }}
+      VERCEL_ORG_ID: ${{ secrets.VERCEL_ORG_ID }}
+      VERCEL_PROJECT_ID: ${{ secrets.VERCEL_PROJECT_ID }}
+    steps:
+      - name: Check site deployment secrets
+        id: secrets
+        run: |
+          if [ -n "$VERCEL_TOKEN" ] && [ -n "$VERCEL_ORG_ID" ] && [ -n "$VERCEL_PROJECT_ID" ]; then
+            echo "configured=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "::notice::Skipping site deployment: configure VERCEL_TOKEN, VERCEL_ORG_ID, and VERCEL_PROJECT_ID."
+          fi
+      - uses: actions/checkout@v4
+        if: steps.secrets.outputs.configured == 'true'
+        with:
+          ref: ${{ github.event.workflow_run.head_sha || github.sha }}
+      - uses: actions/setup-node@v4
+        if: steps.secrets.outputs.configured == 'true'
+        with:
+          node-version: 24
+      - name: Deploy smoke-verified site
+        if: steps.secrets.outputs.configured == 'true'
+        run: npx --yes vercel deploy --prod --yes --token="$VERCEL_TOKEN"

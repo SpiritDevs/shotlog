@@ -8,6 +8,7 @@ The Report Card must stay small and quick. Whoever triages reports still needs e
 ## Decision
 The Report Card contains, from top to bottom:
 1. **Type** chips: Bug · Question · Idea. Bug is the default. The Host App can replace the list (e.g. add "Billing") or hide it.
+   - Options are strings or `{ value, label? }`. Only the value is delivered. An explicit label wins; otherwise Bug, Question, and Idea use the corresponding translated labels, and other values label themselves.
 2. **Description**: a single text box with the prompt "What were you trying to do?". This is the only required field.
 3. **Screenshot** button: opens capture and then the Annotation Editor. It becomes a thumbnail once a Screenshot is attached. Optional.
 4. **Included Details**: collapsed by default (ADR-0006).

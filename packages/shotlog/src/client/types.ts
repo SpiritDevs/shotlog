@@ -4,7 +4,7 @@ import type { JsonValue, Reporter, SupportLogSubmission } from "../types.js";
 
 /**
  * Replaceable Launcher, Report Card, and Annotation Editor text.
- * Custom `types` supply their own chip labels.
+ * Type options can override individual chip labels without changing delivered values.
  * @example
  * ```ts
  * import type { ShotlogLabels } from "shotlog";
@@ -276,6 +276,21 @@ export type ShotlogDelivery =
 export type ShotlogProviderProps = ShotlogDelivery & ShotlogProviderOptions;
 
 /**
+ * A delivered Type value, optionally with a separate display label.
+ * Without an explicit label, Bug, Question, and Idea use their translated labels;
+ * all other values are displayed unchanged.
+ * @example
+ * ```ts
+ * import type { ShotlogTypeOption } from "shotlog";
+ * const billing: ShotlogTypeOption = { value: "Billing", label: "Facturation" };
+ * ```
+ * @public
+ */
+export type ShotlogTypeOption =
+  | string
+  | { readonly value: string; readonly label?: string };
+
+/**
  * Everything on ShotlogProvider except the delivery choice.
  * @example
  * ```ts
@@ -289,6 +304,14 @@ export interface ShotlogProviderOptions {
   readonly children?: ReactNode;
   /** Defaults to true. False removes the widget and makes `open()` a no-op. */
   readonly enabled?: boolean;
+  /**
+   * Pass the signed-in user's id so drafts and pending report IDs never cross accounts.
+   * Uses `shotlog:draft:<scope>` in sessionStorage, or `shotlog:draft` when omitted.
+   * Changing scope resets the in-memory draft, identity, and Screenshot, then loads that scope.
+   */
+  readonly draftScope?: string;
+  /** Defaults to true. False keeps drafts and pending report IDs in memory only. */
+  readonly persistDraft?: boolean;
   /** Defaults to true. False selects Programmatic Mode with a centred card. */
   readonly launcher?: boolean;
   /** Standalone Mode corner; defaults to `bottom-right`. */
@@ -297,8 +320,11 @@ export interface ShotlogProviderOptions {
   readonly theme?: "light" | "dark" | "auto";
   /** Accent CSS colour; also configurable with `--shotlog-accent`. */
   readonly accent?: string;
-  /** Defaults to Bug, Question, Idea. An empty array hides chips and sends Bug. */
-  readonly types?: readonly string[];
+  /**
+   * Defaults to Bug, Question, Idea. An empty array hides chips and sends Bug.
+   * Only the option value is delivered; an explicit label overrides translated default labels.
+   */
+  readonly types?: readonly ShotlogTypeOption[];
   /** Overrides for the English labels. */
   readonly labels?: Partial<ShotlogLabels>;
   /**
@@ -324,9 +350,9 @@ export interface ShotlogProviderOptions {
         | Promise<{ readonly [key: string]: JsonValue }>);
   /** Opt-in opening shortcut, e.g. `Mod+Shift+.`; Mod is Cmd on macOS, Ctrl elsewhere. */
   readonly shortcut?: string;
-  /** Called after Relay Endpoint acknowledgement or custom onSubmit resolution, even if the card was closed. */
+  /** Called after Relay Endpoint acknowledgement or custom onSubmit resolution, even if the card was closed, unless its draft was cleared or scope changed. */
   readonly onSubmitted?: (result: ShotlogSubmitResult) => void;
-  /** Called for each failed attempt with a public tagged error. */
+  /** Called for each failed attempt with a public tagged error, unless its draft was cleared or scope changed. */
   readonly onError?: (error: ShotlogError) => void;
 }
 
@@ -347,6 +373,8 @@ export interface ShotlogControls {
   readonly open: () => void;
   /** Closes the card, keeping its draft and any running request. */
   readonly close: () => void;
+  /** Clears the current scope's stored and in-memory draft, identity, and Screenshot. Call on sign-out. */
+  readonly clearDraft: () => void;
   /** Whether the Report Card is visible. */
   readonly isOpen: boolean;
 }

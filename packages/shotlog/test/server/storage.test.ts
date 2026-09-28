@@ -52,6 +52,7 @@ afterEach(() => {
 
 test("rejects upload mode without storage at handler creation", () => {
   const { storage: _storage, ...config } = webhook;
+  // @ts-expect-error JavaScript callers still receive a defensive runtime error.
   expect(() => handle(config)).toThrow(TypeError);
 });
 
@@ -138,7 +139,7 @@ test("does not re-upload a delivered webhook when only email needs retrying", as
 test.each([undefined, "base64"] as const)(
   "mode %s keeps inline PNG without calling storage",
   async (screenshotMode) => {
-    const { screenshotMode: _mode, ...config } = webhook;
+    const { screenshotMode: _mode, storage: _storage, ...config } = webhook;
     const handler = handle({
       ...config,
       ...(screenshotMode ? { screenshotMode } : {}),

@@ -1,7 +1,7 @@
 {
   "name": "shotlog",
   "version": "0.0.0",
-  "description": "Support Logs with annotated Screenshots for React Host Apps.",
+  "description": "In-app support reports for React with annotated screenshots, diagnostics, and email or webhook delivery.",
   "type": "module",
   "sideEffects": false,
   "engines": {
@@ -9,7 +9,8 @@
   },
   "files": [
     "dist",
-    "schema"
+    "schema",
+    "CHANGELOG.md"
   ],
   "types": "./dist/index.d.ts",
   "exports": {
@@ -87,5 +88,16 @@
     "react": "^18.3.1",
     "react-dom": "^18.3.1",
     "smtp-server": "^3.19.13"
-  }
+  },
+  "homepage": "https://shotlog.dev",
+  "keywords": [
+    "support",
+    "bug report",
+    "screenshot",
+    "annotation",
+    "feedback",
+    "react",
+    "webhook",
+    "email"
+  ]
 }

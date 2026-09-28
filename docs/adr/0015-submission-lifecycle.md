@@ -17,6 +17,8 @@
    - The ID store is swappable, like the rate-limit store (ADR-0008).
 3. **Drafts.**
    - The Type and Description survive closing the card: in memory while the page is open, and in `sessionStorage` if the page reloads.
+   - `draftScope` selects `shotlog:draft:<scope>` (or `shotlog:draft` when omitted). Host Apps pass the signed-in user's ID. Changing scope drops the in-memory draft, identity, and Screenshot before loading that scope's draft.
+   - `persistDraft={false}` keeps drafts and pending IDs in memory only. `useShotlog().clearDraft()` clears the current scope's stored and in-memory draft, identity, and Screenshot; call it before sign-out. Scope changes and explicit clearing discard updates from pending operations, though a request already sent can still be delivered.
    - The Screenshot is kept **in memory only**. It's never persisted, because of its size and because it may contain sensitive data.
 4. **While sending.** Submit shows progress. Closing the card doesn't cancel the send.
    - The client allows **60 seconds total** to send the request and read its response, using an AbortController and a cleared JavaScript timer. A stalled relay becomes an Offline failure with Retry available.

@@ -19,10 +19,34 @@ import type {
   ValidationFailed,
 } from "shotlog";
 import type { ShotlogError as NodeError } from "shotlog/node";
-import type { ShotlogError as ServerError } from "shotlog/server";
+import type {
+  ShotlogError as ServerError,
+  StorageAdapter,
+  WebhookConfig,
+} from "shotlog/server";
 import { expectTypeOf, test } from "vitest";
 
 declare const error: ShotlogError;
+declare const storage: StorageAdapter;
+
+test("webhook upload requires storage and base64 excludes it", () => {
+  const base64 = {
+    url: "https://example.com",
+    secret: "secret",
+  } satisfies WebhookConfig;
+  const upload: WebhookConfig = {
+    ...base64,
+    screenshotMode: "upload",
+    storage,
+  };
+  // @ts-expect-error Upload mode must provide a StorageAdapter.
+  const invalid: WebhookConfig = { ...base64, screenshotMode: "upload" };
+  // @ts-expect-error Storage is only valid in upload mode.
+  const unused: WebhookConfig = { ...base64, storage };
+  void upload;
+  void invalid;
+  void unused;
+});
 
 // Compiled declarations are tested through the same exports that Host Apps resolve.
 test("public errors narrow by _tag", () => {

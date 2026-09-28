@@ -1,5 +1,6 @@
 import { type ReactNode, useEffect, useId, useRef } from "react";
-import type { ShotlogLabels } from "./types.js";
+import { typeLabel, typeValue } from "./labels.js";
+import type { ShotlogLabels, ShotlogTypeOption } from "./types.js";
 
 export interface Draft {
   readonly type: string;
@@ -8,8 +9,7 @@ export interface Draft {
 
 interface ReportCardProps {
   readonly draft: Draft;
-  readonly types: readonly string[];
-  readonly customTypes: boolean;
+  readonly types: readonly ShotlogTypeOption[];
   readonly labels: ShotlogLabels;
   readonly state: "idle" | "sending" | "sent" | "error";
   readonly message: string;
@@ -25,7 +25,6 @@ interface ReportCardProps {
 export function ReportCard({
   draft,
   types,
-  customTypes,
   labels,
   state,
   message,
@@ -41,11 +40,6 @@ export function ReportCard({
   const card = useRef<HTMLDivElement>(null);
   const description = useRef<HTMLTextAreaElement>(null);
   const locked = state === "sending" || state === "sent";
-  const defaultTypeLabels: Record<string, string> = {
-    Bug: labels.bug,
-    Question: labels.question,
-    Idea: labels.idea,
-  };
 
   useEffect(() => {
     const dialog = card.current;
@@ -147,16 +141,18 @@ export function ReportCard({
             <fieldset disabled={locked}>
               <legend>{labels.type}</legend>
               <div className="chips">
-                {types.map((type) => (
-                  <label className="chip" key={type}>
+                {types.map((option) => (
+                  <label className="chip" key={typeValue(option)}>
                     <input
                       type="radio"
                       name={`${id}-type`}
-                      value={type}
-                      checked={draft.type === type}
-                      onChange={() => onChange({ ...draft, type })}
+                      value={typeValue(option)}
+                      checked={draft.type === typeValue(option)}
+                      onChange={() =>
+                        onChange({ ...draft, type: typeValue(option) })
+                      }
                     />
-                    {customTypes ? type : defaultTypeLabels[type]}
+                    {typeLabel(option, labels)}
                   </label>
                 ))}
               </div>

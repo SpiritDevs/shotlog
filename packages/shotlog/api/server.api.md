@@ -432,13 +432,17 @@ export interface VerifyWebhookSignatureOptions {
 }
 
 // @public
-export interface WebhookConfig {
-    readonly screenshotMode?: "base64" | "upload";
+export type WebhookConfig = {
+    readonly url: string; /** Shared HMAC-SHA256 secret used to sign each delivery. */
     readonly secret: string;
-    readonly storage?: StorageAdapter;
     readonly timeoutMs?: number;
-    readonly url: string;
-}
+} & ({
+    readonly screenshotMode?: "base64";
+    readonly storage?: never;
+} | {
+    readonly screenshotMode: "upload"; /** Required for upload mode. Only Webhook Screenshots are uploaded; Email embeds the PNG. */
+    readonly storage: StorageAdapter;
+});
 
 // (No @packageDocumentation comment for this package)
 

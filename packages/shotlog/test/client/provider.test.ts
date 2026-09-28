@@ -45,6 +45,7 @@ vi.mock("react", async (importOriginal) => ({
   useCallback: <T>(callback: T, deps: DependencyList) =>
     hooks.memo(() => callback, deps),
   useRef: <T>(initial: T) => hooks.memo(() => ({ current: initial }), []),
+  useId: () => hooks.memo(() => "report-card", []),
   useState: <T>(initial: T) => {
     const cell = hooks.memo(() => ({ value: initial }), []);
     return [
@@ -80,6 +81,10 @@ function mount(props: ShotlogProviderProps) {
       hooks.cursor = 0;
       hooks.dirty = false;
       tree = ShotlogProvider(props);
+      if (hooks.dirty) {
+        hooks.effects = [];
+        continue;
+      }
       for (const effect of hooks.effects.splice(0)) {
         const cleanup = effect();
         if (cleanup) hooks.cleanups.push(cleanup);
@@ -90,11 +95,18 @@ function mount(props: ShotlogProviderProps) {
   const tree = render();
   const { value } = tree.props as { value: ShotlogControls };
   value.open();
-  return () => {
+  const card = () => {
     const card = findCard(render());
     if (!card) throw new Error("Report Card was not rendered");
     return card;
   };
+  return Object.assign(card, {
+    controls: () => (render().props as { value: ShotlogControls }).value,
+    rerender: (next: ShotlogProviderProps) => {
+      props = next;
+      render();
+    },
+  });
 }
 
 function findCard(
@@ -251,4 +263,192 @@ test("an attachment finishing after typing persists the latest draft and resets 
       identity: null,
     },
   );
+});
+
+test("switching scopes isolates drafts, pending IDs, screenshots, and late work", async () => {
+  let finish: (() => void) | undefined;
+  const onSubmit = vi.fn<NonNullable<ShotlogProviderProps["onSubmit"]>>(
+    () =>
+      new Promise<void>((resolve) => {
+        finish = resolve;
+      }),
+  );
+  const props = { diagnostics: false, onSubmit, draftScope: "A" } as const;
+  const card = mount(props);
+  card().onChange({ type: "Idea", description: "Private A" });
+  screenshotProps(card()).onChange(new Blob(["A"]));
+  card().onSubmit();
+  await new Promise(setImmediate);
+  const a = onSubmit.mock.calls[0]?.[0].log.id;
+  const lateCapture = screenshotProps(card());
+  lateCapture.acquireCapture();
+  card.rerender({ ...props, draftScope: "B" });
+  expect(card().draft).toEqual({ type: "Bug", description: "" });
+  expect(screenshotProps(card()).screenshot).toBeUndefined();
+  expect(screenshotProps(card()).busy).toBe(false);
+  lateCapture.onChange(new Blob(["late A"]));
+  lateCapture.onError("A error");
+  card().onChange({ type: "Question", description: "Private B" });
+  finish?.();
+  await new Promise(setImmediate);
+  expect(card().state).toBe("idle");
+  expect(card().draft.description).toBe("Private B");
+  expect(screenshotProps(card()).screenshot).toBeUndefined();
+  expect(screenshotProps(card()).error).toBe("");
+  onSubmit.mockRejectedValue(new Error("Lost response"));
+  card().onSubmit();
+  await new Promise(setImmediate);
+  const b = onSubmit.mock.calls[1]?.[0].log.id;
+  expect(b).toBeDefined();
+  expect(b).not.toBe(a);
+  card.rerender(props);
+  expect(card().draft).toEqual({ type: "Idea", description: "Private A" });
+  card().onSubmit();
+  await new Promise(setImmediate);
+  expect(onSubmit.mock.calls[2]?.[0].log.id).toBe(a);
+  card.rerender({ ...props, draftScope: "B" });
+  expect(card().draft.description).toBe("Private B");
+  card().onSubmit();
+  await new Promise(setImmediate);
+  expect(onSubmit.mock.calls[3]?.[0].log.id).toBe(b);
+  expect(sessionStorage.getItem("shotlog:draft")).toBeNull();
+});
+
+test("persistDraft false keeps text and retry identity only in memory", async () => {
+  const onSubmit = vi.fn<NonNullable<ShotlogProviderProps["onSubmit"]>>(
+    async () => {
+      throw new Error("Lost response");
+    },
+  );
+  const props = { diagnostics: false, onSubmit, persistDraft: false } as const;
+  sessionStorage.setItem(
+    "shotlog:draft",
+    JSON.stringify({ type: "Bug", description: "Stored" }),
+  );
+  const get = vi.spyOn(sessionStorage, "getItem");
+  const set = vi.spyOn(sessionStorage, "setItem");
+  const card = mount(props);
+  expect(card().draft.description).toBe("");
+  card().onChange({ type: "Bug", description: "Memory only" });
+  card().onSubmit();
+  await new Promise(setImmediate);
+  card().onClose();
+  card.controls().open();
+  expect(card().draft.description).toBe("Memory only");
+  card().onSubmit();
+  await new Promise(setImmediate);
+  expect(onSubmit.mock.calls[1]?.[0].log.id).toBe(
+    onSubmit.mock.calls[0]?.[0].log.id,
+  );
+  expect(get).not.toHaveBeenCalled();
+  expect(set).not.toHaveBeenCalled();
+  unmount();
+  expect(mount(props)().draft.description).toBe("");
+});
+
+test("clearDraft removes only the current scope and fences pending work", async () => {
+  let finish: (() => void) | undefined;
+  const onSubmitted = vi.fn();
+  const onSubmit = vi.fn<NonNullable<ShotlogProviderProps["onSubmit"]>>(
+    () =>
+      new Promise<void>((resolve) => {
+        finish = resolve;
+      }),
+  );
+  const card = mount({
+    diagnostics: false,
+    draftScope: "A",
+    onSubmit,
+    onSubmitted,
+  });
+  sessionStorage.setItem("shotlog:draft:B", "untouched");
+  card().onChange({ type: "Idea", description: "Clear me" });
+  screenshotProps(card()).onChange(new Blob(["image"]));
+  card().onSubmit();
+  await new Promise(setImmediate);
+  const lateCapture = screenshotProps(card());
+  const release = lateCapture.acquireCapture();
+  card.controls().clearDraft();
+  lateCapture.onChange(new Blob(["late"]));
+  lateCapture.onError("late error");
+  release?.();
+  finish?.();
+  await new Promise(setImmediate);
+  expect(card().draft).toEqual({ type: "Bug", description: "" });
+  expect(card().state).toBe("idle");
+  expect(screenshotProps(card())).toMatchObject({
+    screenshot: undefined,
+    busy: false,
+    error: "",
+  });
+  expect(sessionStorage.getItem("shotlog:draft:A")).toBeNull();
+  expect(sessionStorage.getItem("shotlog:draft:B")).toBe("untouched");
+  expect(onSubmitted).not.toHaveBeenCalled();
+  onSubmit.mockResolvedValue(undefined);
+  card().onChange({ type: "Bug", description: "New report" });
+  card().onSubmit();
+  await new Promise(setImmediate);
+  expect(onSubmit.mock.calls[1]?.[0].log.id).not.toBe(
+    onSubmit.mock.calls[0]?.[0].log.id,
+  );
+});
+
+test("custom Type options translate default values and deliver values rather than labels", async () => {
+  const onSubmit = vi.fn<NonNullable<ShotlogProviderProps["onSubmit"]>>(
+    async () => {},
+  );
+  const card = mount({
+    diagnostics: false,
+    onSubmit,
+    types: [
+      "Bug",
+      { value: "Question" },
+      { value: "Idea", label: "Suggestion" },
+      { value: "Billing", label: "Facturation" },
+      "Other",
+    ],
+    labels: { bug: "Bogue", question: "Demande", idea: "Idée" },
+  });
+  card().onChange({ type: "Bug", description: "A translated report" });
+  const props = card();
+  // Inspect the real card's radio callbacks without mounting DOM-only effects.
+  const slotCount = hooks.slots.length;
+  const tree = ReportCard(props);
+  const chips: {
+    text: ReactNode;
+    input: { value: string; onChange: () => void };
+  }[] = [];
+  const visit = (node: ReactNode): void => {
+    if (Array.isArray(node)) {
+      for (const child of node as ReactNode[]) visit(child);
+    } else if (
+      isValidElement<{ className?: string; children?: ReactNode }>(node)
+    ) {
+      if (
+        node.props.className === "chip" &&
+        Array.isArray(node.props.children)
+      ) {
+        const [input, text] = node.props.children as ReactNode[];
+        if (isValidElement<{ value: string; onChange: () => void }>(input))
+          chips.push({ text, input: input.props });
+      }
+      visit(node.props.children);
+    }
+  };
+  visit(tree);
+  hooks.slots.length = slotCount;
+  hooks.effects = [];
+  expect(chips.map(({ text }) => text)).toEqual([
+    "Bogue",
+    "Demande",
+    "Suggestion",
+    "Facturation",
+    "Other",
+  ]);
+  const billing = chips.find(({ input }) => input.value === "Billing");
+  expect(billing).toBeDefined();
+  billing?.input.onChange();
+  card().onSubmit();
+  await new Promise(setImmediate);
+  expect(onSubmit.mock.calls[0]?.[0].log.type).toBe("Billing");
 });

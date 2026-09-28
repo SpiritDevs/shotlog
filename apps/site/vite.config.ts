@@ -191,6 +191,8 @@ export default defineConfig(async () => {
           for (const [name, path] of references) {
             if (!name || !path) continue;
             let source = readFileSync(`${repo}${path}`, "utf8");
+            // The internal release runbook is not emitted on the public site.
+            source = source.replace(/\[([^\]]+)\]\(\.\.\/release\.md\)/g, "$1");
             source = source.replace(
               /\]\((?:docs\/)?adr\/([^)]*)\.md\)/g,
               "](/docs/reference/$1.html)",

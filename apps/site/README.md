@@ -26,7 +26,7 @@ pnpm lint
 
 Use **Vercel root directory `apps/site`**, with access to workspace files outside that directory enabled. The included `vercel.json` builds the library before the site and serves `dist`. It normalizes directory URLs with trailing slashes; there are no SPA rewrites. Both `/` and `/docs/` have real HTML entry points.
 
-Production deployment still follows the repository's release and real-provider smoke-test policy. This task does not deploy.
+Automatic Git deployments from `main` are disabled. The Release workflow deploys production only after a successful `latest` publish with a passed smoke test; it skips emergency smoke overrides and emits a notice if Vercel secrets are missing. Run the CLI from the repository root so the configured project root retains access to the workspace. See [the release runbook](../../docs/release.md) for secrets and setup.
 
 ## Social image
 

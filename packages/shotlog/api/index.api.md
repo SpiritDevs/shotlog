@@ -158,6 +158,7 @@ export interface ScreenshotInfo {
 
 // @public
 export interface ShotlogControls {
+    readonly clearDraft: () => void;
     readonly close: () => void;
     readonly isOpen: boolean;
     readonly open: () => void;
@@ -275,6 +276,7 @@ export interface ShotlogProviderOptions {
         readonly console?: boolean;
         readonly network?: boolean;
     };
+    readonly draftScope?: string;
     readonly enabled?: boolean;
     readonly labels?: Partial<ShotlogLabels>;
     readonly launcher?: boolean;
@@ -287,11 +289,12 @@ export interface ShotlogProviderOptions {
     }>);
     readonly onError?: (error: ShotlogError) => void;
     readonly onSubmitted?: (result: ShotlogSubmitResult) => void;
+    readonly persistDraft?: boolean;
     readonly position?: "bottom-right" | "bottom-left";
     readonly reporter?: Reporter | (() => Reporter | Promise<Reporter>);
     readonly shortcut?: string;
     readonly theme?: "light" | "dark" | "auto";
-    readonly types?: readonly string[];
+    readonly types?: readonly ShotlogTypeOption[];
 }
 
 // @public
@@ -310,6 +313,12 @@ export interface ShotlogSubmitResult {
     readonly id: string;
     readonly shortId: string;
 }
+
+// @public
+export type ShotlogTypeOption = string | {
+    readonly value: string;
+    readonly label?: string;
+};
 
 // @public
 export interface Size {

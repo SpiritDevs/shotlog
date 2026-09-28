@@ -44,7 +44,6 @@ jobs:
         env:
           BEFORE: ${{ github.event.before }}
         run: pnpm exec changeset status --since="$BEFORE"
-      - run: pnpm exec changeset status
 
   e2e:
     runs-on: ubuntu-latest

@@ -77,6 +77,107 @@ export const POST = createSupportHandler({
 
 Start your Next.js app, open the Launcher, and submit a Description. No CSS import is needed. The development hook above denies production requests; connect your Host App's authentication using the [security example](#security) before deploying. Keep keys and destinations out of client components and `NEXT_PUBLIC_*` variables.
 
+## Quick start: Vite + Express
+
+This complete local example uses a signed Webhook. Start in an empty directory with Node ≥20.19:
+
+```sh
+npm init -y
+npm pkg set type=module
+npm i react react-dom shotlog express
+npm i -D vite typescript tsx @types/react @types/react-dom @types/express @types/node
+```
+
+Create `tsconfig.json`:
+
+```json
+{
+  "compilerOptions": {
+    "target": "ES2022", "module": "ESNext", "moduleResolution": "Bundler",
+    "jsx": "react-jsx", "strict": true, "noEmit": true,
+    "lib": ["ES2022", "DOM"], "types": ["node"], "esModuleInterop": true
+  },
+  "include": ["*.ts", "*.tsx"]
+}
+```
+
+Create `vite.config.ts`. The proxy keeps the browser's `/api/support` request on the same origin:
+
+```ts
+import { defineConfig } from "vite";
+
+export default defineConfig({
+  server: {
+    host: "127.0.0.1", port: 5410, strictPort: true,
+    proxy: { "/api": "http://127.0.0.1:5411" },
+  },
+});
+```
+
+Create `server.ts`. Mount the raw-stream handler **before** Express body parsers. Set the destination and signing secret only on this server:
+
+```ts
+import express from "express";
+import { toNodeHandler } from "shotlog/node";
+import { createSupportHandler } from "shotlog/server";
+
+const url = process.env.SHOTLOG_WEBHOOK_URL;
+const secret = process.env.SHOTLOG_WEBHOOK_SECRET;
+if (!url || !secret) throw new Error("Set SHOTLOG_WEBHOOK_URL and SHOTLOG_WEBHOOK_SECRET");
+
+const app = express();
+app.post("/api/support", toNodeHandler(createSupportHandler({
+  delivery: { webhook: { url, secret } },
+  authorize: async (request) => {
+    // TODO: Verify your Host App session and allowed origin here, then return
+    // { reporterId: session.user.id }. Never trust the submitted reporter.id.
+    // This placeholder denies access unless explicitly enabled for local development.
+    return process.env.NODE_ENV === "development"
+      && process.env.SHOTLOG_LOCAL_DEMO === "1"
+      && request.headers.get("origin") === "http://127.0.0.1:5410";
+  },
+})));
+app.use(express.json()); // Other application routes can use parsed bodies.
+app.listen(5411, "127.0.0.1", () => console.info("Relay listening on 5411"));
+```
+
+Create `index.html`:
+
+```html
+<!doctype html>
+<html lang="en">
+  <head><meta charset="UTF-8"><meta name="viewport" content="width=device-width, initial-scale=1"><title>Support demo</title></head>
+  <body><div id="root"></div><script type="module" src="/main.tsx"></script></body>
+</html>
+```
+
+Create `main.tsx`:
+
+```tsx
+import { StrictMode } from "react";
+import { createRoot } from "react-dom/client";
+import { ShotlogProvider } from "shotlog";
+
+createRoot(document.getElementById("root")!).render(
+  <StrictMode>
+    <ShotlogProvider endpoint="/api/support" draftScope="local-demo">
+      <h1>My app</h1>
+      <p>Open “Report an issue” to send a Support Log.</p>
+    </ShotlogProvider>
+  </StrictMode>,
+);
+```
+
+In one terminal, set your receiver URL and its shared secret, then start Express:
+
+```sh
+SHOTLOG_WEBHOOK_URL=https://your-receiver.example/support \
+SHOTLOG_WEBHOOK_SECRET=replace-with-your-server-side-secret \
+NODE_ENV=development SHOTLOG_LOCAL_DEMO=1 npx tsx server.ts
+```
+
+In another terminal, run `npx vite` and open `http://127.0.0.1:5410`. Submit a Description; the receiver gets a signed JSON Support Log. Check types with `npx tsc` and build the client with `npx vite build`. Replace the local authorization placeholder with your session check and set `draftScope` to the signed-in user's ID before deployment. In production, serve `/api` through your backend or reverse proxy; Vite's proxy is for development only.
+
 ## Other backends
 
 Create the handler once per server instance so its in-memory limits and deduplication survive between requests.
@@ -249,7 +350,7 @@ Set `UPLOADFILE_TOKEN` on the server, or pass `token` explicitly. The default AC
 
 **Private UploadFile links expire within 7 days.** `signedUrlExpiresIn` is a positive integer in seconds, defaulting to and capped at `604800`. Private signed URLs are generated once per Support Log and reused across webhook retries. A delayed successful delivery may carry a URL closer to expiry, so receivers should store `key` and re-sign when needed.
 
-Upload mode without `storage` throws at handler creation. Uploads have a 10-second deadline; failures fall back to inline base64 with a sanitized `screenshot.uploadError`. That fallback may exceed a receiver's body-size limit. No Screenshot means no upload.
+TypeScript requires `storage` in upload mode and excludes it in base64 mode. JavaScript upload configurations without storage also throw at handler creation. Uploads have a 10-second deadline; failures fall back to inline base64 with a sanitized `screenshot.uploadError`. That fallback may exceed a receiver's body-size limit. No Screenshot means no upload.
 
 For custom storage, implement `StorageAdapter` and honor the abort signal. This example assumes your own storage service accepts PNG PUTs and serves the same URL on GET; add its server-side authentication as needed:
 
@@ -342,14 +443,16 @@ export function Support() {
 }
 ```
 
-The hook also exposes `close()`. Closing preserves the draft and does not cancel an active submission. Type, Description, and pending ID survive reloads in `sessionStorage`; Screenshots stay in memory only. Success clears the draft and closes the card after about 3 seconds. There is no offline queue.
+The hook also exposes `close()` and `clearDraft()`. Closing preserves the draft and does not cancel an active submission; clearing removes the current scope's stored draft, identity, and Screenshot. Type, Description, and pending ID survive reloads in `sessionStorage` by default; use `draftScope` for account isolation or `persistDraft={false}` for memory-only drafts. Screenshots stay in memory only. Success clears the draft and closes the card after about 3 seconds. There is no offline queue.
 
 | Option | Behavior |
 | --- | --- |
 | `enabled` | Default `true`; `false` removes the UI, stops this provider's recording, and makes `open()` a no-op. Children remain rendered. |
 | `position` | `"bottom-right"` (default) or `"bottom-left"` in Standalone Mode; Programmatic Mode centers the card. |
 | `theme`, `accent` | `"auto"` (default), `"light"`, or `"dark"`; accent accepts a CSS color. |
-| `types` | Defaults to Bug, Question, Idea; custom strings are both labels and payload values. `[]` hides chips and submits Bug. |
+| `types` | `readonly ShotlogTypeOption[]`: strings or `{ value, label? }`. Explicit labels win; otherwise Bug/Question/Idea use translated labels, and other values label themselves. Only `value` is delivered. `[]` hides chips and submits Bug. |
+| `draftScope` | Pass the signed-in user's ID. Uses `shotlog:draft:<scope>` in `sessionStorage`, or `shotlog:draft` when omitted. Switching scope resets memory and loads only that scope's draft and pending ID. |
+| `persistDraft` | Defaults to `true`. Set `false` to keep drafts and pending IDs in memory only. |
 | `labels` | `Partial<ShotlogLabels>` overrides English Launcher, Report Card, and Annotation Editor text, including function-valued messages. |
 | `reporter`, `metadata` | JSON objects or sync/async functions; functions run when Included Details expands and again on every submit attempt. |
 | `diagnostics` | Both channels on by default. Use `false` or `{ console: false, network: true }`; omitted flags default to `true`. |
@@ -367,7 +470,8 @@ export function SupportOptions({ userId }: { userId: string }) {
     <ShotlogProvider
       endpoint="/api/support"
       position="bottom-left" theme="auto" accent="#4338ca"
-      types={["Bug", "Question", "Billing"]}
+      draftScope={userId}
+      types={["Bug", "Question", { value: "Billing", label: "Billing help" }]}
       labels={{ submit: "Send report", sent: (id) => `Sent · ${id}` }}
       reporter={() => ({ id: userId })}
       metadata={async () => ({ appVersion: "1.0.0" })}
@@ -517,7 +621,18 @@ export function retryDelay(error: unknown): number | undefined {
 - **Not collected by the network recorder:** request/response bodies, headers, cookies, or successful requests. It excludes the configured Relay Endpoint. No continuous screen recording, audio, or keystroke log is collected. A Screenshot is captured only when the Reporter chooses it.
 - **URL stripping:** Environment URLs/referrers remove query strings and embedded username/password credentials; their fragments remain. Network URLs additionally remove fragments. Console messages/stacks, Description, Host Context, URL paths, and Screenshot pixels are not automatically scrubbed for secrets.
 - **Host Context:** shotlog does not infer a user from your auth system. Only supply Reporter/metadata fields you intend to send. Included Details previews context and diagnostics; submit resolves current values again.
-- **Retention:** Type, Description, and pending ID use tab-scoped `sessionStorage`. Screenshots and editable originals are memory-only. Your Email Provider, Webhook receiver, and Storage Adapter determine retention after delivery.
+- **Retention:** Type, Description, and pending ID use tab-scoped `sessionStorage`, scoped by `draftScope` when supplied. Pass the signed-in user's ID so accounts never share drafts; switching scope drops in-memory state and loads that scope's draft. `persistDraft={false}` disables storage reads and writes. Screenshots and editable originals are always memory-only. Your Email Provider, Webhook receiver, and Storage Adapter determine retention after delivery.
+
+Call `clearDraft()` from `useShotlog()` **before signing out** to clear the current scope's stored draft, pending ID, and in-memory Screenshot. It also discards updates from pending capture/submission work; a request already sent to the backend can still be delivered.
+
+```tsx
+import { useShotlog } from "shotlog";
+
+export function SignOut({ signOut }: { signOut: () => Promise<void> }) {
+  const { clearDraft } = useShotlog();
+  return <button onClick={async () => { clearDraft(); await signOut(); }}>Sign out</button>;
+}
+```
 
 Use `diagnostics={false}` or disable individual channels when those sources may contain sensitive data. Inspect the Screenshot and use Solid redaction before submitting.
 

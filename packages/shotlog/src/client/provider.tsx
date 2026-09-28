@@ -24,7 +24,7 @@ import {
 } from "./diagnostics.js";
 import { captureEnvironment } from "./environment.js";
 import { type IncludedContext, IncludedDetails } from "./included-details.js";
-import { defaultLabels, errorMessage } from "./labels.js";
+import { defaultLabels, errorMessage, typeValue } from "./labels.js";
 import { type Draft, ReportCard } from "./report-card.js";
 import { ScreenshotControls } from "./screenshot-controls.js";
 import { matchesShortcut } from "./shortcut.js";
@@ -38,7 +38,6 @@ import type {
 
 const Context = createContext<ShotlogControls | null>(null);
 const defaultTypes = ["Bug", "Question", "Idea"];
-const draftKey = "shotlog:draft";
 type Identity = Pick<SupportLogSubmission, "id" | "shortId" | "createdAt"> & {
   readonly attempted?: true;
 };
@@ -67,6 +66,8 @@ export function ShotlogProvider({
   endpoint,
   onSubmit,
   enabled = true,
+  draftScope,
+  persistDraft = true,
   launcher = true,
   position = "bottom-right",
   theme = "auto",
@@ -80,6 +81,13 @@ export function ShotlogProvider({
   onSubmitted,
   onError,
 }: ShotlogProviderProps): ReactElement {
+  const draftKey =
+    draftScope === undefined ? "shotlog:draft" : `shotlog:draft:${draftScope}`;
+  const firstType = typeValue(types[0] ?? "Bug");
+  const [scope, setScope] = useState(draftKey);
+  // Fence asynchronous work when a scope is replaced or explicitly cleared.
+  const draftEpoch = useRef(0);
+  const epoch = draftEpoch.current;
   const labels = { ...defaultLabels, ...overrides };
   const recordConsole =
     enabled && diagnostics !== false && diagnostics?.console !== false;
@@ -107,7 +115,7 @@ export function ShotlogProvider({
   const [root, setRoot] = useState<ShadowRoot | null>(null);
   const [isOpen, setIsOpen] = useState(false);
   const [draft, setDraft] = useState<Draft>({
-    type: types[0] ?? "Bug",
+    type: firstType,
     description: "",
   });
   const latestDraft = useRef(draft);
@@ -118,7 +126,7 @@ export function ShotlogProvider({
   const [captureError, setCaptureError] = useState("");
   const captureOwner = useRef<object | null>(null);
   const acquireCapture = useCallback(() => {
-    if (captureOwner.current) return undefined;
+    if (draftEpoch.current !== epoch || captureOwner.current) return undefined;
     const operation = {};
     captureOwner.current = operation;
     setCapturing(true);
@@ -127,7 +135,7 @@ export function ShotlogProvider({
       captureOwner.current = null;
       setCapturing(false);
     };
-  }, []);
+  }, [epoch]);
   const [loaded, setLoaded] = useState(false);
   const [status, setStatus] = useState<Status>({ tag: "idle" });
   // Kept with the draft so a retry after a lost response, even after a reload, reuses the
@@ -144,18 +152,47 @@ export function ShotlogProvider({
     }
     return identity.current;
   }, []);
-  const persist = useCallback((next: Draft) => {
-    try {
-      sessionStorage.setItem(
-        draftKey,
-        JSON.stringify({ ...next, identity: identity.current }),
-      );
-    } catch {
-      /* In-memory drafts remain available. */
-    }
-  }, []);
+  const persist = useCallback(
+    (next: Draft) => {
+      if (!persistDraft || draftEpoch.current !== epoch) return;
+      try {
+        if (!next.description && !identity.current) {
+          sessionStorage.removeItem(draftKey);
+          return;
+        }
+        sessionStorage.setItem(
+          draftKey,
+          JSON.stringify({ ...next, identity: identity.current }),
+        );
+      } catch {
+        /* In-memory drafts remain available. */
+      }
+    },
+    [draftKey, persistDraft, epoch],
+  );
   const opener = useRef<HTMLElement | null>(null);
   const sending = useRef(false);
+  const resetDraft = useCallback(() => {
+    draftEpoch.current++;
+    identity.current = null;
+    sending.current = false;
+    captureOwner.current = null;
+    setCapturing(false);
+    setCaptureError("");
+    setScreenshot(undefined);
+    const empty = { type: firstType, description: "" };
+    latestDraft.current = empty;
+    setDraft(empty);
+    setStatus({ tag: "idle" });
+  }, [firstType]);
+  const clearDraft = useCallback(() => {
+    resetDraft();
+    try {
+      sessionStorage.removeItem(draftKey);
+    } catch {
+      /* Session storage can be unavailable. */
+    }
+  }, [draftKey, resetDraft]);
   const close = useCallback(() => setIsOpen(false), []);
   const open = useCallback(() => {
     if (!enabled || isOpen || typeof document === "undefined") return;
@@ -168,8 +205,8 @@ export function ShotlogProvider({
     setIsOpen(true);
   }, [enabled, isOpen, ensureIdentity]);
   const controls = useMemo(
-    () => ({ open, close, isOpen: enabled && isOpen }),
-    [open, close, enabled, isOpen],
+    () => ({ open, close, clearDraft, isOpen: enabled && isOpen }),
+    [open, close, clearDraft, enabled, isOpen],
   );
 
   useEffect(() => {
@@ -192,9 +229,10 @@ export function ShotlogProvider({
   }, [enabled, close]);
 
   useEffect(() => {
+    if (loaded) return;
     try {
       const saved: unknown = JSON.parse(
-        sessionStorage.getItem(draftKey) ?? "null",
+        (persistDraft ? sessionStorage.getItem(draftKey) : null) ?? "null",
       );
       if (
         typeof saved === "object" &&
@@ -212,7 +250,7 @@ export function ShotlogProvider({
       /* Session storage can be unavailable in private or embedded contexts. */
     }
     setLoaded(true);
-  }, []);
+  }, [draftKey, loaded, persistDraft]);
 
   useEffect(() => {
     if (!loaded) return;
@@ -249,12 +287,20 @@ export function ShotlogProvider({
     return () => document.removeEventListener("keydown", onKeyDown);
   }, [enabled, shortcut, root, open]);
 
-  const selectedType = types.includes(draft.type)
+  // Reset before React commits children or runs persistence effects for the new scope.
+  if (scope !== draftKey) {
+    setScope(draftKey);
+    resetDraft();
+    setLoaded(false);
+  }
+
+  const selectedType = types.some((option) => typeValue(option) === draft.type)
     ? draft.type
-    : (types[0] ?? "Bug");
+    : firstType;
   const submit = async () => {
     if (
       sending.current ||
+      draftEpoch.current !== epoch ||
       captureOwner.current ||
       !enabled ||
       status.tag === "sent"
@@ -268,6 +314,7 @@ export function ShotlogProvider({
     let log: SupportLogSubmission;
     try {
       const context = await collectContext();
+      if (draftEpoch.current !== epoch) return;
       const trail = getDiagnostics();
       log = {
         schemaVersion: 1,
@@ -287,6 +334,7 @@ export function ShotlogProvider({
           : {}),
       };
     } catch (cause) {
+      if (draftEpoch.current !== epoch) return;
       const error = new ValidationFailed(
         ["Could not collect Environment or Host Context"],
         undefined,
@@ -306,6 +354,7 @@ export function ShotlogProvider({
         result = { id: log.id, shortId: log.shortId, duplicate: false };
       }
     } catch (cause) {
+      if (draftEpoch.current !== epoch) return;
       const error = isShotlogError(cause)
         ? cause
         : new DeliveryFailed("custom", undefined, { cause });
@@ -314,13 +363,14 @@ export function ShotlogProvider({
       onError?.(error);
       return;
     }
+    if (draftEpoch.current !== epoch) return;
     sending.current = false;
     identity.current = null;
     setScreenshot(undefined);
-    setDraft({ type: types[0] ?? "Bug", description: "" });
+    setDraft({ type: firstType, description: "" });
     setStatus({ tag: "sent", result });
     try {
-      sessionStorage.removeItem(draftKey);
+      if (persistDraft) sessionStorage.removeItem(draftKey);
     } catch {
       /* Session storage can be unavailable. */
     }
@@ -365,9 +415,9 @@ export function ShotlogProvider({
             )}
             {isOpen && (
               <ReportCard
+                key={epoch}
                 draft={{ ...draft, type: selectedType }}
                 types={types}
-                customTypes={types !== defaultTypes}
                 labels={labels}
                 state={status.tag}
                 message={message}
@@ -381,9 +431,12 @@ export function ShotlogProvider({
                     locked={status.tag === "sending" || status.tag === "sent"}
                     busy={capturing}
                     error={captureError}
-                    onError={setCaptureError}
+                    onError={(error) => {
+                      if (draftEpoch.current === epoch) setCaptureError(error);
+                    }}
                     acquireCapture={acquireCapture}
                     onChange={(next) => {
+                      if (draftEpoch.current !== epoch) return;
                       if (identity.current?.attempted) identity.current = null;
                       setScreenshot(next);
                       // Persist the changed identity, never the image.
@@ -401,6 +454,7 @@ export function ShotlogProvider({
                 }
                 onClose={close}
                 onChange={(next) => {
+                  if (draftEpoch.current !== epoch) return;
                   // The attempt may have been delivered, including before a reload.
                   if (identity.current?.attempted) identity.current = null;
                   latestDraft.current = next;

@@ -1,5 +1,28 @@
 import type { ShotlogError } from "../errors.js";
-import type { ShotlogLabels } from "./types.js";
+import type { ShotlogLabels, ShotlogTypeOption } from "./types.js";
+
+export function typeValue(option: ShotlogTypeOption): string {
+  return typeof option === "string" ? option : option.value;
+}
+
+export function typeLabel(
+  option: ShotlogTypeOption,
+  labels: ShotlogLabels,
+): string {
+  if (typeof option !== "string" && option.label !== undefined)
+    return option.label;
+  const value = typeValue(option);
+  switch (value) {
+    case "Bug":
+      return labels.bug;
+    case "Question":
+      return labels.question;
+    case "Idea":
+      return labels.idea;
+    default:
+      return value;
+  }
+}
 
 export const defaultLabels: ShotlogLabels = {
   launcher: "Report an issue",
