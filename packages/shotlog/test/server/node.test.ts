@@ -24,9 +24,11 @@ test("streams a real node:http multipart request and Fetch response, including r
     rateLimit: false,
   });
   let receivedUrl: string | undefined;
+  let socketAddress: string | null = null;
   const server = createServer(
     toNodeHandler(async (input) => {
       receivedUrl = input.url;
+      socketAddress = input.headers.get("x-shotlog-socket-address");
       const response = await support(input);
       response.headers.append("set-cookie", "first=1; Path=/");
       response.headers.append("set-cookie", "second=2; Path=/");
@@ -40,6 +42,7 @@ test("streams a real node:http multipart request and Fetch response, including r
       throw new Error("No listening address");
     const source = request(undefined, new Blob([png], { type: "image/png" }), {
       authorization: "Bearer session",
+      "x-shotlog-socket-address": "198.51.100.1",
     });
     const url = `http://127.0.0.1:${address.port}/support?source=node`;
     const init: RequestInit & { duplex: "half" } = {
@@ -56,6 +59,8 @@ test("streams a real node:http multipart request and Fetch response, including r
       "second=2; Path=/",
     ]);
     expect(receivedUrl).toBe(url);
+    // A client-supplied copy must be replaced by the real socket address.
+    expect(socketAddress).toBe("127.0.0.1");
     expect(webhook).toHaveBeenCalledOnce();
   })().finally(
     () =>

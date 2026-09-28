@@ -422,8 +422,11 @@ test("uses a supplied store for both limits and completed dedupe across handler 
   const config = { store, rateLimit: { max: 3 } };
   const first = handler(config);
   const second = handler(config);
-  expect((await first(request())).status).toBe(200);
-  expect(await (await second(request())).json()).toMatchObject({
+  const ip = { "x-forwarded-for": "203.0.113.7" };
+  expect((await first(request(undefined, undefined, ip))).status).toBe(200);
+  expect(
+    await (await second(request(undefined, undefined, ip))).json(),
+  ).toMatchObject({
     duplicate: true,
   });
   expect(store.increment).toHaveBeenCalledWith(

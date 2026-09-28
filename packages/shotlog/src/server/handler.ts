@@ -37,12 +37,16 @@ const authorizeRequest = Effect.fn("authorizeSupportRequest")(function* (
   if (!allowed) return yield* new Forbidden({});
 });
 
-function clientIp(request: Request): string {
+/** Set by toNodeHandler from the socket; any client-supplied copy is discarded there. */
+export const socketAddressHeader = "x-shotlog-socket-address";
+
+function clientIp(request: Request): string | undefined {
   return (
     request.headers.get("x-forwarded-for")?.split(",", 1)[0]?.trim() ||
     request.headers.get("x-real-ip")?.trim() ||
     request.headers.get("cf-connecting-ip")?.trim() ||
-    "unknown"
+    request.headers.get(socketAddressHeader)?.trim() ||
+    undefined
   );
 }
 
@@ -100,6 +104,14 @@ export function createSupportHandler(
     storeLayer(config.store),
     webhookLayer(config.delivery.webhook),
   );
+  let warnedNoIp = false;
+  const warnNoIp = () => {
+    if (warnedNoIp) return;
+    warnedNoIp = true;
+    console.warn(
+      "shotlog: could not determine the client IP; per-IP rate limiting is skipped. Pass getClientIp.",
+    );
+  };
   const inFlight = new Map<string, Deferred.Deferred<boolean, InternalError>>();
   const deliverOnce = Effect.fn("deliverSupportLogOnce")(function* (
     submission: SupportLogSubmission,
@@ -135,10 +147,10 @@ export function createSupportHandler(
     yield* checkRequest(request, screenshotBytes);
     if (config.authorize) yield* authorizeRequest(request, config.authorize);
     if (config.rateLimit !== false) {
-      const ip = config.getClientIp
-        ? config.getClientIp(request)?.trim() || "unknown"
-        : clientIp(request);
-      yield* checkRateLimit("ip", ip, config.rateLimit ?? {});
+      const ip = (config.getClientIp ?? clientIp)(request)?.trim();
+      // One shared bucket for every IP-less request would throttle all users together.
+      if (ip) yield* checkRateLimit("ip", ip, config.rateLimit ?? {});
+      else warnNoIp();
     }
     const { submission, screenshot } = yield* parseSubmission(
       request,

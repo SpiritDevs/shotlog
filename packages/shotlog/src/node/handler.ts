@@ -2,6 +2,7 @@ import type { IncomingMessage, ServerResponse } from "node:http";
 import { Readable } from "node:stream";
 import { pipeline } from "node:stream/promises";
 import type { ReadableStream as NodeReadableStream } from "node:stream/web";
+import { socketAddressHeader } from "../server/handler.js";
 
 /**
  * Adapt a Fetch handler to node:http, Express, or Fastify's raw request/response objects.
@@ -41,6 +42,9 @@ async function handle(
     const value = req.rawHeaders[index + 1];
     if (name !== undefined && value !== undefined) headers.append(name, value);
   }
+  headers.delete(socketAddressHeader);
+  if (req.socket.remoteAddress)
+    headers.set(socketAddressHeader, req.socket.remoteAddress);
   const protocol =
     "encrypted" in req.socket && req.socket.encrypted ? "https" : "http";
   const url = new URL(

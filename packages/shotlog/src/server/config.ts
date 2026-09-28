@@ -91,9 +91,9 @@ export interface SupportHandlerConfig {
   /** Defaults to 5 requests per 600 seconds; false disables both IP and reporter limits. */
   readonly rateLimit?: false | RateLimitConfig;
   /**
-   * Overrides IP resolution. By default: first x-forwarded-for entry, x-real-ip, then
-   * cf-connecting-ip. Forwarded headers are trustworthy only behind a trusted proxy.
-   * Requests without an IP share one fallback bucket.
+   * Overrides IP resolution. By default: first x-forwarded-for entry, x-real-ip,
+   * cf-connecting-ip, then the socket address supplied by toNodeHandler. Forwarded headers
+   * are trustworthy only behind a trusted proxy. Without an IP, per-IP limits are skipped.
    */
   readonly getClientIp?: (request: Request) => string | undefined;
   /** Defaults to lazy-expiring in-memory storage, protecting only this handler instance. */
