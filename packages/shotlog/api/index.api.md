@@ -4,6 +4,9 @@
 
 ```ts
 
+import { ReactElement } from 'react';
+import { ReactNode } from 'react';
+
 // @public
 export interface ConsoleEntry {
     readonly at: string;
@@ -158,7 +161,75 @@ export interface ScreenshotInfo {
 }
 
 // @public
+export interface ShotlogControls {
+    readonly close: () => void;
+    readonly isOpen: boolean;
+    readonly open: () => void;
+}
+
+// @public
 export type ShotlogError = Unauthorized | Forbidden | RateLimited | PayloadTooLarge | ValidationFailed | DeliveryFailed | UploadFailed | Offline | ProviderNotInstalled | UnsupportedRuntime;
+
+// @public
+export interface ShotlogLabels {
+    readonly bug: string;
+    readonly close: string;
+    readonly deliveryFailed: string;
+    readonly description: string;
+    readonly descriptionRequired: string;
+    readonly forbidden: string;
+    readonly idea: string;
+    readonly launcher: string;
+    readonly offline: string;
+    readonly payloadTooLarge: string;
+    readonly providerNotInstalled: string;
+    readonly question: string;
+    readonly rateLimited: (minutes: number) => string;
+    readonly retry: string;
+    readonly sending: string;
+    readonly sent: (shortId: string) => string;
+    readonly submit: string;
+    readonly title: string;
+    readonly type: string;
+    readonly unauthorized: string;
+    readonly unsupportedRuntime: string;
+    readonly uploadFailed: string;
+    readonly validationFailed: string;
+}
+
+// @public
+export function ShotlogProvider(input: ShotlogProviderProps): ReactElement;
+
+// @public
+export interface ShotlogProviderProps {
+    readonly accent?: string;
+    readonly children?: ReactNode;
+    readonly enabled?: boolean;
+    readonly endpoint: string;
+    readonly labels?: Partial<ShotlogLabels>;
+    readonly launcher?: boolean;
+    readonly metadata?: {
+        readonly [key: string]: JsonValue;
+    } | (() => {
+        readonly [key: string]: JsonValue;
+    } | Promise<{
+        readonly [key: string]: JsonValue;
+    }>);
+    readonly onError?: (error: ShotlogError) => void;
+    readonly onSubmitted?: (result: ShotlogSubmitResult) => void;
+    readonly position?: "bottom-right" | "bottom-left";
+    readonly reporter?: Reporter | (() => Reporter | Promise<Reporter>);
+    readonly shortcut?: string;
+    readonly theme?: "light" | "dark" | "auto";
+    readonly types?: readonly string[];
+}
+
+// @public
+export interface ShotlogSubmitResult {
+    readonly duplicate: boolean;
+    readonly id: string;
+    readonly shortId: string;
+}
 
 // @public
 export interface Size {
@@ -212,6 +283,9 @@ export class UploadFailed extends Error {
     // (undocumented)
     readonly _tag = "UploadFailed";
 }
+
+// @public
+export function useShotlog(): ShotlogControls;
 
 // @public
 export class ValidationFailed extends Error {
