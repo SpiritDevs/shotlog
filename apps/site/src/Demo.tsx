@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState } from "react";
 import { ShotlogProvider, type ShotlogSubmission, useShotlog } from "shotlog";
-import { CopyButton, type Theme } from "./ui";
+import { Arrow, CopyButton, type Theme } from "./ui";
 
 type Result = { json: string; screenshot?: Blob };
 
@@ -122,7 +122,7 @@ function ResultPanel({
           className="button button-ink"
           onClick={() => dialog.current?.close()}
         >
-          Back to the demo ↗
+          Back to the demo <Arrow />
         </button>
       </div>
     </dialog>
@@ -179,7 +179,7 @@ function Playground({
                 <p>One small release. A few things to check.</p>
               </div>
               <span className="release-orbit" aria-hidden="true">
-                ↗
+                <Arrow />
               </span>
             </div>
             <div className="release-checklist">
@@ -218,7 +218,7 @@ function Playground({
                   );
                 }}
               >
-                Publish release <span aria-hidden="true">↗</span>
+                Publish release <Arrow />
               </button>
             </div>
             <span className="sample-caption mono">
@@ -268,7 +268,7 @@ function Playground({
               onClick={open}
               disabled={isOpen}
             >
-              Try shotlog <span aria-hidden="true">↗</span>
+              Try shotlog <Arrow />
             </button>
             {result ? (
               <button
@@ -276,7 +276,7 @@ function Playground({
                 className="last-report"
                 onClick={() => setShowResult(true)}
               >
-                View your last report ↗
+                View your last report <Arrow />
               </button>
             ) : (
               <span className="demo-local mono">100% LOCAL. ZERO SENDS.</span>

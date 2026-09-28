@@ -1,7 +1,14 @@
 import snippets from "virtual:snippets";
 import { lazy, Suspense } from "react";
 import { createRoot } from "react-dom/client";
-import { Footer, Header, InstallCommand, Scribble, useTheme } from "./ui";
+import {
+  Arrow,
+  Footer,
+  Header,
+  InstallCommand,
+  Scribble,
+  useTheme,
+} from "./ui";
 import "./styles.css";
 
 const Demo = lazy(() => import("./Demo"));
@@ -51,7 +58,7 @@ function App() {
                   className="text-link"
                   href="/docs/#quick-start-nextjs-app-router"
                 >
-                  Start building <span aria-hidden="true">↗</span>
+                  Start building <Arrow />
                 </a>
               </div>
             </div>
@@ -83,7 +90,9 @@ function App() {
             <p>
               No signup. No backend. Nothing you report leaves this browser.
             </p>
-            <a href="/docs/#custom-delivery">How this demo works ↗</a>
+            <a href="/docs/#custom-delivery">
+              How this demo works <Arrow />
+            </a>
           </div>
         </section>
 
@@ -137,7 +146,7 @@ function App() {
                 className="text-link"
                 href="/docs/#screenshots-and-the-annotation-editor"
               >
-                Meet the editor ↗
+                Meet the editor <Arrow />
               </a>
             </div>
             <div className="feature-visual">
@@ -204,7 +213,7 @@ function App() {
                 preview Included Details.
               </p>
               <a className="text-link" href="/docs/#the-support-log-payload">
-                Inside a Support Log ↗
+                Inside a Support Log <Arrow />
               </a>
             </div>
             <div className="feature-visual">
@@ -256,7 +265,7 @@ function App() {
                 you control over the next step.
               </p>
               <a className="text-link" href="/docs/#delivery">
-                Choose a destination ↗
+                Choose a destination <Arrow />
               </a>
             </div>
             <div className="feature-visual">
@@ -296,7 +305,7 @@ function App() {
                 your app.
               </p>
               <a className="text-link" href="/docs/#security">
-                Wire in your auth ↗
+                Wire in your auth <Arrow />
               </a>
             </div>
             <div className="feature-visual">
@@ -333,7 +342,7 @@ function App() {
           </h2>
           <div className="closing-actions">
             <a className="button button-ink" href="/docs/#install">
-              Read the docs <span aria-hidden="true">↗</span>
+              Read the docs <Arrow />
             </a>
             <code>npm i shotlog</code>
           </div>

@@ -2,6 +2,15 @@ import { useEffect, useId, useRef, useState } from "react";
 
 export type Theme = "light" | "dark";
 
+/** A short right arrow for links; it nudges forward when its link or button is hovered. */
+export function Arrow() {
+  return (
+    <svg className="arrow" viewBox="0 0 16 16" aria-hidden="true">
+      <path d="M2.5 8h10M8.5 4l4 4-4 4" />
+    </svg>
+  );
+}
+
 export function useTheme() {
   const [theme, setTheme] = useState<Theme>(
     document.documentElement.dataset.theme === "dark" ? "dark" : "light",
@@ -59,7 +68,7 @@ export function Header({
           Live demo
         </a>
         <a href="/docs/" aria-current={docs ? "page" : undefined}>
-          Docs <span aria-hidden="true">↗</span>
+          Docs <Arrow />
         </a>
         <span className="nav-divider" />
         <button
@@ -96,8 +105,12 @@ export function Footer() {
       </div>
       <nav aria-label="Footer navigation">
         <a href="https://github.com/SpiritDevs/shotlog">GitHub</a>
-        <a href="https://www.npmjs.com/package/shotlog">npm ↗</a>
-        <a href="/docs/">Documentation ↗</a>
+        <a href="https://www.npmjs.com/package/shotlog">
+          npm <Arrow />
+        </a>
+        <a href="/docs/">
+          Documentation <Arrow />
+        </a>
       </nav>
       <span className="footer-note mono">
         MADE FOR THE MOMENT
