@@ -128,15 +128,13 @@ export class RateLimited extends Error {
 }
 
 // @public
-export interface Reporter {
-    // (undocumented)
-    readonly [key: string]: JsonValue;
+export type Reporter = {
+    readonly id?: string; /** Used as the email Reply-To when present. */
     readonly email?: string;
-    // (undocumented)
-    readonly id?: string;
-    // (undocumented)
     readonly name?: string;
-}
+} & {
+    readonly [key: string]: JsonValue;
+};
 
 // @public
 export type Screenshot = (ScreenshotInfo & {

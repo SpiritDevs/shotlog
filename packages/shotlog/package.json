@@ -5,45 +5,25 @@
   "type": "module",
   "sideEffects": false,
   "engines": {
-    "node": ">=20"
+    "node": ">=20.19"
   },
   "files": [
     "dist",
     "schema"
   ],
-  "main": "./dist/index.cjs",
-  "module": "./dist/index.js",
   "types": "./dist/index.d.ts",
   "exports": {
     ".": {
-      "import": {
-        "types": "./dist/index.d.ts",
-        "default": "./dist/index.js"
-      },
-      "require": {
-        "types": "./dist/index.d.cts",
-        "default": "./dist/index.cjs"
-      }
+      "types": "./dist/index.d.ts",
+      "default": "./dist/index.js"
     },
     "./server": {
-      "import": {
-        "types": "./dist/server.d.ts",
-        "default": "./dist/server.js"
-      },
-      "require": {
-        "types": "./dist/server.d.cts",
-        "default": "./dist/server.cjs"
-      }
+      "types": "./dist/server.d.ts",
+      "default": "./dist/server.js"
     },
     "./node": {
-      "import": {
-        "types": "./dist/node.d.ts",
-        "default": "./dist/node.js"
-      },
-      "require": {
-        "types": "./dist/node.d.cts",
-        "default": "./dist/node.cjs"
-      }
+      "types": "./dist/node.d.ts",
+      "default": "./dist/node.js"
     },
     "./schema.json": "./schema/support-log.v1.json"
   },

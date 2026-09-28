@@ -26,7 +26,7 @@ const PositiveInt = Schema.Int.pipe(Schema.positive());
 const Dimensions = Schema.Struct({ width: PositiveInt, height: PositiveInt });
 const Timestamp = Schema.String.pipe(
   Schema.pattern(
-    /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}(?:\.\d{1,3})?(?:Z|[+-]\d{2}:\d{2})$/,
+    /^\d{4}-\d{2}-\d{2}T(?:[01]\d|2[0-3]):[0-5]\d:[0-5]\d(?:\.\d{1,3})?(?:Z|[+-](?:[01]\d|2[0-3]):[0-5]\d)$/,
   ),
   Schema.filter(
     (value) => {
@@ -120,14 +120,10 @@ export const ScreenshotSchema = Schema.Union(
     _tag: Schema.Literal("Uploaded"),
     ...screenshotFields,
     url: Schema.String.pipe(
-      Schema.filter(
-        (value) => {
-          if (!URL.canParse(value)) return false;
-          const { protocol } = new URL(value);
-          return protocol === "https:" || protocol === "http:";
-        },
-        { jsonSchema: { format: "uri", pattern: "^https?://" } },
-      ),
+      Schema.pattern(/^https?:\/\/\S+$/),
+      Schema.filter((value) => URL.canParse(value), {
+        jsonSchema: { format: "uri" },
+      }),
     ),
     key: NonEmptyString,
   }),
@@ -174,16 +170,49 @@ export const SupportLogSubmissionSchema = Schema.Struct(supportLogFields)
   .annotations({ parseOptions: { onExcessProperty: "error" } });
 
 // The public types are hand-written for readable declarations and per-field docs.
-// This fails typecheck if they drift from the schemas.
-type Same<A, B> = [A] extends [B] ? ([B] extends [A] ? true : false) : false;
+// This fails typecheck if they drift from the schemas, including a missing optional field.
+type Exact<A, B> =
+  (<T>() => T extends A ? 1 : 2) extends <T>() => T extends B ? 1 : 2
+    ? true
+    : false;
+type Assignable<A, B> = [A] extends [B]
+  ? [B] extends [A]
+    ? true
+    : false
+  : false;
+type Same<A, B> =
+  Assignable<A, B> extends true ? Exact<keyof A, keyof B> : false;
 type Assert<T extends true> = T;
+type Log = typeof SupportLogSchema.Type;
+type Shot = typeof ScreenshotSchema.Type;
+type Trail = typeof DiagnosticsSchema.Type;
 export type PublicTypesInSync = [
-  Assert<Same<typeof SupportLogSchema.Type, Public.SupportLog>>,
+  Assert<Same<Log, Public.SupportLog>>,
   Assert<
     Same<typeof SupportLogSubmissionSchema.Type, Public.SupportLogSubmission>
   >,
-  Assert<Same<typeof ScreenshotSchema.Type, Public.Screenshot>>,
+  Assert<
+    Same<
+      Extract<Shot, { _tag: "Inline" }>,
+      Extract<Public.Screenshot, { _tag: "Inline" }>
+    >
+  >,
+  Assert<
+    Same<
+      Extract<Shot, { _tag: "Uploaded" }>,
+      Extract<Public.Screenshot, { _tag: "Uploaded" }>
+    >
+  >,
   Assert<Same<typeof EnvironmentSchema.Type, Public.Environment>>,
-  Assert<Same<typeof ReporterSchema.Type, Public.Reporter>>,
-  Assert<Same<typeof DiagnosticsSchema.Type, Public.Diagnostics>>,
+  // Index signatures make keyof uninformative, so Reporter's named fields are checked directly.
+  Assert<Assignable<typeof ReporterSchema.Type, Public.Reporter>>,
+  Assert<
+    Same<
+      Pick<typeof ReporterSchema.Type, "id" | "email" | "name">,
+      Pick<Public.Reporter, "id" | "email" | "name">
+    >
+  >,
+  Assert<Same<Trail, Public.Diagnostics>>,
+  Assert<Same<Trail["console"][number], Public.ConsoleEntry>>,
+  Assert<Same<Trail["network"][number], Public.NetworkEntry>>,
 ];

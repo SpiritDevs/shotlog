@@ -135,13 +135,12 @@ export interface Environment {
  * ```
  * @public
  */
-export interface Reporter {
-  readonly [key: string]: JsonValue;
+export type Reporter = {
   readonly id?: string;
   /** Used as the email Reply-To when present. */
   readonly email?: string;
   readonly name?: string;
-}
+} & { readonly [key: string]: JsonValue };
 
 /**
  * A console warning or error captured by the Diagnostic Trail.
