@@ -22,6 +22,9 @@ import { type InboxEntry, isSettings, type Settings } from "./shared.js";
 
 const port = Number(process.env.PLAYGROUND_PORT ?? 5199);
 const smtpPort = Number(process.env.SMTP_PORT ?? 2525);
+const rateWindowSeconds = Number(
+  process.env.PLAYGROUND_RATE_WINDOW_SECONDS ?? 600,
+);
 const host = "127.0.0.1";
 const origin = `http://${host}:${port}`;
 const webhookSecret = "shotlog-playground-dev-secret";
@@ -52,7 +55,9 @@ function createRelay() {
         if (settings.authorize === "forbidden") throw new Forbidden();
         return true;
       },
-      rateLimit: settings.rateLimit ? {} : false,
+      rateLimit: settings.rateLimit
+        ? { windowSeconds: rateWindowSeconds }
+        : false,
     }),
   );
 }

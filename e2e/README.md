@@ -19,8 +19,11 @@ settings and inbox APIs. Assertions read actual email and webhook deliveries.
 The capture fixture's external resources are served through Playwright routes
 while retaining their original cross-origin URLs and CORS policy.
 
-The stalled-relay test intentionally takes 30 seconds per browser: native
-`AbortSignal.timeout` is outside `page.clock`'s JavaScript timer emulation.
+The stalled-relay test drives the client's 60-second deadline with `page.clock`.
+The Next.js test captures, annotates, redacts, and submits through built `dist`
+chunks, and verifies the delivered PNG pixels. Its server sets `SHOTLOG_DEMO=1`.
+The Playground's rate window is set to `315360000` seconds (10 years) so the
+exactly-five-successes test cannot realistically cross a fixed-window boundary.
 There are no arbitrary sleeps or automatic retries. HTML, JSON and failure traces
 are under `e2e/playwright-report` and `e2e/test-results`.
 

@@ -22,6 +22,8 @@ The Server Helper applies these protections.
    - Without `ipHeader`, `toNodeHandler` supplies the socket address outside headers so clients cannot spoof it. Without either source, skip per-IP limits and warn once to configure `ipHeader` or `getClientIp`. No generic header fallback is used.
 6. **Concurrency cap.** Default 16 requests in flight per instance, checked before the body is read. Extra requests get a 5 s RateLimited, which bounds memory. Aborted uploads and bodies not received within 30 seconds are cancelled and release their admission slot.
 
+The Node adapter drains only unread, unused, unlocked bodies that are not owned by the response before sending an early rejection. Drains have a 10-second total deadline (including pending reads), a 64 MiB byte cap, and at most 8 concurrent drains per adapter. Exceeding any bound destroys the connection without a response; a normal oversized upload is drained and receives its 413 with `Connection: close`.
+
 The Server Helper logs a warning at startup if no `authorize` hook is configured.
 
 **Not in v1:**

@@ -247,9 +247,9 @@ export const webhook: WebhookConfig = {
 
 Set `UPLOADFILE_TOKEN` on the server, or pass `token` explicitly. The default ACL is `public-read`: anyone with the URL can view the Screenshot while the file exists.
 
-**Private UploadFile links expire within 7 days.** `signedUrlExpiresIn` is a positive integer in seconds, defaulting to and capped at `604800`. Keep the returned `key` if your receiver needs to re-sign the file later.
+**Private UploadFile links expire within 7 days.** `signedUrlExpiresIn` is a positive integer in seconds, defaulting to and capped at `604800`. Private signed URLs are generated once per Support Log and reused across webhook retries. A delayed successful delivery may carry a URL closer to expiry, so receivers should store `key` and re-sign when needed.
 
-Upload mode without `storage` throws at handler creation. Uploads have a 30-second deadline; failures fall back to inline base64 with a sanitized `screenshot.uploadError`. That fallback may exceed a receiver's body-size limit. No Screenshot means no upload.
+Upload mode without `storage` throws at handler creation. Uploads have a 10-second deadline; failures fall back to inline base64 with a sanitized `screenshot.uploadError`. That fallback may exceed a receiver's body-size limit. No Screenshot means no upload.
 
 For custom storage, implement `StorageAdapter` and honor the abort signal. This example assumes your own storage service accepts PNG PUTs and serves the same URL on GET; add its server-side authentication as needed:
 

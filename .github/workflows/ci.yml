@@ -32,8 +32,18 @@ jobs:
           SHOTLOG_CONTRACT_BASE: ${{ github.event.pull_request.base.sha || github.event.before }}
       - run: pnpm api:check
       - run: pnpm check:no-effect-dts
+      - run: pnpm check:package
       - run: pnpm exec changeset status --since=origin/main
         if: github.event_name == 'pull_request' && github.head_ref != 'changeset-release/main'
+      - name: Require changesets for direct pushes
+        if: >-
+          github.event_name == 'push' &&
+          github.ref == 'refs/heads/main' &&
+          github.event.before != '0000000000000000000000000000000000000000' &&
+          !startsWith(github.event.head_commit.message, 'Version Packages')
+        env:
+          BEFORE: ${{ github.event.before }}
+        run: pnpm exec changeset status --since="$BEFORE"
       - run: pnpm exec changeset status
 
   e2e:

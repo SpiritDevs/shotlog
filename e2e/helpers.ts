@@ -5,7 +5,7 @@ import {
   type Page,
 } from "@playwright/test";
 import { PNG } from "pngjs";
-import type { SupportLogSubmission } from "shotlog";
+import type { Screenshot, SupportLogSubmission } from "shotlog";
 import type { InboxEntry } from "../apps/playground/shared.js";
 
 export const test = base;
@@ -197,4 +197,44 @@ export async function captureFixtures(page: Page) {
         body: fixturePng(),
       }),
   );
+}
+
+export async function annotateAndRedact(page: Page) {
+  await editor(page)
+    .getByRole("button", { name: "Rectangle", exact: true })
+    .click();
+  await drag(page, [0.1, 0.1], [0.3, 0.3]);
+  await editor(page)
+    .getByRole("button", { name: "Pixelate / Redact", exact: true })
+    .click();
+  const solid = editor(page).getByRole("button", {
+    name: "Solid (strongest)",
+    exact: true,
+  });
+  if ((await solid.getAttribute("aria-pressed")) !== "true")
+    await solid.click();
+  await expect(solid).toHaveAttribute("aria-pressed", "true");
+  await drag(page, [0.45, 0.4], [0.7, 0.6]);
+  await editor(page).getByRole("button", { name: "Done", exact: true }).click();
+}
+
+export function expectRedactedPng(screenshot: Screenshot | undefined) {
+  expect(screenshot?._tag).toBe("Inline");
+  if (screenshot?._tag !== "Inline")
+    throw new Error("Expected an inline screenshot");
+  const png = PNG.sync.read(Buffer.from(screenshot.data, "base64"));
+  expect([png.width, png.height]).toEqual([
+    screenshot.width,
+    screenshot.height,
+  ]);
+  // Sample a grid well inside the region drawn above, in the delivered PNG.
+  for (const x of [0.48, 0.55, 0.66]) {
+    for (const y of [0.43, 0.5, 0.57]) {
+      const i =
+        (Math.floor(png.height * y) * png.width + Math.floor(png.width * x)) *
+        4;
+      expect([...png.data.subarray(i, i + 4)]).toEqual([0, 0, 0, 255]);
+    }
+  }
+  return screenshot;
 }

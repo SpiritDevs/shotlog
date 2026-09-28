@@ -1,6 +1,6 @@
 import type { SupportLog } from "shotlog";
 import { verifyWebhookSignature } from "shotlog/server";
-import { webhookSecret } from "../../../lib/config";
+import { demo, webhookSecret } from "../../../lib/config";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -24,5 +24,6 @@ export async function POST(request: Request) {
 }
 
 export function GET() {
+  if (!demo) return new Response(null, { status: 404 });
   return Response.json(entries, { headers: { "cache-control": "no-store" } });
 }

@@ -188,7 +188,7 @@ test.each(["throw", "reject"])(
   },
 );
 
-test("aborts a stalled upload at 30 seconds and delivers inline fallback", async () => {
+test("aborts a stalled upload at 10 seconds and delivers inline fallback", async () => {
   let signal: AbortSignal | undefined;
   const aborted = vi.fn();
   upload.mockImplementation((_png, info) => {
@@ -207,7 +207,7 @@ test("aborts a stalled upload at 30 seconds and delivers inline fallback", async
   vi.useFakeTimers();
   const response = handle()(screenshotRequest());
   await vi.waitFor(() => expect(upload).toHaveBeenCalledOnce());
-  await vi.advanceTimersByTimeAsync(29_000);
+  await vi.advanceTimersByTimeAsync(9_000);
   expect(signal?.aborted).toBe(false);
   expect(fetchStub).not.toHaveBeenCalled();
   await vi.advanceTimersByTimeAsync(1_000);
@@ -218,5 +218,22 @@ test("aborts a stalled upload at 30 seconds and delivers inline fallback", async
     _tag: "Inline",
     data: Buffer.from(png).toString("base64"),
     uploadError: "Screenshot upload timed out",
+  });
+});
+
+test.each([
+  { url: "javascript:alert(1)", key: "file-key" },
+  { url: uploaded.url, key: "" },
+])("falls back inline for invalid storage output: %j", async (result) => {
+  upload.mockResolvedValue(result);
+  expect((await handle()(screenshotRequest())).status).toBe(200);
+  expect(received().screenshot).toEqual({
+    _tag: "Inline",
+    data: Buffer.from(png).toString("base64"),
+    width: 1,
+    height: 1,
+    size: png.length,
+    mimeType: "image/png",
+    uploadError: "Storage adapter returned an invalid result",
   });
 });

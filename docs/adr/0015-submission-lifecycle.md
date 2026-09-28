@@ -19,6 +19,8 @@
    - The Type and Description survive closing the card: in memory while the page is open, and in `sessionStorage` if the page reloads.
    - The Screenshot is kept **in memory only**. It's never persisted, because of its size and because it may contain sensitive data.
 4. **While sending.** Submit shows progress. Closing the card doesn't cancel the send.
+   - The client allows **60 seconds total** to send the request and read its response, using an AbortController and a cleared JavaScript timer. A stalled relay becomes an Offline failure with Retry available.
+   - After parsing, the default Webhook delivery budget is **10 seconds for storage + 3 × 10 seconds for HTTP attempts + 600 ms backoff**. Email runs in parallel. The client budget leaves room for normal upload/response overhead; slow incoming bodies, larger configured webhook timeouts, or custom Email Providers can exceed it.
 5. **Success.**
    - The card shows "Sent ✓ · SL-7F3K" and closes itself after about 3 seconds.
    - The draft is cleared.

@@ -35,9 +35,10 @@ export interface WebhookConfig {
   readonly url: string;
   /** Shared HMAC-SHA256 secret used to sign each delivery. */
   readonly secret: string;
-  /** Timeout per attempt in milliseconds. Defaults to 10,000; at most two retries. */
+  /** Timeout per attempt in milliseconds. Defaults to 10,000; at most two retries.
+   * The client has a 60-second total request budget, including storage and backoff. */
   readonly timeoutMs?: number;
-  /** Defaults to base64. Upload uses storage, with a 30-second timeout and inline fallback. */
+  /** Defaults to base64. Upload uses storage, with a 10-second timeout and inline fallback. */
   readonly screenshotMode?: "base64" | "upload";
   /** Required for upload mode. Only Webhook Screenshots are uploaded; Email embeds the PNG. */
   readonly storage?: StorageAdapter;

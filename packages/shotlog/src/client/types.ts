@@ -241,7 +241,12 @@ export interface ShotlogSubmission {
  */
 export type ShotlogDelivery =
   | {
-      /** Relay Endpoint URL, served by `createSupportHandler` from `shotlog/server`. */
+      /**
+       * Relay Endpoint URL, served by `createSupportHandler` from `shotlog/server`.
+       * Sending and reading its response share a 60-second deadline, allowing the
+       * default 10-second storage upload plus three 10-second webhook attempts
+       * and backoff, with Email in parallel. Expiry reports Offline and permits Retry.
+       */
       readonly endpoint: string;
       readonly onSubmit?: never;
     }

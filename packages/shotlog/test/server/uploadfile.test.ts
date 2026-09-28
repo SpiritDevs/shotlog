@@ -138,20 +138,22 @@ test("does not pick up a token set after an unconfigured adapter was created", a
 test.each(["resolved error", "rejection", "signing error", "missing SDK"])(
   "%s rejects with a public error and the relay still delivers inline",
   async (failure) => {
-    const sdk = mockSdk();
     if (failure === "missing SDK") {
       vi.doMock("@uploadfile/core/server", () => {
         throw new Error("Cannot find private SDK path");
       });
-    } else if (failure === "resolved error") {
-      sdk.uploadFiles.mockResolvedValue({
-        data: null,
-        error: { message: "secret-provider-error" },
-      });
-    } else if (failure === "rejection") {
-      sdk.uploadFiles.mockRejectedValue(new Error("secret-provider-error"));
     } else {
-      sdk.getSignedURL.mockRejectedValue(new Error("secret-provider-error"));
+      const sdk = mockSdk();
+      if (failure === "resolved error") {
+        sdk.uploadFiles.mockResolvedValue({
+          data: null,
+          error: { message: "secret-provider-error" },
+        });
+      } else if (failure === "rejection") {
+        sdk.uploadFiles.mockRejectedValue(new Error("secret-provider-error"));
+      } else {
+        sdk.getSignedURL.mockRejectedValue(new Error("secret-provider-error"));
+      }
     }
     const adapter = uploadfile({ token: "test-token", acl: "private" });
     await expect(adapter.upload(png, info())).rejects.toBeInstanceOf(
@@ -247,7 +249,7 @@ test("the handler deadline also aborts the private URL signing request", async (
   });
   const response = handler(request(submission(), new Blob([png])));
   await vi.waitFor(() => expect(signingSignal).toBeDefined());
-  await vi.advanceTimersByTimeAsync(30_000);
+  await vi.advanceTimersByTimeAsync(10_000);
   expect((await response).status).toBe(200);
   expect(signingSignal?.aborted).toBe(true);
   const payload = JSON.parse(String(fetchStub.mock.calls[1]?.[1]?.body));

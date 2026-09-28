@@ -1,5 +1,6 @@
-import { Effect } from "effect";
+import { Effect, Schema } from "effect";
 import { UploadFailed } from "../internal/errors.js";
+import { ScreenshotSchema } from "../internal/schema/support-log.js";
 import type { Screenshot } from "../types.js";
 import { inlineScreenshot, type ParsedScreenshot } from "./multipart.js";
 import type { StorageAdapter } from "./storage-types.js";
@@ -19,12 +20,12 @@ export function uploadScreenshot(
     catch: () => new UploadFailed({ message: "Screenshot upload failed" }),
   }).pipe(
     Effect.timeoutFail({
-      duration: 30_000,
+      duration: 10_000,
       onTimeout: () =>
         new UploadFailed({ message: "Screenshot upload timed out" }),
     }),
-    Effect.map(
-      ({ url, key }): Screenshot => ({
+    Effect.flatMap(({ url, key }) => {
+      const uploaded: Screenshot = {
         _tag: "Uploaded",
         url,
         key,
@@ -32,8 +33,15 @@ export function uploadScreenshot(
         height: screenshot.height,
         size: screenshot.bytes.length,
         mimeType: "image/png",
-      }),
-    ),
+      };
+      return Schema.is(ScreenshotSchema)(uploaded)
+        ? Effect.succeed(uploaded)
+        : Effect.fail(
+            new UploadFailed({
+              message: "Storage adapter returned an invalid result",
+            }),
+          );
+    }),
     Effect.catchAll((error) =>
       Effect.sync(() => ({
         ...inlineScreenshot(screenshot),

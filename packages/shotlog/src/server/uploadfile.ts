@@ -25,8 +25,10 @@ export interface UploadfileOptions {
 /**
  * Create a lazy UploadFile Storage Adapter. Install with `npm install @uploadfile/core`.
  * A missing SDK rejects uploads with ProviderNotInstalled. Other failures reject with UploadFailed.
- * Private links expire (7 days by default and at most); retain the key to re-sign them later.
- * The Relay Endpoint applies a 30-second timeout and falls back to inline PNG delivery on failure.
+ * Private URLs are signed once per Support Log and reused across webhook retries.
+ * Links expire (7 days by default and at most); delayed delivery leaves less time.
+ * Receivers should retain the key and re-sign when needed.
+ * The Relay Endpoint applies a 10-second timeout and falls back to inline PNG delivery on failure.
  * @example
  * ```ts
  * import { uploadfile } from "shotlog/uploadfile";

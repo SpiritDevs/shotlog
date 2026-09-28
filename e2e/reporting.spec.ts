@@ -1,12 +1,11 @@
-import { PNG } from "pngjs";
 import {
+  annotateAndRedact,
   capture,
   card,
   delivered,
   description,
-  drag,
-  editor,
   expect,
+  expectRedactedPng,
   expectSent,
   inbox,
   openReport,
@@ -30,22 +29,7 @@ test("standalone capture, annotations, and solid redaction reach both delivery c
   await openReport(page, text);
   await card(page).getByRole("radio", { name: "Idea", exact: true }).check();
   await capture(page);
-  await editor(page)
-    .getByRole("button", { name: "Rectangle", exact: true })
-    .click();
-  await drag(page, [0.1, 0.1], [0.3, 0.3]);
-  await editor(page)
-    .getByRole("button", { name: "Pixelate / Redact", exact: true })
-    .click();
-  const solid = editor(page).getByRole("button", {
-    name: "Solid (strongest)",
-    exact: true,
-  });
-  if ((await solid.getAttribute("aria-pressed")) !== "true")
-    await solid.click();
-  await expect(solid).toHaveAttribute("aria-pressed", "true");
-  await drag(page, [0.45, 0.4], [0.7, 0.6]);
-  await editor(page).getByRole("button", { name: "Done", exact: true }).click();
+  await annotateAndRedact(page);
   await expect(
     card(page).getByRole("img", { name: "Attached screenshot" }),
   ).toBeVisible();
@@ -54,35 +38,19 @@ test("standalone capture, annotations, and solid redaction reach both delivery c
   const { webhook, email } = await delivered(request, text);
   expect(webhook.supportLog.type).toBe("Idea");
   const screenshot = webhook.supportLog.screenshot;
-  expect(screenshot?._tag).toBe("Inline");
-  if (screenshot?._tag !== "Inline")
-    throw new Error("Expected an inline screenshot");
-  const png = PNG.sync.read(Buffer.from(screenshot.data, "base64"));
-  expect([png.width, png.height]).toEqual([
-    screenshot.width,
-    screenshot.height,
-  ]);
-  // Sample a grid well inside the region drawn above, in the delivered PNG.
-  for (const x of [0.48, 0.55, 0.66]) {
-    for (const y of [0.43, 0.5, 0.57]) {
-      const i =
-        (Math.floor(png.height * y) * png.width + Math.floor(png.width * x)) *
-        4;
-      expect([...png.data.subarray(i, i + 4)]).toEqual([0, 0, 0, 255]);
-    }
-  }
+  const image = expectRedactedPng(screenshot);
   const inline = email.attachments.find((attachment) => attachment.contentId);
   expect(inline).toMatchObject({
     contentType: "image/png",
     disposition: "inline",
-    size: screenshot.size,
+    size: image.size,
   });
   expect(email.sourceHtml).toContain(`cid:${inline?.contentId}`);
   expect(email.attachments).toContainEqual(
     expect.objectContaining({
       contentType: "image/png",
       disposition: "attachment",
-      size: screenshot.size,
+      size: image.size,
     }),
   );
 });
@@ -293,24 +261,24 @@ test("editing after a failed attempt creates a new ID and delivers the edited re
   expect(await inbox(request)).toHaveLength(2);
 });
 
-test("stalled relay reaches the 30-second Offline deadline and Retry succeeds", async ({
+test("stalled relay reaches the 60-second Offline deadline and Retry succeeds", async ({
   page,
   request,
 }) => {
-  test.setTimeout(50_000);
-  // page.clock fakes JS timers, not the native AbortSignal.timeout deadline.
-  // Leave one routed request pending and observe the real deadline without sleeps.
+  await page.clock.install();
+  // Leave one routed request pending, then advance the actual client timer.
   await page.route("**/api/support", () => {}, { times: 1 });
   const text = "The relay stopped responding.";
   await openReport(page, text);
-  const started = Date.now();
+  const pending = page.waitForRequest("**/api/support");
   await card(page).getByRole("button", { name: "Submit", exact: true }).click();
+  await pending;
+  await page.clock.fastForward(60_001);
   await expect(
     card(page)
       .getByRole("status")
       .filter({ hasText: "You're offline or couldn't connect." }),
-  ).toBeVisible({ timeout: 35_000 });
-  expect(Date.now() - started).toBeGreaterThanOrEqual(29_000);
+  ).toBeVisible();
   expect(await inbox(request)).toEqual([]);
   expect((await submit(page, "Retry")).status()).toBe(200);
   await expectSent(page);

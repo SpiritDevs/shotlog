@@ -8,8 +8,11 @@ import {
 import type { SupportLogSubmission } from "../types.js";
 import type { ShotlogSubmitResult } from "./types.js";
 
-/** Covers the request and reading the response, so a stalled relay can't leave the card sending. */
-const deadlineMs = 30_000;
+/**
+ * Covers sending and reading the response: 10 s storage + three 10 s webhook
+ * attempts and backoff, with Email in parallel, fit within the 60 s client budget.
+ */
+const deadlineMs = 60_000;
 
 export async function submitReport(
   endpoint: string,
@@ -32,37 +35,43 @@ export async function submitReport(
     );
   }
   if (screenshot) form.append(Field.screenshot, screenshot, "screenshot.png");
-  const signal = AbortSignal.timeout(deadlineMs);
-  let response: Response;
+  const controller = new AbortController();
+  const { signal } = controller;
+  const timer = setTimeout(() => controller.abort(), deadlineMs);
   try {
-    response = await fetch(endpoint, { method: "POST", body: form, signal });
-  } catch (cause) {
-    throw new Offline(undefined, { cause });
-  }
-  let body: unknown;
-  try {
-    body = await response.json();
-  } catch (cause) {
-    if (cause instanceof TypeError || signal.aborted)
+    let response: Response;
+    try {
+      response = await fetch(endpoint, { method: "POST", body: form, signal });
+    } catch (cause) {
       throw new Offline(undefined, { cause });
-    throw new ValidationFailed(
-      ["Relay Endpoint returned invalid JSON"],
-      undefined,
-      { cause },
-    );
+    }
+    let body: unknown;
+    try {
+      body = await response.json();
+    } catch (cause) {
+      if (cause instanceof TypeError || signal.aborted)
+        throw new Offline(undefined, { cause });
+      throw new ValidationFailed(
+        ["Relay Endpoint returned invalid JSON"],
+        undefined,
+        { cause },
+      );
+    }
+    if (isErrorBody(body)) throw fromWire(body.error);
+    if (
+      response.ok &&
+      isSuccessBody(body) &&
+      body.id === log.id &&
+      body.shortId === log.shortId
+    ) {
+      return { id: body.id, shortId: body.shortId, duplicate: body.duplicate };
+    }
+    throw new ValidationFailed([
+      "Relay Endpoint returned an invalid submission response",
+    ]);
+  } finally {
+    clearTimeout(timer);
   }
-  if (isErrorBody(body)) throw fromWire(body.error);
-  if (
-    response.ok &&
-    isSuccessBody(body) &&
-    body.id === log.id &&
-    body.shortId === log.shortId
-  ) {
-    return { id: body.id, shortId: body.shortId, duplicate: body.duplicate };
-  }
-  throw new ValidationFailed([
-    "Relay Endpoint returned an invalid submission response",
-  ]);
 }
 
 function isSuccessBody(body: unknown): body is SubmitSuccessBody {

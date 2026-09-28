@@ -1,12 +1,14 @@
 import AxeBuilder from "@axe-core/playwright";
 import type { SupportLog, SupportLogSubmission } from "shotlog";
 import {
+  annotateAndRedact,
   capture,
   captureFixtures,
   card,
   description,
   editor,
   expect,
+  expectRedactedPng,
   expectSent,
   fixturePng,
   openReport,
@@ -167,7 +169,7 @@ test("editor tool shortcuts do not reach a Host App document keydown listener", 
   expect(await page.evaluate(() => window.shotlogHostKeys)).toEqual(["q"]);
 });
 
-test("Next.js built-package consumer delivers a signed webhook and rejects unsigned requests", async ({
+test("Next.js built-package consumer captures, annotates, redacts, and delivers a signed webhook", async ({
   page,
   request,
   browserName,
@@ -186,6 +188,8 @@ test("Next.js built-package consumer delivers a signed webhook and rejects unsig
   await page.goto(origin);
   const text = `Next.js production report from ${browserName}.`;
   await openReport(page, text);
+  await capture(page);
+  await annotateAndRedact(page);
   const response = await submit(page);
   expect(response.status()).toBe(200);
   const result = await response.json();
@@ -200,6 +204,11 @@ test("Next.js built-package consumer delivers a signed webhook and rejects unsig
       signatureValid: true,
       supportLog: { id: result.id, description: text, type: "Bug" },
     });
+  const entries: { signatureValid: boolean; supportLog: SupportLog }[] = await (
+    await request.get(`${origin}/api/inbox`)
+  ).json();
+  const delivered = entries.find((entry) => entry.supportLog.id === result.id);
+  expectRedactedPng(delivered?.supportLog.screenshot);
 });
 
 test("custom onSubmit receives the log and a typed failure shows its rate-limit message", async ({

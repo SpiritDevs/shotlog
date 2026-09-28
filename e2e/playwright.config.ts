@@ -37,6 +37,7 @@ export default defineConfig({
       cwd: root,
       env: {
         PLAYGROUND_PORT: "5299",
+        PLAYGROUND_RATE_WINDOW_SECONDS: "315360000",
         SMTP_PORT: "2625",
         SHOTLOG_SCREENSHOT_MODE: "base64",
       },
@@ -50,6 +51,7 @@ export default defineConfig({
         "pnpm --filter next-example build && cd apps/next-example && exec node node_modules/next/dist/bin/next start --hostname 127.0.0.1 --port 5300",
       cwd: root,
       env: {
+        SHOTLOG_DEMO: "1",
         NEXT_EXAMPLE_ORIGIN: "http://127.0.0.1:5300",
         NEXT_TELEMETRY_DISABLED: "1",
       },

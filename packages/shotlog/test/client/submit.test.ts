@@ -41,7 +41,10 @@ const log: SupportLogSubmission = {
   },
 };
 
-afterEach(() => vi.unstubAllGlobals());
+afterEach(() => {
+  vi.unstubAllGlobals();
+  vi.useRealTimers();
+});
 
 test("maps wire failures to public error instances and sends the contracted JSON part", async () => {
   vi.stubGlobal("navigator", { onLine: true });
@@ -99,4 +102,49 @@ test("maps network failure to Offline and avoids fetch when already offline", as
     Offline,
   );
   expect(request).toHaveBeenCalledOnce();
+});
+
+test("the 60-second request budget includes reading the response and clears its timer", async () => {
+  vi.useFakeTimers();
+  let signal: AbortSignal | null | undefined;
+  vi.stubGlobal(
+    "fetch",
+    vi.fn<typeof fetch>(async (_url, init) => {
+      signal = init?.signal;
+      return new Response(
+        new ReadableStream({
+          start(controller) {
+            signal?.addEventListener(
+              "abort",
+              () => controller.error(signal?.reason),
+              { once: true },
+            );
+          },
+        }),
+      );
+    }),
+  );
+  const result = submitReport("/api/support", log).catch(
+    (error: unknown) => error,
+  );
+  await vi.advanceTimersByTimeAsync(59_000);
+  expect(signal?.aborted).toBe(false);
+  await vi.advanceTimersByTimeAsync(1_000);
+  expect(await result).toBeInstanceOf(Offline);
+  expect(signal?.aborted).toBe(true);
+  expect(vi.getTimerCount()).toBe(0);
+
+  vi.stubGlobal(
+    "fetch",
+    vi.fn(async () =>
+      Response.json({
+        ok: true,
+        id: log.id,
+        shortId: log.shortId,
+        duplicate: false,
+      }),
+    ),
+  );
+  await submitReport("/api/support", log);
+  expect(vi.getTimerCount()).toBe(0);
 });
