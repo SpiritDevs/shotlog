@@ -281,7 +281,8 @@ export function slackLayer(config: SlackConfig) {
       screenshot?: ParsedScreenshot,
       target?: { readonly slackChannel?: string },
     ) {
-      const channel = config.channel ?? target?.slackChannel;
+      // The handler resolves fixed, per-Type and Reporter-chosen channels.
+      const channel = target?.slackChannel;
       if (!channel)
         return yield* new DeliveryFailed({
           channel: "slack",

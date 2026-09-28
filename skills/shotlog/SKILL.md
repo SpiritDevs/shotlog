@@ -213,6 +213,8 @@ createSupportHandler({
 
 The token is a Slack app bot token with `chat:write` and `files:write`. Invite the app to the channel. The report posts as one Block Kit message, and the screenshot is shared as a reply in its thread. Reporter text is escaped, so it can't mention `@channel`.
 
+`channel` can also map Type values to channels, like `{ Bug: "#bugs", Idea: "#ideas" }`. Mapped Types always go to their channel with no dropdown. Unmapped Types fall back to the reporter picking.
+
 Leave out `channel` to let the reporter pick. The card then shows a "Slack channel" dropdown, filled from a `GET` to the same endpoint (it runs `authorize` first). It offers `channels` if you set it (IDs or names), otherwise every channel the app is in, which also needs `channels:read` and `groups:read`. The server rejects any channel it didn't offer.
 
 Each Slack call times out after 5 s and gets two retries on network errors, 429 and 5xx. Slack errors like `not_in_channel` fail at once and are logged on the server.

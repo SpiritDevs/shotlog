@@ -77,13 +77,19 @@ export async function submitReport(
   }
 }
 
+export interface SlackChoice {
+  readonly channels: readonly SlackChannelOption[];
+  /** Types the server always routes to their own channel; no dropdown for them. */
+  readonly fixedTypes: readonly string[];
+}
+
 /**
  * Asks the Relay Endpoint which Slack channels to offer. Null means none to choose, including
  * from Relay Endpoints that predate the GET route; a throw means ask again next time.
  */
-export async function loadSlackChannels(
+export async function loadSlackChoice(
   endpoint: string,
-): Promise<readonly SlackChannelOption[] | null> {
+): Promise<SlackChoice | null> {
   const response = await fetch(endpoint, {
     headers: { accept: "application/json" },
     signal: AbortSignal.timeout(15_000),
@@ -91,11 +97,11 @@ export async function loadSlackChannels(
   if (response.status === 405) return null;
   if (!response.ok) throw new Error(`Relay options failed: ${response.status}`);
   const body: unknown = await response.json();
-  const channels =
-    typeof body === "object" && body !== null && "slackChannels" in body
-      ? body.slackChannels
-      : undefined;
-  if (channels === undefined) return null;
+  if (typeof body !== "object" || body === null || !("slackChannels" in body))
+    return null;
+  const channels = body.slackChannels;
+  const fixedTypes =
+    "slackFixedTypes" in body ? body.slackFixedTypes : ([] as unknown[]);
   if (
     !Array.isArray(channels) ||
     !channels.every(
@@ -106,10 +112,15 @@ export async function loadSlackChannels(
         typeof channel.id === "string" &&
         "name" in channel &&
         typeof channel.name === "string",
-    )
+    ) ||
+    !Array.isArray(fixedTypes) ||
+    !fixedTypes.every((type: unknown) => typeof type === "string")
   )
     throw new Error("Relay options are invalid");
-  return channels as readonly SlackChannelOption[];
+  return {
+    channels: channels as readonly SlackChannelOption[],
+    fixedTypes: fixedTypes as readonly string[],
+  };
 }
 
 function isSuccessBody(body: unknown): body is SubmitSuccessBody {

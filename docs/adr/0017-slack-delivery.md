@@ -20,6 +20,7 @@ Teams triage support reports in Slack. ADR-0003 left Slack to a custom `onSubmit
   - The options are the `channels` allowlist when it's set, otherwise every channel the app is a member of, cached for a minute.
   - The chosen ID travels as a `slackChannel` multipart field, not in the Support Log. It's routing, not report content, and webhook and email consumers never see it.
   - The Relay Endpoint accepts only a channel it offered.
+- **Per-Type channels.** `channel` may map Type values to channels. A mapped Type always posts there, and the server ignores the browser's choice for it. `GET` lists the mapped Types as `slackFixedTypes`, so the card hides the dropdown for them. Unmapped Types fall back to the Reporter's choice. A Type is the natural routing key: it's the one field every report has, and Host Apps already define it.
 - **Escaping.** Reporter text is escaped for mrkdwn (`&`, `<`, `>`), which also defuses `<!channel>`-style mentions. Formatting such as `*bold*` is left alone.
 - **Bounded time.**
   - Each Slack API call gets 5 seconds and two retries on network errors, timeouts, 429 and 5xx.

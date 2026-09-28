@@ -4,7 +4,7 @@ export interface Settings {
   readonly authorize: "allow" | "unauthorized" | "forbidden";
   readonly rateLimit: boolean;
   /** Omitted means off, so older callers reset Slack too. */
-  readonly slack?: "off" | "fixed" | "choose";
+  readonly slack?: "off" | "fixed" | "choose" | "byType";
 }
 
 export function isSettings(value: unknown): value is Settings {
@@ -16,7 +16,7 @@ export function isSettings(value: unknown): value is Settings {
     "rateLimit" in value &&
     typeof value.rateLimit === "boolean" &&
     (!("slack" in value) ||
-      ["off", "fixed", "choose"].includes(String(value.slack)))
+      ["off", "fixed", "choose", "byType"].includes(String(value.slack)))
   );
 }
 

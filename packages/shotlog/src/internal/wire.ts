@@ -13,10 +13,11 @@ export interface SlackChannelOption {
   readonly name: string;
 }
 
-/** GET body: what the Report Card should offer. `slackChannels` is present only when
- * Slack has no fixed channel. */
+/** GET body: what the Report Card should offer. `slackChannels` is present only when some
+ * Type has no fixed Slack channel; `slackFixedTypes` lists the Types that do. */
 export interface RelayOptionsBody {
   readonly slackChannels?: readonly SlackChannelOption[];
+  readonly slackFixedTypes?: readonly string[];
 }
 
 /** 200 body. `duplicate` is true when this Support Log ID was already delivered. */

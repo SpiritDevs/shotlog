@@ -345,7 +345,9 @@ export interface Size {
 // @public
 export interface SlackConfig {
     readonly apiUrl?: string;
-    readonly channel?: string;
+    readonly channel?: string | {
+        readonly [type: string]: string;
+    };
     readonly channels?: readonly string[];
     readonly timeoutMs?: number;
     readonly token: string;

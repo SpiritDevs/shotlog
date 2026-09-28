@@ -65,6 +65,12 @@ export type WebhookConfig = {
  * const fixed: SlackConfig = { token: process.env.SLACK_BOT_TOKEN!, channel: "C0123456789" };
  * // Reporters pick from a dropdown of these channels:
  * const choose: SlackConfig = { token: process.env.SLACK_BOT_TOKEN!, channels: ["#support", "#bugs"] };
+ * // Bugs and Ideas have their own channels; for other Types, Reporters pick:
+ * const byType: SlackConfig = {
+ *   token: process.env.SLACK_BOT_TOKEN!,
+ *   channel: { Bug: "#bugs", Idea: "#ideas" },
+ *   channels: ["#support", "#bugs"],
+ * };
  * ```
  * @public
  */
@@ -72,13 +78,14 @@ export interface SlackConfig {
   /** Bot token (`xoxb-…`). It stays on the server. */
   readonly token: string;
   /**
-   * Channel ID or name that receives every report. When omitted, the Report Card shows a
-   * channel dropdown and the Relay Endpoint only accepts a channel from that list.
+   * Channel ID or name that receives every report, or a map from Type value (e.g. `Bug`) to
+   * a channel. A Type without a channel, or no `channel` at all, makes the Report Card show
+   * a channel dropdown, and the Relay Endpoint only accepts a channel from that list.
    */
-  readonly channel?: string;
+  readonly channel?: string | { readonly [type: string]: string };
   /**
-   * With no `channel`: the IDs or names Reporters may choose from, in the app's channels.
-   * Defaults to every channel the app is a member of.
+   * For Types without a fixed `channel`: the IDs or names Reporters may choose from, in the
+   * app's channels. Defaults to every channel the app is a member of.
    */
   readonly channels?: readonly string[];
   /** Timeout per Slack API call in milliseconds. Defaults to 5,000; at most two retries. */

@@ -160,3 +160,19 @@ test("retries rate limits, fails fast on Slack errors, and keeps a posted report
   );
   expect(shared.status).toBe(200);
 });
+
+test("routes mapped Types to their own channel and lets Reporters choose for the rest", async () => {
+  const relay = handler({ channel: { Bug: "#bugs" } });
+  const options = await relay(new Request("https://app.example.com/support"));
+  expect(await options.json()).toMatchObject({ slackFixedTypes: ["Bug"] });
+
+  // A mapped Type ignores whatever channel the browser sends.
+  expect((await relay(await withChannel("C3"))).status).toBe(200);
+  const post = calls.find(({ method }) => method === "chat.postMessage");
+  expect((post?.params as URLSearchParams | undefined)?.get("channel")).toBe(
+    "#bugs",
+  );
+
+  const question = await relay(request({ ...submission(2), type: "Question" }));
+  expect(question.status).toBe(400);
+});

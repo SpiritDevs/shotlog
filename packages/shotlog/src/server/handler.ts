@@ -124,9 +124,22 @@ export function createSupportHandler(
   const slack = config.delivery.slack;
   if (slack && !slack.token.trim())
     throw new TypeError("shotlog: delivery.slack.token is required");
-  // Without a fixed channel, Reporters choose one from this list.
+  const slackRoutes =
+    slack && typeof slack.channel === "object" ? slack.channel : undefined;
+  for (const [type, route] of Object.entries(slackRoutes ?? {}))
+    if (typeof route !== "string" || !route.trim())
+      throw new TypeError(`shotlog: delivery.slack.channel.${type} is empty`);
+  const fixedSlackChannel = (type: string) =>
+    typeof slack?.channel === "string"
+      ? slack.channel.trim() || undefined
+      : slackRoutes && Object.hasOwn(slackRoutes, type)
+        ? slackRoutes[type]
+        : undefined;
+  // Unless every report has a fixed channel, Reporters choose one from this list.
   const chooseSlackChannel =
-    slack && !slack.channel?.trim() ? slackChannels(slack) : undefined;
+    slack && !(typeof slack.channel === "string" && slack.channel.trim())
+      ? slackChannels(slack)
+      : undefined;
   if (
     config.delivery.webhook?.screenshotMode === "upload" &&
     !config.delivery.webhook.storage
@@ -206,7 +219,12 @@ export function createSupportHandler(
       // The Report Card asks what to offer when it opens; Reporters must be allowed to report.
       if (config.authorize) yield* authorizeRequest(request, config.authorize);
       const body: RelayOptionsBody = chooseSlackChannel
-        ? { slackChannels: yield* chooseSlackChannel }
+        ? {
+            slackChannels: yield* chooseSlackChannel,
+            ...(slackRoutes
+              ? { slackFixedTypes: Object.keys(slackRoutes) }
+              : {}),
+          }
         : {};
       return Response.json(body, {
         headers: { "cache-control": "private, no-store" },
@@ -234,16 +252,18 @@ export function createSupportHandler(
     // Only an authenticated id: a body-supplied reporter.id would let anyone exhaust another user's limit.
     if (config.rateLimit !== false && reporterId !== undefined)
       yield* checkRateLimit("reporter", reporterId, config.rateLimit ?? {});
-    // Never trust the browser's channel: it must be one this server offers.
-    if (chooseSlackChannel) {
+    // A fixed channel wins. Otherwise never trust the browser's channel: it must be offered.
+    const fixed = slack ? fixedSlackChannel(submission.type) : undefined;
+    if (slack && !fixed && chooseSlackChannel) {
       const offered = yield* chooseSlackChannel;
       if (!offered.some(({ id }) => id === slackChannel))
         return yield* new ValidationFailed({
           issues: ["slackChannel: Choose one of the offered Slack channels"],
         });
     }
+    const route = fixed ?? slackChannel;
     const duplicate = yield* deliverOnce(submission, screenshot, {
-      ...(slackChannel !== undefined ? { slackChannel } : {}),
+      ...(slack && route !== undefined ? { slackChannel: route } : {}),
     });
     const body: SubmitSuccessBody = {
       ok: true,

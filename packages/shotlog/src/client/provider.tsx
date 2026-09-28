@@ -16,7 +16,6 @@ import {
   type ShotlogError,
   ValidationFailed,
 } from "../errors.js";
-import type { SlackChannelOption } from "../internal/wire.js";
 import { getShortId } from "../short-id.js";
 import type { SupportLogSubmission } from "../types.js";
 import type { CardSize } from "./card-size.js";
@@ -32,7 +31,7 @@ import { type Draft, ReportCard } from "./report-card.js";
 import { ScreenshotControls } from "./screenshot-controls.js";
 import { matchesShortcut } from "./shortcut.js";
 import { styles } from "./styles.js";
-import { loadSlackChannels, submitReport } from "./submit.js";
+import { loadSlackChoice, type SlackChoice, submitReport } from "./submit.js";
 import type {
   ShotlogControls,
   ShotlogLauncherOptions,
@@ -173,18 +172,9 @@ export function ShotlogProvider({
   // Slack channels the Relay Endpoint lets Reporters choose.
   const [slackOptions, setSlackOptions] = useState<{
     readonly endpoint: string;
-    readonly channels: readonly SlackChannelOption[] | null;
+    readonly choice: SlackChoice | null;
   }>();
   const [slackChannel, setSlackChannel] = useState<string>();
-  const slackChannels =
-    slackOptions && slackOptions.endpoint === endpoint
-      ? slackOptions.channels
-      : undefined;
-  const chosenSlackChannel = slackChannels?.some(
-    ({ id }) => id === slackChannel,
-  )
-    ? slackChannel
-    : slackChannels?.[0]?.id;
   const [loaded, setLoaded] = useState(false);
   const [status, setStatus] = useState<Status>({ tag: "idle" });
   // A chosen card size lives for the page, never in storage.
@@ -294,9 +284,9 @@ export function ShotlogProvider({
   useEffect(() => {
     if (phase !== "open" || endpoint === undefined) return;
     let current = true;
-    loadSlackChannels(endpoint).then(
-      (channels) => {
-        if (current) setSlackOptions({ endpoint, channels });
+    loadSlackChoice(endpoint).then(
+      (choice) => {
+        if (current) setSlackOptions({ endpoint, choice });
       },
       // Offline or refused: the next open asks again, and Submit reports the real error.
       () => {},
@@ -370,6 +360,18 @@ export function ShotlogProvider({
   const selectedType = types.some((option) => typeValue(option) === draft.type)
     ? draft.type
     : firstType;
+  // Types with their own channel skip the dropdown; the server routes them.
+  const slackChoice =
+    slackOptions?.endpoint === endpoint ? slackOptions?.choice : null;
+  const slackChannels =
+    slackChoice && !slackChoice.fixedTypes.includes(selectedType)
+      ? slackChoice.channels
+      : null;
+  const chosenSlackChannel = slackChannels?.some(
+    ({ id }) => id === slackChannel,
+  )
+    ? slackChannel
+    : slackChannels?.[0]?.id;
   const submit = async () => {
     if (
       sending.current ||
@@ -504,7 +506,7 @@ export function ShotlogProvider({
                 closing={phase === "closing"}
                 onClosed={closed}
                 capturing={capturing}
-                slackChannels={slackChannels ?? null}
+                slackChannels={slackChannels}
                 slackChannel={chosenSlackChannel}
                 onSlackChannelChange={setSlackChannel}
                 countdown={countdown}

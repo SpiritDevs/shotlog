@@ -323,7 +323,19 @@ export const fixed: DeliveryConfig = {
 export const reporterChooses: DeliveryConfig = {
   slack: { token: process.env.SLACK_BOT_TOKEN!, channels: ["#support", "#bugs"] },
 };
+
+// A channel per Type. Bugs and Ideas go straight to theirs; for any other Type,
+// the Reporter picks from the dropdown.
+export const byType: DeliveryConfig = {
+  slack: {
+    token: process.env.SLACK_BOT_TOKEN!,
+    channel: { Bug: "#bugs", Idea: "#ideas" },
+    channels: ["#support", "#bugs"],
+  },
+};
 ```
+
+Keys are Type values, so custom Types work too. The dropdown only appears for Types without a channel, and the server ignores any channel the browser sends for a Type that has one. Map every Type to skip the dropdown entirely.
 
 Each report is one message: the Type and Reference, the Description, the Reporter, page, browser and viewport, Metadata, and the last few Diagnostic Trail entries. The Screenshot is uploaded first and shared as a reply in the message's thread. Reporter text is escaped, so `<!channel>` and similar mentions never ping anyone.
 

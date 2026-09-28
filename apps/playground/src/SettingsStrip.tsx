@@ -121,6 +121,7 @@ export function SettingsStrip() {
             <option value="off">Off</option>
             <option value="fixed">Fixed · #support</option>
             <option value="choose">Reporter chooses</option>
+            <option value="byType">By type · Bug, Idea fixed</option>
           </select>
         </label>
         <label className="checkbox-label">

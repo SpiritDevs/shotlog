@@ -57,20 +57,27 @@ test("standalone capture, annotations, and solid redaction reach both delivery c
   );
 });
 
-test("Slack: the Reporter picks a channel and the Screenshot lands in its thread", async ({
+test("Slack: Types with a channel skip the dropdown; others pick one and get the Screenshot in the thread", async ({
   page,
   request,
 }) => {
-  const settings = { authorize: "allow", rateLimit: false, slack: "choose" };
+  const settings = { authorize: "allow", rateLimit: false, slack: "byType" };
   expect((await request.put("/_settings", { data: settings })).ok()).toBe(true);
   const text = "Slack should get this in #design-feedback.";
   await openReport(page, text);
   const channel = card(page).getByRole("combobox", { name: "Slack channel" });
+  const type = (name: string) =>
+    card(page).getByRole("radio", { name, exact: true });
+  await type("Question").check();
   await expect(channel.getByRole("option")).toHaveText([
     "#bugs",
     "#design-feedback",
     "#support",
   ]);
+  // Bug is routed to #bugs by the server, so there is nothing to choose.
+  await type("Bug").check();
+  await expect(channel).toHaveCount(0);
+  await type("Question").check();
   await channel.selectOption({ label: "#design-feedback" });
   await capture(page);
   await editor(page).getByRole("button", { name: "Done" }).click();

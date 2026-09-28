@@ -74,7 +74,9 @@ function createRelay() {
                   : { apiUrl: `${origin}/_slack/api` }),
                 ...(settings.slack === "fixed"
                   ? { channel: process.env.SLACK_CHANNEL ?? "C0SUPPORT" }
-                  : {}),
+                  : settings.slack === "byType"
+                    ? { channel: { Bug: "#bugs", Idea: "#design-feedback" } }
+                    : {}),
               },
             }),
       },
