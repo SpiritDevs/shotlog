@@ -1,0 +1,84 @@
+{
+  "name": "shotlog",
+  "version": "0.0.0",
+  "description": "Support Logs with annotated Screenshots for React Host Apps.",
+  "type": "module",
+  "sideEffects": false,
+  "engines": {
+    "node": ">=20"
+  },
+  "files": [
+    "dist",
+    "schema"
+  ],
+  "main": "./dist/index.cjs",
+  "module": "./dist/index.js",
+  "types": "./dist/index.d.ts",
+  "exports": {
+    ".": {
+      "import": {
+        "types": "./dist/index.d.ts",
+        "default": "./dist/index.js"
+      },
+      "require": {
+        "types": "./dist/index.d.cts",
+        "default": "./dist/index.cjs"
+      }
+    },
+    "./server": {
+      "import": {
+        "types": "./dist/server.d.ts",
+        "default": "./dist/server.js"
+      },
+      "require": {
+        "types": "./dist/server.d.cts",
+        "default": "./dist/server.cjs"
+      }
+    },
+    "./node": {
+      "import": {
+        "types": "./dist/node.d.ts",
+        "default": "./dist/node.js"
+      },
+      "require": {
+        "types": "./dist/node.d.cts",
+        "default": "./dist/node.cjs"
+      }
+    },
+    "./schema.json": "./schema/support-log.v1.json"
+  },
+  "publishConfig": {
+    "access": "public"
+  },
+  "scripts": {
+    "build": "tsdown",
+    "schema:generate": "tsx scripts/generate-schema.ts"
+  },
+  "dependencies": {
+    "effect": "^3.22.0"
+  },
+  "peerDependencies": {
+    "react": ">=18",
+    "resend": "*",
+    "@aws-sdk/client-sesv2": "*",
+    "nodemailer": "*",
+    "@uploadfile/core": "*"
+  },
+  "peerDependenciesMeta": {
+    "react": {
+      "optional": true
+    },
+    "resend": {
+      "optional": true
+    },
+    "@aws-sdk/client-sesv2": {
+      "optional": true
+    },
+    "nodemailer": {
+      "optional": true
+    },
+    "@uploadfile/core": {
+      "optional": true
+    }
+  }
+}

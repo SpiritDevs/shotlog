@@ -1,0 +1,29 @@
+{
+  "name": "shotlog-workspace",
+  "private": true,
+  "type": "module",
+  "packageManager": "pnpm@12.6.0",
+  "engines": {
+    "node": ">=20"
+  },
+  "scripts": {
+    "build": "pnpm --filter shotlog build",
+    "typecheck": "tsc --noEmit",
+    "lint": "biome check .",
+    "test": "vitest run --typecheck",
+    "api:check": "tsx scripts/api.ts",
+    "api:update": "tsx scripts/api.ts --local",
+    "check:no-effect-dts": "node scripts/check-no-effect-dts.mjs",
+    "schema:generate": "pnpm --filter shotlog schema:generate"
+  },
+  "devDependencies": {
+    "@biomejs/biome": "2.5.14",
+    "@changesets/cli": "2.31.1",
+    "@microsoft/api-extractor": "7.59.2",
+    "@types/node": "20.19.43",
+    "tsdown": "0.21.10",
+    "tsx": "4.23.15",
+    "typescript": "5.9.3",
+    "vitest": "4.1.11"
+  }
+}

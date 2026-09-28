@@ -1,0 +1,26 @@
+{
+  "compilerOptions": {
+    "target": "ES2022",
+    "lib": ["ES2022", "DOM"],
+    "module": "ESNext",
+    "moduleResolution": "Bundler",
+    "strict": true,
+    "exactOptionalPropertyTypes": true,
+    "noUncheckedIndexedAccess": true,
+    "verbatimModuleSyntax": true,
+    "noUnusedLocals": true,
+    "noUnusedParameters": true,
+    "noImplicitOverride": true,
+    "skipLibCheck": true,
+    "types": ["node"]
+  },
+  "exclude": ["**/*.test-d.ts"],
+  "include": [
+    "packages/shotlog/src",
+    "packages/shotlog/test",
+    "packages/shotlog/scripts",
+    "packages/shotlog/tsdown.config.ts",
+    "scripts/*.ts",
+    "vitest.config.ts"
+  ]
+}
