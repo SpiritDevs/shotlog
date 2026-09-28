@@ -15,6 +15,8 @@ interface ReportCardProps {
   readonly message: string;
   readonly opener: HTMLElement | null;
   readonly includedDetails: ReactNode;
+  readonly screenshotControls: ReactNode;
+  readonly capturing: boolean;
   readonly onClose: () => void;
   readonly onChange: (draft: Draft) => void;
   readonly onSubmit: () => void;
@@ -29,6 +31,8 @@ export function ReportCard({
   message,
   opener,
   includedDetails,
+  screenshotControls,
+  capturing,
   onClose,
   onChange,
   onSubmit,
@@ -136,7 +140,7 @@ export function ReportCard({
               description.current?.reportValidity();
               return;
             }
-            onSubmit();
+            if (!capturing) onSubmit();
           }}
         >
           {types.length > 0 && (
@@ -176,12 +180,12 @@ export function ReportCard({
               onChange({ ...draft, description: event.currentTarget.value });
             }}
           />
-          <div data-shotlog-slot="screenshot" />
+          <div data-shotlog-slot="screenshot">{screenshotControls}</div>
           <div data-shotlog-slot="included-details">{includedDetails}</div>
           <button
             className="submit"
             type="submit"
-            disabled={locked}
+            disabled={locked || capturing}
             aria-describedby={message ? `${id}-status` : undefined}
           >
             {state === "sending"

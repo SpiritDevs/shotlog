@@ -32,6 +32,30 @@ export interface ShotlogLabels {
   readonly description: string;
   /** Missing or whitespace-only description. */
   readonly descriptionRequired: string;
+  /** Default one-tap Page Render button. */
+  readonly screenshot: string;
+  /** Accessible name for the Capture Method options toggle. */
+  readonly screenshotOptions: string;
+  /** Page Render option. */
+  readonly capturePage: string;
+  /** Screen Capture option, only shown when supported. */
+  readonly captureScreen: string;
+  /** Image file picker. */
+  readonly uploadImage: string;
+  /** Screenshot thumbnail alternative text. */
+  readonly screenshotPreview: string;
+  /** Remove the attached Screenshot. */
+  readonly removeScreenshot: string;
+  /** Capture progress announcement. */
+  readonly capturingScreenshot: string;
+  /** Page Render failed; suggests Screen Capture or Upload. */
+  readonly pageCaptureFailed: string;
+  /** Page Render failed where Screen Capture is unavailable. */
+  readonly pageCaptureFailedWithoutScreen: string;
+  /** Screen Capture failed (permission denial is silent). */
+  readonly screenCaptureFailed: string;
+  /** A pasted or uploaded image could not be decoded. */
+  readonly imageFailed: string;
   /** Collapsed Included Details summary, including Diagnostic Trail counts. */
   readonly includedDetails: (
     consoleCount: number,

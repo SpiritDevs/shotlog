@@ -11,6 +11,21 @@ export const defaultLabels: ShotlogLabels = {
   idea: "Idea",
   description: "What were you trying to do?",
   descriptionRequired: "Please describe what you were trying to do.",
+  screenshot: "Screenshot",
+  screenshotOptions: "Screenshot options",
+  capturePage: "Capture page",
+  captureScreen: "Capture exact screen",
+  uploadImage: "Upload image",
+  screenshotPreview: "Attached screenshot",
+  removeScreenshot: "Remove",
+  capturingScreenshot: "Capturing screenshot…",
+  pageCaptureFailed:
+    "Couldn't capture this page. Try Capture exact screen or Upload image.",
+  pageCaptureFailedWithoutScreen:
+    "Couldn't capture this page. Try Upload image.",
+  screenCaptureFailed:
+    "Couldn't capture your screen. Try Capture page or Upload image.",
+  imageFailed: "Couldn't open this image. Try another image or Capture page.",
   includedDetails: (consoleCount, networkCount) =>
     `Included details · ${consoleCount} console · ${networkCount} network`,
   environment: "Environment",
@@ -34,7 +49,8 @@ export const defaultLabels: ShotlogLabels = {
   forbidden: "You don't have permission to send a report.",
   rateLimited: (minutes) =>
     `You're sending too fast — try again in ${minutes} ${minutes === 1 ? "minute" : "minutes"}.`,
-  payloadTooLarge: "This report is too large. Please shorten it and try again.",
+  payloadTooLarge:
+    "This report is too large. Remove the screenshot or shorten the description, then try again.",
   validationFailed:
     "We couldn't process this report. Check the details and try again.",
   deliveryFailed: "Your report couldn't be delivered. Please try again.",

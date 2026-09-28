@@ -1,5 +1,6 @@
 import { type ComponentProps, useEffect, useState } from "react";
 import { useShotlog } from "shotlog";
+import { CapturePage } from "./CapturePage.js";
 import { metadata, reporter } from "./context.js";
 import { Inbox } from "./Inbox.js";
 import { ProviderSettings } from "./ProviderSettings.js";
@@ -7,7 +8,12 @@ import { SettingsStrip } from "./SettingsStrip.js";
 import { TroubleButtons } from "./TroubleButtons.js";
 import { useInbox } from "./useInbox.js";
 
-const currentView = () => (location.hash === "#/inbox" ? "inbox" : "home");
+const currentView = () =>
+  location.hash === "#/capture"
+    ? "capture"
+    : location.hash === "#/inbox"
+      ? "inbox"
+      : "home";
 
 export function App({
   providerSettings,
@@ -30,6 +36,8 @@ export function App({
     return () => window.removeEventListener("hashchange", navigate);
   }, []);
 
+  if (view === "capture") return <CapturePage />;
+
   return (
     <div className="app-shell">
       <header className="app-header">
@@ -46,6 +54,7 @@ export function App({
           >
             Inbox <span className="nav-count">{inbox.entries.length}</span>
           </a>
+          <a href="#/capture">Capture tests</a>
         </nav>
       </header>
 

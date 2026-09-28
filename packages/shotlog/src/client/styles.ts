@@ -1,10 +1,10 @@
 export const styles = `
 :host {
   all: initial;
-  position: fixed;
-  inset: 0;
-  z-index: var(--shotlog-z-index, 2147483000);
-  pointer-events: none;
+  position: fixed !important;
+  inset: 0 !important;
+  z-index: var(--shotlog-z-index, 2147483000) !important;
+  pointer-events: none !important;
 }
 .shotlog {
   --_surface: #ffffff;
@@ -126,6 +126,15 @@ legend, .description-label { display: block; font-weight: var(--shotlog-strong-w
 .chip:has(input:checked) { background: var(--shotlog-accent, #4f46e5); border-color: var(--shotlog-accent, #4f46e5); color: var(--shotlog-accent-text, #ffffff); }
 .chip input { position: absolute; opacity: 0; width: 1px; height: 1px; }
 textarea { display: block; width: 100%; min-height: var(--shotlog-textarea-height, 144px); padding: calc(var(--shotlog-space, 8px) * 2); resize: vertical; color: var(--shotlog-text, var(--_text)); background: var(--shotlog-field, var(--_field)); }
+.screenshot-controls { position: relative; margin-top: calc(var(--shotlog-space, 8px) * 2); }
+.screenshot-row { display: flex; align-items: center; gap: var(--shotlog-space, 8px); }
+.screenshot-controls button { background: var(--shotlog-field, var(--_field)); color: var(--shotlog-text, var(--_text)); padding: var(--shotlog-space, 8px) calc(var(--shotlog-space, 8px) * 1.5); min-height: 40px; }
+.screenshot-row svg { display: block; width: 16px; height: 16px; }
+.screenshot-preview { display: block; width: 96px; height: 64px; object-fit: contain; border: 1px solid var(--shotlog-border, var(--_border)); border-radius: var(--shotlog-control-radius, 8px); background: var(--shotlog-field, var(--_field)); }
+.screenshot-options { position: absolute; top: 100%; left: 0; z-index: 1; display: grid; gap: 4px; padding: 4px; background: var(--shotlog-surface, var(--_surface)); border: 1px solid var(--shotlog-border, var(--_border)); border-radius: var(--shotlog-control-radius, 8px); box-shadow: var(--shotlog-shadow, 0 8px 32px #0000001f); }
+.screenshot-options button { text-align: start; border-color: transparent; }
+.capture-status { color: var(--shotlog-error, var(--_error)); font-size: 12px; margin-top: var(--shotlog-space, 8px); }
+.capture-status:empty { margin: 0; }
 .included-details { margin-top: calc(var(--shotlog-space, 8px) * 2); font-size: 12px; }
 .included-details summary { cursor: pointer; padding: var(--shotlog-space, 8px) 0; overflow-wrap: anywhere; }
 .details-content { max-height: 240px; overflow: auto; overscroll-behavior: contain; padding: var(--shotlog-space, 8px); background: var(--shotlog-field, var(--_field)); border-radius: var(--shotlog-control-radius, 8px); }

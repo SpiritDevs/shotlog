@@ -14,6 +14,7 @@ const deadlineMs = 30_000;
 export async function submitReport(
   endpoint: string,
   log: SupportLogSubmission,
+  screenshot?: Blob,
 ): Promise<ShotlogSubmitResult> {
   if (typeof navigator !== "undefined" && navigator.onLine === false)
     throw new Offline();
@@ -30,6 +31,7 @@ export async function submitReport(
       { cause },
     );
   }
+  if (screenshot) form.append(Field.screenshot, screenshot, "screenshot.png");
   const signal = AbortSignal.timeout(deadlineMs);
   let response: Response;
   try {

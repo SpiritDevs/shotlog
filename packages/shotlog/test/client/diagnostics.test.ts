@@ -2,7 +2,10 @@ import { afterEach, beforeEach, expect, test, vi } from "vitest";
 import {
   acquireDiagnostics,
   getDiagnostics,
+  subscribeDiagnostics,
+  trimDiagnostics,
 } from "../../src/client/diagnostics.js";
+import type { Diagnostics } from "../../src/types.js";
 
 // Native EventTarget is enough to exercise recorder hooks without a DOM dependency.
 class FakeXHR extends EventTarget {
@@ -301,7 +304,7 @@ test("formats Errors, cyclic objects, bigint and hostile objects without swallow
   );
   const entry = getDiagnostics().console[0];
   expect(entry?.message).toBe(
-    'save Failed save {"name":"cyclic","self":"[Circular]"} {"count":"2"} undefined [Unserializable]',
+    'save Failed save {"name":"cyclic","self":"[Circular]"} {"count":"2"} undefined {}',
   );
   expect(entry?.stack).toBe(error.stack?.slice(0, 4000));
   const huge = new Error("x".repeat(3000));
@@ -363,20 +366,129 @@ test("in-flight fetch and XHR callbacks cannot write into a new recording sessio
   expect(getDiagnostics().network).toEqual([]);
 });
 
-test("logging during object serialization does not recursively record or swallow console calls", () => {
+test("bounded formatting skips 50,000 getters and toJSON without swallowing the original console call", () => {
   const original = console.warn;
   mount();
+  const getter = vi.fn(() => "private");
+  const toJSON = vi.fn(() => {
+    console.warn("inside formatter");
+    return "private";
+  });
   const value = {
-    toJSON() {
-      console.warn("inside formatter");
-      return "formatted";
-    },
+    message: "visible",
   };
-  console.warn(value);
-  expect(original).toHaveBeenCalledTimes(2);
+  for (let index = 0; index < 50_000; index += 1)
+    Object.defineProperty(value, `secret${index}`, {
+      enumerable: true,
+      get: getter,
+    });
+  const items = Array.from({ length: 30 }, (_, index) => index);
+  const nested = { one: { two: { three: { private: "hidden" } } } };
+  console.warn(value, { toJSON }, items, nested);
+  expect(original).toHaveBeenCalledOnce();
+  expect(vi.mocked(original).mock.calls[0]?.[0]).toBe(value);
+  expect(getter).not.toHaveBeenCalled();
+  expect(toJSON).not.toHaveBeenCalled();
   expect(getDiagnostics().console.map(({ message }) => message)).toEqual([
-    '"formatted"',
+    '{"message":"visible"} {} [0,1,2,3,4,5,6,7,8,9,10,11,12,13,14,15,16,17,18,19] {"one":{"two":{"three":"[Object]"}}}',
   ]);
+  const ownKeys = vi.fn(() => []);
+  console.warn({
+    message: "x".repeat(3000),
+    untouched: new Proxy({}, { ownKeys }),
+  });
+  expect(getDiagnostics().console.at(-1)?.message).toHaveLength(2000);
+  expect(ownKeys).not.toHaveBeenCalled();
+});
+
+test("batches console bursts and prevents subscriber logging from scheduling another notification", async () => {
+  mount();
+  const listener = vi.fn(() => console.warn("subscriber"));
+  const unsubscribe = subscribeDiagnostics(listener);
+  try {
+    for (let index = 0; index < 100; index += 1) console.warn(`log ${index}`);
+    expect(listener).not.toHaveBeenCalled();
+    expect(getDiagnostics().console.at(-1)?.message).toBe("log 99");
+    await Promise.resolve();
+    expect(listener).toHaveBeenCalledOnce();
+    await Promise.resolve();
+    expect(listener).toHaveBeenCalledOnce();
+    expect(getDiagnostics().console.at(-1)?.message).toBe("log 99");
+  } finally {
+    unsubscribe();
+  }
+});
+
+test("records only HTTP URLs, strips credentials, and caps URLs for fetch and XHR", async () => {
+  mount();
+  const urls = [
+    "data:text/plain,private",
+    "blob:https://example.test/private",
+    "file:///private",
+    "ftp://example.test/private",
+    "https://username:password@example.test/save?token=private#private",
+    `http://username:password@example.test/${"x".repeat(3000)}`,
+  ];
+  for (const url of urls) {
+    await fetch(url);
+    const xhr = new FakeXHR();
+    xhr.open("GET", url);
+    xhr.send();
+    xhr.finish(500);
+  }
+  expect(getDiagnostics().network.map(({ url }) => url)).toEqual([
+    "https://example.test/save",
+    "https://example.test/save",
+    `http://example.test/${"x".repeat(3000)}`.slice(0, 2000),
+    `http://example.test/${"x".repeat(3000)}`.slice(0, 2000),
+  ]);
+});
+
+test("trims oldest entries across both channels to a UTF-8 byte budget without mutating the snapshot", () => {
+  const at = (second: number) => new Date(second * 1000).toISOString();
+  const diagnostics: Diagnostics = {
+    console: Array.from({ length: 50 }, (_, index) => ({
+      level: "error",
+      message: "🦊".repeat(1000),
+      stack: "界".repeat(4000),
+      at: at(index * 2),
+    })),
+    network: Array.from({ length: 50 }, (_, index) => ({
+      method: "GET",
+      url: `https://example.test/${"x".repeat(1980)}`,
+      status: 500,
+      at: at(index * 2 + 1),
+    })),
+  };
+  const chronological = [...diagnostics.console, ...diagnostics.network].sort(
+    (left, right) => left.at.localeCompare(right.at),
+  );
+  const bytes = (value: Diagnostics) =>
+    new TextEncoder().encode(JSON.stringify(value)).byteLength;
+  const trimmed = trimDiagnostics(diagnostics);
+  expect(bytes(trimmed)).toBeLessThanOrEqual(150_000);
+  const kept = [...trimmed.console, ...trimmed.network].sort((left, right) =>
+    left.at.localeCompare(right.at),
+  );
+  expect(kept).toEqual(chronological.slice(-kept.length));
+  const lastRemoved = chronological.at(-kept.length - 1);
+  expect(lastRemoved).toBeDefined();
+  if (lastRemoved) {
+    const withPrevious: Diagnostics = {
+      console:
+        "message" in lastRemoved
+          ? [lastRemoved, ...trimmed.console]
+          : trimmed.console,
+      network:
+        "url" in lastRemoved
+          ? [lastRemoved, ...trimmed.network]
+          : trimmed.network,
+    };
+    expect(bytes(withPrevious)).toBeGreaterThan(150_000);
+  }
+  expect(diagnostics.console).toHaveLength(50);
+  expect(diagnostics.network).toHaveLength(50);
+  expect(trimDiagnostics(trimmed)).toEqual(trimmed);
 });
 
 test("relative relay exclusion follows SPA navigation and survives the provider unmounting mid-request", async () => {
