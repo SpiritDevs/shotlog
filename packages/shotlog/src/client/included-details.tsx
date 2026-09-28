@@ -156,6 +156,7 @@ function displayValue(
   value: unknown,
   labels: ShotlogLabels,
 ): string | undefined {
+  if (typeof value === "string") return value || "—";
   try {
     return JSON.stringify(value, null, 2);
   } catch {
