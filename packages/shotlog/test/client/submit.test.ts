@@ -14,7 +14,7 @@ import { Field, type SubmitErrorBody } from "../../src/internal/wire.js";
 import type { SupportLogSubmission } from "../../src/types.js";
 
 const log: SupportLogSubmission = {
-  schemaVersion: 1,
+  schemaVersion: 2,
   id: "00000000-0000-4000-8000-000000000001",
   shortId: "SL-0001",
   createdAt: "2026-09-28T12:00:00.000Z",

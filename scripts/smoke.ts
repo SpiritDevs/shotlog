@@ -59,7 +59,7 @@ function env(name: string): string {
 function submission(channel: string): SupportLogSubmission {
   const id = randomUUID();
   return {
-    schemaVersion: 1,
+    schemaVersion: 2,
     id,
     shortId: getShortId(id),
     createdAt: new Date().toISOString(),

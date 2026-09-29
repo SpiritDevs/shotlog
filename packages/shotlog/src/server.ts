@@ -7,7 +7,11 @@ export type { ResendOptions } from "./server/providers.js";
 export { resend } from "./server/providers.js";
 export type * from "./server/slack-types.js";
 export { defaultSlackLabels } from "./server/slack-types.js";
-export type { StorageAdapter } from "./server/storage-types.js";
+export type {
+  RecordingStorage,
+  RecordingUploadTarget,
+  StorageAdapter,
+} from "./server/storage-types.js";
 export { verifyWebhookSignature } from "./server/verify.js";
 export { getShortId } from "./short-id.js";
 export type * from "./types.js";

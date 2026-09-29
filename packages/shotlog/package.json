@@ -27,7 +27,8 @@
       "types": "./dist/node.d.ts",
       "default": "./dist/node.js"
     },
-    "./schema.json": "./schema/support-log.v1.json",
+    "./schema.json": "./schema/support-log.v2.json",
+    "./schema.v1.json": "./schema/support-log.v1.json",
     "./ses": {
       "types": "./dist/ses.d.ts",
       "default": "./dist/ses.js"

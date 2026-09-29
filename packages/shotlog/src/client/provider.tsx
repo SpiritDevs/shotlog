@@ -392,7 +392,7 @@ export function ShotlogProvider({
       if (draftEpoch.current !== epoch) return;
       const trail = getDiagnostics();
       log = {
-        schemaVersion: 1,
+        schemaVersion: 2,
         id: current.id,
         shortId: current.shortId,
         createdAt: current.createdAt,

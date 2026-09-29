@@ -100,6 +100,12 @@ export const DiagnosticsSchema = Schema.Struct({
   ).pipe(Schema.maxItems(50)),
 });
 
+const httpUrl = Schema.String.pipe(
+  Schema.pattern(/^https?:\/\/\S+$/),
+  Schema.filter((value) => URL.canParse(value), {
+    jsonSchema: { format: "uri" },
+  }),
+);
 const screenshotFields = {
   ...Dimensions.fields,
   size: PositiveInt,
@@ -119,17 +125,29 @@ export const ScreenshotSchema = Schema.Union(
   Schema.Struct({
     _tag: Schema.Literal("Uploaded"),
     ...screenshotFields,
-    url: Schema.String.pipe(
-      Schema.pattern(/^https?:\/\/\S+$/),
-      Schema.filter((value) => URL.canParse(value), {
-        jsonSchema: { format: "uri" },
-      }),
-    ),
+    url: httpUrl,
     key: NonEmptyString,
   }),
 );
 
-export const schemaVersion = 1;
+export const RecordingSchema = Schema.Struct({
+  url: httpUrl,
+  key: NonEmptyString,
+  ...Dimensions.fields,
+  durationMs: Schema.NonNegativeInt,
+  size: PositiveInt,
+  mimeType: Schema.String.pipe(Schema.pattern(/^video\/[\w.+-]+(?:;.*)?$/)),
+});
+
+export const schemaVersion = 2 as const;
+
+// Widgets built before v2 may still be open in a browser during a deploy; their v1
+// submissions are otherwise identical, so they are accepted and delivered as v2.
+const SubmittedVersion = Schema.transform(
+  Schema.Literal(1, schemaVersion),
+  Schema.Literal(schemaVersion),
+  { strict: true, decode: () => schemaVersion, encode: (value) => value },
+);
 
 const supportLogFields = {
   schemaVersion: Schema.Literal(schemaVersion),
@@ -161,11 +179,15 @@ const shortIdAnnotations = {
 export const SupportLogSchema = Schema.Struct({
   ...supportLogFields,
   screenshot: Schema.optionalWith(ScreenshotSchema, { exact: true }),
+  recording: Schema.optionalWith(RecordingSchema, { exact: true }),
 })
   .pipe(Schema.filter(shortIdMatches, shortIdAnnotations))
   .annotations({ parseOptions: { onExcessProperty: "error" } });
 
-export const SupportLogSubmissionSchema = Schema.Struct(supportLogFields)
+export const SupportLogSubmissionSchema = Schema.Struct({
+  ...supportLogFields,
+  schemaVersion: SubmittedVersion,
+})
   .pipe(Schema.filter(shortIdMatches, shortIdAnnotations))
   .annotations({ parseOptions: { onExcessProperty: "error" } });
 
@@ -203,6 +225,7 @@ export type PublicTypesInSync = [
       Extract<Public.Screenshot, { _tag: "Uploaded" }>
     >
   >,
+  Assert<Same<typeof RecordingSchema.Type, Public.Recording>>,
   Assert<Same<typeof EnvironmentSchema.Type, Public.Environment>>,
   // Index signatures make keyof uninformative, so Reporter's named fields are checked directly.
   Assert<Assignable<typeof ReporterSchema.Type, Public.Reporter>>,

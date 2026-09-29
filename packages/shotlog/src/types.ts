@@ -25,8 +25,11 @@ export type JsonValue =
  * @public
  */
 export interface SupportLog {
-  /** Payload contract version. Receivers can validate against `shotlog/schema.json`. */
-  readonly schemaVersion: 1;
+  /**
+   * Payload contract version. Receivers can validate against `shotlog/schema.json`.
+   * Version 2 added `recording`; `shotlog/schema.v1.json` still describes version 1.
+   */
+  readonly schemaVersion: 2;
   /** UUID generated in the browser; the Relay Endpoint dedupes retries by it. */
   readonly id: string;
   /** Readable form of `id`, e.g. `SL-7F3K`. Not unique on its own. */
@@ -38,6 +41,8 @@ export interface SupportLog {
   /** What the Reporter was trying to do. */
   readonly description: string;
   readonly screenshot?: Screenshot;
+  /** A Screen Recording the Reporter made, uploaded straight from the browser to storage. */
+  readonly recording?: Recording;
   readonly environment: Environment;
   readonly reporter?: Reporter;
   /** Free-form Host Context, limited to 16 KiB of serialized UTF-8 JSON. */
@@ -46,7 +51,8 @@ export interface SupportLog {
 }
 
 /**
- * The JSON part sent to the Relay Endpoint; the PNG travels as a separate multipart file.
+ * The JSON part sent to the Relay Endpoint. The PNG travels as a separate multipart file, and
+ * a Screen Recording as a ticket for a finished upload.
  * @example
  * ```ts
  * import type { SupportLogSubmission } from "shotlog";
@@ -54,7 +60,31 @@ export interface SupportLog {
  * ```
  * @public
  */
-export type SupportLogSubmission = Omit<SupportLog, "screenshot">;
+export type SupportLogSubmission = Omit<SupportLog, "screenshot" | "recording">;
+
+/**
+ * A Screen Recording: a video of the Reporter's tab, with any drawings they made while recording.
+ * `url` may expire when the storage is private; keep `key` to re-sign it.
+ * @example
+ * ```ts
+ * import type { Recording } from "shotlog";
+ * const minutes = (recording: Recording) => Math.ceil(recording.durationMs / 60_000);
+ * ```
+ * @public
+ */
+export interface Recording {
+  readonly url: string;
+  /** Storage key, for deleting or re-signing the file later. */
+  readonly key: string;
+  /** Video dimensions in pixels. */
+  readonly width: number;
+  readonly height: number;
+  readonly durationMs: number;
+  /** Video size in bytes. */
+  readonly size: number;
+  /** The browser's recording format, e.g. `video/webm` or `video/mp4`. */
+  readonly mimeType: string;
+}
 
 /**
  * PNG dimensions in image pixels, byte length, and upload fallback status.

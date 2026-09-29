@@ -22,7 +22,7 @@ ESM-only. Requires Node **≥20.19** for Node deployments and React / React DOM 
 | Resend | No extra dependency | `resend` from `shotlog/server` |
 | Amazon SES | `npm i @aws-sdk/client-sesv2` | `ses` from `shotlog/ses` |
 | SMTP (Node only) | `npm i nodemailer` | `smtp` from `shotlog/smtp` |
-| UploadFile storage | `npm i @uploadfile/core` | `uploadfile` from `shotlog/uploadfile` |
+| UploadFile storage ([set up](#set-up-uploadfile)) | `npm i @uploadfile/core` | `uploadfile` from `shotlog/uploadfile` |
 
 ## Quick start: Next.js App Router
 
@@ -384,7 +384,7 @@ export const webhook: WebhookConfig = {
 };
 ```
 
-Set `UPLOADFILE_TOKEN` on the server, or pass `token` explicitly. The default ACL is `public-read`: anyone with the URL can view the Screenshot while the file exists.
+Set `UPLOADFILE_TOKEN` on the server, or pass `token` explicitly. New to UploadFile? [Set up an account and API key](#set-up-uploadfile) first. The default ACL is `public-read`: anyone with the URL can view the Screenshot while the file exists.
 
 **Private UploadFile links expire within 7 days.** `signedUrlExpiresIn` is a positive integer in seconds, defaulting to and capped at `604800`. Private signed URLs are generated once per Support Log and reused across webhook retries. A delayed successful delivery may carry a URL closer to expiry, so receivers should store `key` and re-sign when needed.
 
@@ -410,6 +410,26 @@ export const storage: StorageAdapter = {
   },
 };
 ```
+
+### Set up UploadFile
+
+[UploadFile](https://www.uploadfile.dev) stores and serves the Screenshots. You need an account, an application, and a server API key:
+
+1. **Sign up** at [uploadfile.dev/signup](https://www.uploadfile.dev/signup) and verify your email address. Uploads and API keys stay locked until you do.
+2. **Create an application** on the [Applications](https://www.uploadfile.dev/dashboard/applications) page. Its region is where Screenshots are stored.
+3. **Create an API key.** Open the application's [API keys](https://www.uploadfile.dev/dashboard/keys) page and choose **Create API key**. Copy it from the dialog; it is shown once, and if you lose it you create a new one.
+4. **Add it to your server's environment** as `UPLOADFILE_TOKEN`:
+
+   ```sh
+   UPLOADFILE_TOKEN=paste-the-key-from-the-dashboard
+   ```
+
+   Keep it server-side only: don't prefix it with `NEXT_PUBLIC_` or `VITE_`, and don't commit it.
+5. **Install the SDK** with `npm i @uploadfile/core`, then set `screenshotMode: "upload"` and `storage: uploadfile()` as shown above.
+
+New applications start on the Free plan. When you need more storage, files, or downloads, compare plans on the [pricing page](https://www.uploadfile.dev/pricing), then choose one for the application on the [Billing](https://www.uploadfile.dev/dashboard/billing) page. Each paid application has its own subscription, and new capacity starts once the payment succeeds. See UploadFile's [getting started](https://www.uploadfile.dev/docs/introduction) and [billing](https://www.uploadfile.dev/docs/billing) guides for more.
+
+To check the setup, submit a report and confirm the webhook payload's `screenshot._tag` is `"Uploaded"`. An `Inline` Screenshot with an `uploadError` means the upload failed and fell back to base64. Check that `UPLOADFILE_TOKEN` is set on the server, your email is verified, and the application is within its plan's limits.
 
 ## Security
 
@@ -636,7 +656,7 @@ Example webhook body, **truncated** (Environment fields and PNG data omitted):
 
 ```json
 {
-  "schemaVersion": 1,
+  "schemaVersion": 2,
   "id": "00000000-0000-4000-8000-000000000001",
   "shortId": "SL-0001",
   "createdAt": "2026-09-28T10:00:00.000Z",

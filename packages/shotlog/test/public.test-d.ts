@@ -9,6 +9,7 @@ import type {
   ProviderNotInstalled,
   RateLimited,
   Reporter,
+  Recording,
   Screenshot,
   ShotlogError,
   SupportLog,
@@ -99,13 +100,14 @@ test("public errors narrow by _tag", () => {
 test("Support Log exposes the complete plain JSON contract", () => {
   expectTypeOf<SupportLog>().not.toBeAny();
   expectTypeOf<SupportLog>().toEqualTypeOf<{
-    readonly schemaVersion: 1;
+    readonly schemaVersion: 2;
     readonly id: string;
     readonly shortId: string;
     readonly createdAt: string;
     readonly type: string;
     readonly description: string;
     readonly screenshot?: Screenshot;
+    readonly recording?: Recording;
     readonly environment: Environment;
     readonly reporter?: Reporter;
     readonly metadata?: { readonly [key: string]: JsonValue };

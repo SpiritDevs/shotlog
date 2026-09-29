@@ -1,10 +1,12 @@
 import * as Public from "../errors.js";
+import type { RecordingUploadTarget } from "../server/storage-types.js";
 
 /** Multipart field names for a submission to the Relay Endpoint. */
 export const Field = {
   supportLog: "supportLog",
   screenshot: "screenshot",
   slackChannel: "slackChannel",
+  recording: "recording",
 } as const;
 
 /** A Slack channel a Reporter may choose. */
@@ -14,10 +16,43 @@ export interface SlackChannelOption {
 }
 
 /** GET body: what the Report Card should offer. `slackChannels` is present only when some
- * Type has no fixed Slack channel; `slackFixedTypes` lists the Types that do. */
+ * Type has no fixed Slack channel; `slackFixedTypes` lists the Types that do. `recording` is
+ * present when Screen Recording is on. */
 export interface RelayOptionsBody {
   readonly slackChannels?: readonly SlackChannelOption[];
   readonly slackFixedTypes?: readonly string[];
+  readonly recording?: RecordingLimits;
+}
+
+export interface RecordingLimits {
+  readonly maxSeconds: number;
+  readonly maxBytes: number;
+}
+
+/** JSON POST body asking to upload a Screen Recording for a Support Log. */
+export interface RecordingUploadRequest {
+  readonly recordingUpload: {
+    readonly id: string;
+    readonly size: number;
+    readonly mimeType: string;
+  };
+}
+
+/** 200 body for a RecordingUploadRequest. */
+export interface RecordingUploadBody {
+  readonly ok: true;
+  readonly target: RecordingUploadTarget;
+  readonly ticket: string;
+}
+
+/** The `recording` multipart field: a finished upload's ticket and what the browser measured. */
+export interface RecordingPart {
+  readonly ticket: string;
+  readonly width: number;
+  readonly height: number;
+  readonly durationMs: number;
+  readonly size: number;
+  readonly mimeType: string;
 }
 
 /** 200 body. `duplicate` is true when this Support Log ID was already delivered. */

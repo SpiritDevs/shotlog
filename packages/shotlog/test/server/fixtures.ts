@@ -11,7 +11,7 @@ export const png = Uint8Array.from(
 export function submission(sequence = 1): SupportLogSubmission {
   const id = `00000000-0000-4000-8000-${sequence.toString(16).padStart(12, "0")}`;
   return {
-    schemaVersion: 1,
+    schemaVersion: 2,
     id,
     shortId: getShortId(id),
     createdAt: "2026-09-28T12:00:00.000Z",

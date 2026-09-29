@@ -248,6 +248,8 @@ webhook: {
 },
 ```
 
+If the user has no UploadFile account, point them to https://www.uploadfile.dev/signup: verify the email, create an application, then create an API key on its API keys page (https://www.uploadfile.dev/dashboard/keys). They put the key in the server environment as `UPLOADFILE_TOKEN` themselves; don't ask them to paste it into the chat. New applications start on the Free plan; paid plans are at https://www.uploadfile.dev/pricing and are chosen on the dashboard's Billing page.
+
 `acl: "private"` returns a signed URL that expires within 7 days. Store `screenshot.key` if you need to re-sign later. If an upload fails or takes over 10 s, shotlog falls back to base64 and sets `screenshot.uploadError`. For S3, R2 or similar, pass any object with `name` and `upload(png, { id, filename, signal }) => Promise<{ url, key }>`.
 
 ## Step 4: receive the webhook
@@ -279,7 +281,7 @@ Delivery is at least once. Always dedupe on `log.id` or `x-shotlog-id`. The sign
 
 ```json
 {
-  "schemaVersion": 1,
+  "schemaVersion": 2,
   "id": "0d9f2c1e-8c3b-4a7e-9f1d-2b6a5c4e8f10",
   "shortId": "SL-7F3K",
   "createdAt": "2026-09-29T10:12:03.120Z",

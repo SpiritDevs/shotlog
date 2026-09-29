@@ -1,6 +1,6 @@
 import type { EmailLabels, EmailProvider } from "./email-types.js";
 import type { SlackLabels } from "./slack-types.js";
-import type { StorageAdapter } from "./storage-types.js";
+import type { RecordingStorage, StorageAdapter } from "./storage-types.js";
 
 /**
  * Server-owned email destination, transport, and template labels.
@@ -191,6 +191,26 @@ export interface SupportHandlerLimits {
 export type AuthorizeResult = boolean | { readonly reporterId: string };
 
 /**
+ * Screen Recording: Reporters can record their tab, drawing on it as they go, and the video is
+ * uploaded straight from the browser to storage. The Report Card only offers it when this is set.
+ * @example
+ * ```ts
+ * import type { RecordingConfig } from "shotlog/server";
+ * import { uploadfile } from "shotlog/uploadfile";
+ * const recording: RecordingConfig = { storage: uploadfile(), maxSeconds: 120 };
+ * ```
+ * @public
+ */
+export interface RecordingConfig {
+  /** Where videos go; `uploadfile()` from `shotlog/uploadfile` works out of the box. */
+  readonly storage: RecordingStorage;
+  /** Longest recording in seconds; the recorder stops itself there. Defaults to 300. */
+  readonly maxSeconds?: number;
+  /** Largest video in bytes. Defaults to 200 MiB. */
+  readonly maxBytes?: number;
+}
+
+/**
  * Server-side Relay Endpoint configuration.
  * @example
  * ```ts
@@ -233,6 +253,8 @@ export interface SupportHandlerConfig {
   readonly store?: ShotlogStore;
   /** Screenshot and total streaming body limits. */
   readonly limits?: SupportHandlerLimits;
+  /** Turns on Screen Recording. Off by default. */
+  readonly recording?: RecordingConfig;
 }
 
 /**

@@ -5,7 +5,7 @@ import { metadata, reporter } from "./context.js";
 export function buildSubmission(sequence: number): FormData {
   const id = crypto.randomUUID();
   const log: SupportLogSubmission = {
-    schemaVersion: 1,
+    schemaVersion: 2,
     id,
     shortId: getShortId(id),
     createdAt: new Date().toISOString(),

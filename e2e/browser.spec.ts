@@ -254,7 +254,7 @@ test("custom onSubmit receives the log and a typed failure shows its rate-limit 
   const logs = await page.evaluate(() => window.shotlogCustomSubmissions);
   expect(logs).toHaveLength(1);
   expect(logs[0]).toMatchObject({
-    schemaVersion: 1,
+    schemaVersion: 2,
     description: "Send with the Host App's custom delivery.",
     type: "Bug",
     shortId: expect.stringMatching(/^SL-/),
