@@ -46,6 +46,8 @@ interface ReportCardProps {
   readonly closing: boolean;
   readonly includedDetails: ReactNode;
   readonly screenshotControls: ReactNode;
+  /** Record screen, when the Relay Endpoint offers Screen Recording. */
+  readonly recordingControls: ReactNode;
   readonly capturing: boolean;
   /** Slack channels to choose from; null when the server decides. */
   readonly slackChannels: readonly SlackChannelOption[] | null;
@@ -54,6 +56,10 @@ interface ReportCardProps {
   /** Seconds left before a delayed capture; null when none is running. */
   readonly countdown: number | null;
   readonly onCancelCountdown: () => void;
+  /** True while the Reporter records the page; the card steps aside like a countdown. */
+  readonly away: boolean;
+  /** Screen Recording upload percentage while sending; null otherwise. */
+  readonly progress: number | null;
   readonly onClose: () => void;
   readonly onClosed: () => void;
   readonly onChange: (draft: Draft) => void;
@@ -81,12 +87,15 @@ export function ReportCard({
   closing,
   includedDetails,
   screenshotControls,
+  recordingControls,
   capturing,
   slackChannels,
   slackChannel,
   onSlackChannelChange,
   countdown,
   onCancelCountdown,
+  away,
+  progress,
   onClose,
   onClosed,
   onChange,
@@ -102,10 +111,13 @@ export function ReportCard({
   const locked = state === "sending" || state === "sent";
   const sent = state === "sent";
   const corner = resizeCorner(position);
-  // The page is the Reporter's during a countdown: no focus trap, and Escape cancels.
-  const waiting = countdown !== null;
+  // The page is the Reporter's during a countdown or a recording: no focus trap. Escape
+  // cancels a countdown; a recording handles its own keys.
+  const waiting = countdown !== null || away;
   const suspended = useRef(waiting);
   suspended.current = waiting;
+  const counting = useRef(countdown !== null);
+  counting.current = countdown !== null;
   const onCancel = useRef(onCancelCountdown);
   onCancel.current = onCancelCountdown;
 
@@ -143,7 +155,7 @@ export function ReportCard({
     else focusFirst();
     const onKeyDown = (event: KeyboardEvent) => {
       if (suspended.current) {
-        if (event.key !== "Escape") return;
+        if (event.key !== "Escape" || !counting.current) return;
         event.preventDefault();
         event.stopPropagation();
         onCancel.current();
@@ -321,7 +333,7 @@ export function ReportCard({
       data-waiting={waiting || undefined}
       aria-hidden={closing || undefined}
     >
-      {waiting && (
+      {countdown !== null && (
         <Countdown
           seconds={countdown}
           labels={labels}
@@ -519,6 +531,9 @@ export function ReportCard({
               />
             </div>
             <div data-shotlog-slot="screenshot">{screenshotControls}</div>
+            {recordingControls && (
+              <div data-shotlog-slot="recording">{recordingControls}</div>
+            )}
             <div data-shotlog-slot="included-details">{includedDetails}</div>
             <button
               className="submit"
@@ -535,6 +550,11 @@ export function ReportCard({
                   ? labels.retry
                   : labels.submit}
             </button>
+            {progress !== null && (
+              <div className="upload-progress" aria-hidden="true">
+                <span style={{ width: `${progress}%` }} />
+              </div>
+            )}
           </form>
           {sent && (
             <div className="success-mark" aria-hidden="true">
@@ -547,7 +567,11 @@ export function ReportCard({
           {/* The button already shows "Sending…"; the live region only announces it. */}
           <div
             id={`${id}-status`}
-            className={state === "sending" ? "status sr-only" : "status"}
+            className={
+              state === "sending" && progress === null
+                ? "status sr-only"
+                : "status"
+            }
             data-state={state}
             role="status"
             aria-live="polite"

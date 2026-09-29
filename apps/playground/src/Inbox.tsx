@@ -209,6 +209,18 @@ export function Inbox({
                       </time>
                     </dd>
                   </dl>
+                  {log.recording && (
+                    // biome-ignore lint/a11y/useMediaCaption: Reporters' recordings have no captions
+                    <video
+                      className="screenshot"
+                      src={log.recording.url}
+                      controls
+                      preload="metadata"
+                      width={log.recording.width}
+                      height={log.recording.height}
+                      aria-label={`Screen recording attached to ${log.shortId}`}
+                    />
+                  )}
                   {image && screenshot && (
                     <img
                       className="screenshot"

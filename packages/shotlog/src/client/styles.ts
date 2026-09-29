@@ -440,6 +440,78 @@ textarea:disabled { opacity: var(--shotlog-disabled-opacity, 0.55); }
 .capture-status:empty { display: none; }
 .capture-status[data-error="true"] { color: var(--_error); }
 
+/* Screen Recording: the attachment row */
+[data-shotlog-slot="recording"] { margin-top: 8px; }
+.recording-controls .attachment-main { border-radius: calc(var(--_control-radius) - 1px); }
+.attachment-meta { font-size: 12px; font-weight: 400; color: var(--_muted); font-variant-numeric: tabular-nums; }
+.attachment-main .attachment-meta { margin-left: auto; }
+.attachment-title { flex: 1; min-width: 0; display: flex; flex-direction: column; font-weight: 500; line-height: 1.3; }
+.upload-progress { height: 3px; margin-top: 8px; overflow: hidden; border-radius: 999px; background: var(--_field); }
+.upload-progress > span { display: block; height: 100%; border-radius: inherit; background: var(--_accent); transition: width 200ms linear; }
+
+/* Screen Recording: drawings and the floating toolbar, both part of the recorded page */
+.recording { position: fixed; inset: 0; pointer-events: none; }
+.recording-canvas { position: fixed; inset: 0; width: 100%; height: 100%; overflow: visible; pointer-events: none; }
+.recording-canvas[data-drawing] { pointer-events: auto; cursor: crosshair; touch-action: none; }
+.recording-marks {
+  fill: none;
+  stroke: var(--shotlog-recording-ink, #ff3b30);
+  stroke-width: 4;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+  filter: drop-shadow(0 1px 1.5px #00000059);
+  transition: opacity 150ms ease;
+}
+.recording-marks[data-fading] { opacity: 0; transition-duration: 700ms; }
+.recording-bar {
+  position: fixed;
+  inset: auto 0 var(--_offset) 0;
+  display: flex;
+  align-items: center;
+  gap: 2px;
+  width: max-content;
+  height: max-content;
+  margin: 0 auto;
+  padding: 5px;
+  border-radius: 999px;
+  background: var(--_text);
+  color: var(--_surface);
+  box-shadow: var(--_shadow);
+  font-weight: 500;
+  white-space: nowrap;
+  user-select: none;
+  pointer-events: auto;
+  animation: menu-in 180ms var(--_ease-out) both;
+}
+.recording-bar button {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  min-width: 34px;
+  height: 34px;
+  padding: 0;
+  border: 0;
+  border-radius: 999px;
+  background: transparent;
+  color: inherit;
+  transition: background-color 120ms ease, color 120ms ease;
+}
+.recording-bar button:hover:not(:disabled) { background: color-mix(in srgb, var(--_surface) 16%, transparent); }
+.recording-bar button[aria-pressed="true"] { background: color-mix(in srgb, var(--_surface) 26%, transparent); }
+.recording-bar button[data-muted] { color: color-mix(in srgb, var(--_surface) 55%, transparent); }
+.recording-bar button:focus-visible { outline-color: var(--_surface); outline-offset: -2px; }
+.recording-bar .recording-grip { min-width: 18px; cursor: grab; touch-action: none; color: color-mix(in srgb, var(--_surface) 50%, transparent); }
+.recording-bar .recording-grip:active { cursor: grabbing; }
+.recording-time { display: inline-flex; align-items: center; gap: 7px; padding: 0 8px 0 4px; font-variant-numeric: tabular-nums; }
+.recording-time[data-near-limit] { color: #ff8a80; }
+.recording-dot { width: 8px; height: 8px; border-radius: 50%; background: #ff3b30; animation: pulse 1.6s ease-in-out infinite; }
+.recording-divider { width: 1px; height: 20px; margin: 0 4px; background: color-mix(in srgb, var(--_surface) 22%, transparent); }
+.recording-bar .recording-discard[data-confirm] { padding: 0 12px; background: color-mix(in srgb, #ff3b30 45%, transparent); }
+.recording-bar .recording-finish { margin-left: 4px; padding: 0 14px 0 12px; background: #e5372b; color: #ffffff; }
+.recording-bar .recording-finish:hover:not(:disabled) { background: #d12d22; }
+.recording-stop { width: 10px; height: 10px; border-radius: 2px; background: currentColor; }
+
 /* Included details */
 .included-details { margin: 8px 0 14px; font-size: 13px; }
 .included-details summary {

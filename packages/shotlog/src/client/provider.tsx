@@ -1,4 +1,5 @@
 import {
+  type ComponentType,
   type CSSProperties,
   createContext,
   forwardRef,
@@ -14,8 +15,10 @@ import { createPortal } from "react-dom";
 import {
   DeliveryFailed,
   type ShotlogError,
+  UploadFailed,
   ValidationFailed,
 } from "../errors.js";
+import type { RecordingLimits, RecordingPart } from "../internal/wire.js";
 import { getShortId } from "../short-id.js";
 import type { SupportLogSubmission } from "../types.js";
 import type { CardSize } from "./card-size.js";
@@ -27,11 +30,25 @@ import {
 import { captureEnvironment } from "./environment.js";
 import { type IncludedContext, IncludedDetails } from "./included-details.js";
 import { defaultLabels, errorMessage, typeValue } from "./labels.js";
+import { RecordingControls } from "./recording/controls.js";
+import {
+  type RecordedVideo,
+  type Recorder,
+  requestRecording,
+  supportsRecording,
+} from "./recording/recorder.js";
+import type { RecordingSessionProps } from "./recording/session.js";
+import { uploadRecording } from "./recording/upload.js";
 import { type Draft, ReportCard } from "./report-card.js";
 import { ScreenshotControls } from "./screenshot-controls.js";
 import { matchesShortcut } from "./shortcut.js";
 import { styles } from "./styles.js";
-import { loadSlackChoice, type SlackChoice, submitReport } from "./submit.js";
+import {
+  loadRelayOptions,
+  type RelayOptions,
+  requestRecordingUpload,
+  submitReport,
+} from "./submit.js";
 import type {
   ShotlogControls,
   ShotlogLauncherOptions,
@@ -48,7 +65,21 @@ type Phase = "closed" | "open" | "closing";
 type Status =
   | { readonly tag: "idle" | "sending" }
   | { readonly tag: "sent"; readonly result: ShotlogSubmitResult }
-  | { readonly tag: "error"; readonly error: ShotlogError };
+  | {
+      readonly tag: "error";
+      readonly error: ShotlogError;
+      /** Replaces the error's usual label. */
+      readonly message?: string;
+    };
+interface Session {
+  readonly recorder: Recorder;
+  readonly limits: RecordingLimits;
+  readonly Session: ComponentType<RecordingSessionProps>;
+  readonly release: () => void;
+}
+
+// Finished uploads by video, so a retry, even under a new identity, never uploads it again.
+const uploadedRecordings = new WeakMap<Blob, RecordingPart>();
 
 /**
  * Mounts one isolated support widget while leaving the Host App in control of visibility.
@@ -169,11 +200,25 @@ export function ShotlogProvider({
       }),
     [],
   );
-  // Slack channels the Relay Endpoint lets Reporters choose.
-  const [slackOptions, setSlackOptions] = useState<{
+  // What the Relay Endpoint offers: Slack channels to choose, and Screen Recording.
+  const [relayOptions, setRelayOptions] = useState<{
     readonly endpoint: string;
-    readonly choice: SlackChoice | null;
+    readonly options: RelayOptions;
   }>();
+  // A Screen Recording is never persisted either. While recording, the card steps aside.
+  const [recording, setRecording] = useState<RecordedVideo>();
+  const [recordingError, setRecordingError] = useState("");
+  const [session, setSession] = useState<Session | null>(null);
+  const [uploadProgress, setUploadProgress] = useState<number | null>(null);
+  const uploadAbort = useRef<AbortController | null>(null);
+  const mounted = useRef(true);
+  useEffect(() => {
+    mounted.current = true;
+    return () => {
+      mounted.current = false;
+      uploadAbort.current?.abort();
+    };
+  }, []);
   const [slackChannel, setSlackChannel] = useState<string>();
   const [loaded, setLoaded] = useState(false);
   const [status, setStatus] = useState<Status>({ tag: "idle" });
@@ -222,6 +267,12 @@ export function ShotlogProvider({
     setCapturing(false);
     setCaptureError("");
     setScreenshot(undefined);
+    // Unmounting the session cancels its recorder.
+    setSession(null);
+    uploadAbort.current?.abort();
+    setUploadProgress(null);
+    setRecording(undefined);
+    setRecordingError("");
     const empty = { type: firstType, description: "" };
     latestDraft.current = empty;
     setDraft(empty);
@@ -261,6 +312,8 @@ export function ShotlogProvider({
   useEffect(() => {
     if (!enabled) {
       setPhase("closed");
+      // Its toolbar goes with the widget, so the recording can't carry on unseen.
+      setSession(null);
       return;
     }
     const host = document.createElement("div");
@@ -284,9 +337,9 @@ export function ShotlogProvider({
   useEffect(() => {
     if (phase !== "open" || endpoint === undefined) return;
     let current = true;
-    loadSlackChoice(endpoint).then(
-      (choice) => {
-        if (current) setSlackOptions({ endpoint, choice });
+    loadRelayOptions(endpoint).then(
+      (options) => {
+        if (current) setRelayOptions({ endpoint, options });
       },
       // Offline or refused: the next open asks again, and Submit reports the real error.
       () => {},
@@ -296,6 +349,17 @@ export function ShotlogProvider({
     };
   }, [phase, endpoint]);
   useEffect(() => () => cancelCountdown.current?.(), []);
+  // A session that ends any way but Finish (draft cleared, unmount) keeps nothing. Keyed on
+  // the session rather than in it, so StrictMode's second effect run can't stop a recording.
+  useEffect(() => {
+    if (!session) return;
+    return () => session.recorder.cancel();
+  }, [session]);
+  // Loaded ahead so the recording toolbar appears as soon as sharing starts.
+  const canRecord = canRecordWith(relayOptions?.options);
+  useEffect(() => {
+    if (canRecord) import("./recording/session.js").catch(() => {});
+  }, [canRecord]);
 
   useEffect(() => {
     if (loaded) return;
@@ -361,8 +425,13 @@ export function ShotlogProvider({
     ? draft.type
     : firstType;
   // Types with their own channel skip the dropdown; the server routes them.
-  const slackChoice =
-    slackOptions?.endpoint === endpoint ? slackOptions?.choice : null;
+  const offered =
+    relayOptions && relayOptions.endpoint === endpoint
+      ? relayOptions.options
+      : undefined;
+  const slackChoice = offered?.slack;
+  const recordingLimits =
+    offered?.recording && supportsRecording() ? offered.recording : null;
   const slackChannels =
     slackChoice && !slackChoice.fixedTypes.includes(selectedType)
       ? slackChoice.channels
@@ -386,6 +455,57 @@ export function ShotlogProvider({
     persist(draft);
     sending.current = true;
     setStatus({ tag: "sending" });
+    const fail = (error: ShotlogError, message?: string) => {
+      sending.current = false;
+      setStatus({ tag: "error", error, ...(message ? { message } : {}) });
+      onError?.(error);
+    };
+    // The video goes straight to storage first; the report then carries its ticket.
+    const video = endpoint !== undefined ? recording : undefined;
+    let recordingPart = video && uploadedRecordings.get(video.blob);
+    if (video && endpoint !== undefined && !recordingPart) {
+      const controller = new AbortController();
+      uploadAbort.current = controller;
+      setUploadProgress(0);
+      try {
+        const { target, ticket } = await requestRecordingUpload(endpoint, {
+          id: current.id,
+          size: video.blob.size,
+          mimeType: video.mimeType,
+        });
+        await uploadRecording(target, video.blob, {
+          signal: controller.signal,
+          onProgress: (loaded) =>
+            setUploadProgress(
+              Math.min(99, Math.floor((loaded / video.blob.size) * 100)),
+            ),
+        });
+        recordingPart = {
+          ticket,
+          width: video.width,
+          height: video.height,
+          durationMs: video.durationMs,
+          size: video.blob.size,
+          mimeType: video.mimeType,
+        };
+        uploadedRecordings.set(video.blob, recordingPart);
+      } catch (cause) {
+        if (draftEpoch.current !== epoch || !mounted.current) return;
+        const error = isShotlogError(cause)
+          ? cause
+          : new UploadFailed("Screen recording upload failed", { cause });
+        return fail(
+          error,
+          error._tag === "UploadFailed" ? labels.recordingUploadFailed : "",
+        );
+      } finally {
+        if (uploadAbort.current === controller) {
+          uploadAbort.current = null;
+          setUploadProgress(null);
+        }
+      }
+      if (draftEpoch.current !== epoch) return;
+    }
     let log: SupportLogSubmission;
     try {
       const context = await collectContext();
@@ -410,15 +530,13 @@ export function ShotlogProvider({
       };
     } catch (cause) {
       if (draftEpoch.current !== epoch) return;
-      const error = new ValidationFailed(
-        ["Could not collect Environment or Host Context"],
-        undefined,
-        { cause },
+      return fail(
+        new ValidationFailed(
+          ["Could not collect Environment or Host Context"],
+          undefined,
+          { cause },
+        ),
       );
-      sending.current = false;
-      setStatus({ tag: "error", error });
-      onError?.(error);
-      return;
     }
     let result: ShotlogSubmitResult;
     try {
@@ -428,6 +546,7 @@ export function ShotlogProvider({
           log,
           screenshot,
           chosenSlackChannel,
+          recordingPart,
         );
       else {
         await onSubmit({ log, ...(screenshot ? { screenshot } : {}) });
@@ -438,15 +557,18 @@ export function ShotlogProvider({
       const error = isShotlogError(cause)
         ? cause
         : new DeliveryFailed("custom", undefined, { cause });
-      sending.current = false;
-      setStatus({ tag: "error", error });
-      onError?.(error);
-      return;
+      // Only a Screen Recording fails this way at a Relay Endpoint: its upload is suspect.
+      if (video && error._tag === "UploadFailed") {
+        uploadedRecordings.delete(video.blob);
+        return fail(error, labels.recordingUploadFailed);
+      }
+      return fail(error);
     }
     if (draftEpoch.current !== epoch) return;
     sending.current = false;
     identity.current = null;
     setScreenshot(undefined);
+    setRecording(undefined);
     setDraft({ type: firstType, description: "" });
     setStatus({ tag: "sent", result });
     try {
@@ -458,12 +580,52 @@ export function ShotlogProvider({
   };
   const message =
     status.tag === "sending"
-      ? labels.sending
+      ? uploadProgress !== null
+        ? // Tens, so the live region isn't flooded; the bar moves smoothly.
+          labels.uploadingRecording(Math.floor(uploadProgress / 10) * 10)
+        : labels.sending
       : status.tag === "sent"
         ? labels.sent(status.result.shortId)
         : status.tag === "error"
-          ? errorMessage(status.error, labels)
+          ? status.message || errorMessage(status.error, labels)
           : "";
+  const startRecording = () => {
+    const limits = recordingLimits;
+    if (!limits || status.tag === "sending" || status.tag === "sent") return;
+    const release = acquireCapture();
+    if (!release) return;
+    setRecordingError("");
+    const failed = () => {
+      release();
+      if (draftEpoch.current === epoch)
+        setRecordingError(labels.recordingFailed);
+    };
+    let pending: Promise<Recorder | undefined>;
+    try {
+      // Synchronously, inside the click: the screen picker needs its user activation.
+      pending = requestRecording();
+    } catch {
+      return failed();
+    }
+    pending.then(async (recorder) => {
+      if (!recorder) return release();
+      try {
+        const { RecordingSession } = await import("./recording/session.js");
+        if (!mounted.current || draftEpoch.current !== epoch) {
+          recorder.cancel();
+          return release();
+        }
+        setSession({ recorder, limits, Session: RecordingSession, release });
+      } catch {
+        recorder.cancel();
+        failed();
+      }
+    }, failed);
+  };
+  const endSession = (active: Session) => {
+    active.release();
+    setSession((current) => (current === active ? null : current));
+  };
   const themeStyle: CSSProperties & { "--shotlog-accent"?: string } = accent
     ? { "--shotlog-accent": accent }
     : {};
@@ -512,6 +674,30 @@ export function ShotlogProvider({
                 onSlackChannelChange={setSlackChannel}
                 countdown={countdown}
                 onCancelCountdown={() => cancelCountdown.current?.()}
+                away={session !== null}
+                progress={uploadProgress}
+                recordingControls={
+                  recordingLimits && (
+                    <RecordingControls
+                      labels={labels}
+                      limits={recordingLimits}
+                      recording={recording}
+                      locked={status.tag === "sending" || status.tag === "sent"}
+                      busy={capturing}
+                      active={session !== null}
+                      error={recordingError}
+                      onStart={startRecording}
+                      onRemove={() => {
+                        if (draftEpoch.current !== epoch) return;
+                        if (identity.current?.attempted)
+                          identity.current = null;
+                        setRecordingError("");
+                        setRecording(undefined);
+                        persist(latestDraft.current);
+                      }}
+                    />
+                  )
+                }
                 screenshotControls={
                   <ScreenshotControls
                     host={root.host as HTMLElement}
@@ -552,6 +738,25 @@ export function ShotlogProvider({
                 }}
                 onSubmit={() => {
                   void submit();
+                }}
+              />
+            )}
+            {session && (
+              <session.Session
+                recorder={session.recorder}
+                limits={session.limits}
+                labels={labels}
+                onFinish={(video) => {
+                  endSession(session);
+                  if (draftEpoch.current !== epoch) return;
+                  if (identity.current?.attempted) identity.current = null;
+                  setRecording(video);
+                  persist(latestDraft.current);
+                }}
+                onDiscard={() => endSession(session)}
+                onError={(error) => {
+                  endSession(session);
+                  if (draftEpoch.current === epoch) setRecordingError(error);
                 }}
               />
             )}
@@ -624,6 +829,9 @@ function SupportIcon(): ReactElement {
     </svg>
   );
 }
+
+const canRecordWith = (options: RelayOptions | undefined) =>
+  options?.recording != null && supportsRecording();
 
 function isIdentity(value: unknown): value is Identity {
   return (

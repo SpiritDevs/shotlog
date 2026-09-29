@@ -13,7 +13,7 @@ import {
   type RelayOptionsBody,
   type SubmitSuccessBody,
 } from "../internal/wire.js";
-import type { SupportLogSubmission } from "../types.js";
+import type { SupportLog } from "../types.js";
 import type { SupportHandlerConfig } from "./config.js";
 import { Delivery } from "./delivery.js";
 import { emailLayer } from "./email.js";
@@ -22,6 +22,12 @@ import {
   type ParsedScreenshot,
   parseSubmission,
 } from "./multipart.js";
+import {
+  createUpload,
+  parseUploadRequest,
+  recordingLimits,
+  resolveRecording,
+} from "./recording.js";
 import { slackChannels, slackLayer } from "./slack.js";
 import { checkRateLimit, Store, storeLayer } from "./store.js";
 import { webhookLayer } from "./webhook.js";
@@ -70,7 +76,8 @@ function respondToFailure(error: unknown, channel: Channel): Response {
     error instanceof Public.RateLimited ||
     error instanceof Public.PayloadTooLarge ||
     error instanceof Public.ValidationFailed ||
-    error instanceof Public.DeliveryFailed
+    error instanceof Public.DeliveryFailed ||
+    error instanceof Public.UploadFailed
   ) {
     return errorResponse(error);
   }
@@ -121,6 +128,9 @@ export function createSupportHandler(
   }
   positive("delivery.webhook.timeoutMs", config.delivery.webhook?.timeoutMs);
   positive("delivery.slack.timeoutMs", config.delivery.slack?.timeoutMs);
+  positive("recording.maxSeconds", config.recording?.maxSeconds);
+  positive("recording.maxBytes", config.recording?.maxBytes);
+  const recording = config.recording;
   const slack = config.delivery.slack;
   if (slack && !slack.token.trim())
     throw new TypeError("shotlog: delivery.slack.token is required");
@@ -178,7 +188,7 @@ export function createSupportHandler(
   };
   const inFlight = new Map<string, Deferred.Deferred<boolean, InternalError>>();
   const deliverOnce = Effect.fn("deliverSupportLogOnce")(function* (
-    submission: SupportLogSubmission,
+    submission: Omit<SupportLog, "screenshot">,
     screenshot: ParsedScreenshot | undefined,
     target: { readonly slackChannel?: string },
   ) {
@@ -212,20 +222,34 @@ export function createSupportHandler(
     );
   });
 
+  const limitIp = Effect.fn("limitClientIp")(function* (
+    request: Request,
+    kind: "ip" | "recording-ip",
+  ) {
+    if (config.rateLimit === false) return;
+    const ip = clientIp(request)?.trim();
+    // One shared bucket for every IP-less request would throttle all users together.
+    if (ip) yield* checkRateLimit(kind, ip, config.rateLimit ?? {});
+    else warnNoIp();
+  });
+
   const handle = Effect.fn("handleSupportRequest")(function* (
     request: Request,
   ) {
     if (request.method === "GET") {
       // The Report Card asks what to offer when it opens; Reporters must be allowed to report.
       if (config.authorize) yield* authorizeRequest(request, config.authorize);
-      const body: RelayOptionsBody = chooseSlackChannel
-        ? {
-            slackChannels: yield* chooseSlackChannel,
-            ...(slackRoutes
-              ? { slackFixedTypes: Object.keys(slackRoutes) }
-              : {}),
-          }
-        : {};
+      const body: RelayOptionsBody = {
+        ...(chooseSlackChannel
+          ? {
+              slackChannels: yield* chooseSlackChannel,
+              ...(slackRoutes
+                ? { slackFixedTypes: Object.keys(slackRoutes) }
+                : {}),
+            }
+          : {}),
+        ...(recording ? { recording: recordingLimits(recording) } : {}),
+      };
       return Response.json(body, {
         headers: { "cache-control": "private, no-store" },
       });
@@ -235,23 +259,52 @@ export function createSupportHandler(
         status: 405,
         headers: { allow: "GET, POST" },
       });
+    // A JSON POST asks to upload a Screen Recording; the video goes straight to storage.
+    if (
+      request.headers
+        .get("content-type")
+        ?.split(";", 1)[0]
+        ?.trim()
+        .toLowerCase() === "application/json"
+    ) {
+      if (!recording)
+        return yield* new ValidationFailed({
+          issues: ["Screen Recording is not enabled"],
+        });
+      const reporterId = config.authorize
+        ? yield* authorizeRequest(request, config.authorize)
+        : undefined;
+      // Its own buckets, so a recording never costs the report it belongs to.
+      yield* limitIp(request, "recording-ip");
+      const upload = yield* parseUploadRequest(request, recording);
+      if (config.rateLimit !== false && reporterId !== undefined)
+        yield* checkRateLimit(
+          "recording-reporter",
+          reporterId,
+          config.rateLimit ?? {},
+        );
+      return Response.json(yield* createUpload(recording, upload), {
+        headers: { "cache-control": "private, no-store" },
+      });
+    }
     yield* checkRequest(request, screenshotBytes);
     const reporterId = config.authorize
       ? yield* authorizeRequest(request, config.authorize)
       : undefined;
-    if (config.rateLimit !== false) {
-      const ip = clientIp(request)?.trim();
-      // One shared bucket for every IP-less request would throttle all users together.
-      if (ip) yield* checkRateLimit("ip", ip, config.rateLimit ?? {});
-      else warnNoIp();
-    }
-    const { submission, screenshot, slackChannel } = yield* parseSubmission(
-      request,
-      screenshotBytes,
-    );
+    yield* limitIp(request, "ip");
+    const {
+      submission,
+      screenshot,
+      slackChannel,
+      recording: recordingPart,
+    } = yield* parseSubmission(request, screenshotBytes);
     // Only an authenticated id: a body-supplied reporter.id would let anyone exhaust another user's limit.
     if (config.rateLimit !== false && reporterId !== undefined)
       yield* checkRateLimit("reporter", reporterId, config.rateLimit ?? {});
+    if (recordingPart && !recording)
+      return yield* new ValidationFailed({
+        issues: ["recording: Screen Recording is not enabled"],
+      });
     // A fixed channel wins. Otherwise never trust the browser's channel: it must be offered.
     const fixed = slack ? fixedSlackChannel(submission.type) : undefined;
     if (slack && !fixed && chooseSlackChannel) {
@@ -262,7 +315,14 @@ export function createSupportHandler(
         });
     }
     const route = fixed ?? slackChannel;
-    const duplicate = yield* deliverOnce(submission, screenshot, {
+    const log: Omit<SupportLog, "screenshot"> =
+      recording && recordingPart
+        ? {
+            ...submission,
+            recording: yield* resolveRecording(recording, recordingPart),
+          }
+        : submission;
+    const duplicate = yield* deliverOnce(log, screenshot, {
       ...(slack && route !== undefined ? { slackChannel: route } : {}),
     });
     const body: SubmitSuccessBody = {

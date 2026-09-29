@@ -12,6 +12,7 @@ import { toNodeHandler } from "shotlog/node";
 import {
   createSupportHandler,
   Forbidden,
+  type RecordingStorage,
   Unauthorized,
   verifyWebhookSignature,
 } from "shotlog/server";
@@ -52,6 +53,27 @@ const slackChannels = [
   { id: "C0DESIGN", name: "design-feedback" },
 ];
 const slackUploads = new Map<string, Buffer>();
+// A local stand-in for recording storage: the browser PUTs the video straight here, as it
+// would to a presigned S3 URL. Set UPLOADFILE_TOKEN to record to UploadFile instead.
+const recordings = new Map<string, { type: string; bytes: Buffer }>();
+const localRecordings: RecordingStorage = {
+  name: "playground",
+  async createUpload({ mimeType }) {
+    const key = randomUUID();
+    return {
+      target: {
+        _tag: "Put",
+        url: `${origin}/_storage/${key}`,
+        headers: { "content-type": mimeType.split(";", 1)[0] ?? mimeType },
+      },
+      ticket: key,
+    };
+  },
+  async resolveUpload(ticket) {
+    if (!recordings.has(ticket)) throw new Error("No such recording");
+    return { url: `${origin}/_storage/${ticket}`, key: ticket };
+  },
+};
 
 function createRelay() {
   return toNodeHandler(
@@ -100,6 +122,9 @@ function createRelay() {
       rateLimit: settings.rateLimit
         ? { windowSeconds: rateWindowSeconds }
         : false,
+      recording: {
+        storage: process.env.UPLOADFILE_TOKEN ? uploadfile() : localRecordings,
+      },
     }),
   );
 }
@@ -201,6 +226,7 @@ async function route(req: IncomingMessage, res: ServerResponse) {
     return;
   }
   if (path.startsWith("/_slack/")) return fakeSlack(path, req, res);
+  if (path.startsWith("/_storage/")) return storage(path, req, res);
   if (path === "/_inbox/webhook") {
     if (req.method !== "POST") return methodNotAllowed(res, "POST");
     const payload = await text(req);
@@ -264,6 +290,51 @@ async function route(req: IncomingMessage, res: ServerResponse) {
     return json(res, { error: "Not found" }, 404);
   }
   vite.middlewares(req, res);
+}
+
+async function storage(
+  path: string,
+  req: IncomingMessage,
+  res: ServerResponse,
+) {
+  const key = path.slice("/_storage/".length);
+  if (req.method === "PUT") {
+    const chunks: Buffer[] = [];
+    for await (const chunk of req) chunks.push(chunk as Buffer);
+    recordings.set(key, {
+      type: req.headers["content-type"] ?? "video/webm",
+      bytes: Buffer.concat(chunks),
+    });
+    res.writeHead(200, { etag: `"${key}"` }).end();
+    return;
+  }
+  if (req.method !== "GET") return methodNotAllowed(res, "GET, PUT");
+  const file = recordings.get(key);
+  if (!file) return json(res, { error: "Not found" }, 404);
+  // Ranges let the inbox's player seek.
+  const range = /^bytes=(\d*)-(\d*)$/.exec(req.headers.range ?? "");
+  const size = file.bytes.length;
+  if (range && (range[1] || range[2])) {
+    const start = range[1]
+      ? Number(range[1])
+      : Math.max(0, size - Number(range[2]));
+    const end =
+      range[1] && range[2] ? Math.min(Number(range[2]), size - 1) : size - 1;
+    res.writeHead(206, {
+      "content-type": file.type,
+      "content-range": `bytes ${start}-${end}/${size}`,
+      "content-length": end - start + 1,
+      "accept-ranges": "bytes",
+    });
+    res.end(file.bytes.subarray(start, end + 1));
+    return;
+  }
+  res.writeHead(200, {
+    "content-type": file.type,
+    "content-length": size,
+    "accept-ranges": "bytes",
+  });
+  res.end(file.bytes);
 }
 
 async function fakeSlack(

@@ -1,8 +1,7 @@
 import { Effect, Layer, Schedule } from "effect";
 import { DeliveryFailed } from "../internal/errors.js";
-import type { SupportLogSubmission } from "../types.js";
 import type { WebhookConfig } from "./config.js";
-import { Delivery } from "./delivery.js";
+import { type DeliveredLog, Delivery } from "./delivery.js";
 import { inlineScreenshot, type ParsedScreenshot } from "./multipart.js";
 import { signWebhook } from "./signature.js";
 import { uploadScreenshot } from "./storage.js";
@@ -10,7 +9,7 @@ import { uploadScreenshot } from "./storage.js";
 export function webhookLayer(config: WebhookConfig) {
   return Layer.succeed(Delivery, {
     deliver: Effect.fn("deliverWebhook")(function* (
-      log: SupportLogSubmission,
+      log: DeliveredLog,
       screenshot?: ParsedScreenshot,
     ) {
       // Prepared once after the handler's dedupe check, outside webhook retries.

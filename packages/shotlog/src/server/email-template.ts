@@ -1,5 +1,7 @@
-import type { Environment, SupportLogSubmission } from "../types.js";
+import { formatDuration } from "../internal/duration.js";
+import type { Environment } from "../types.js";
 import type { EmailConfig } from "./config.js";
+import type { DeliveredLog } from "./delivery.js";
 import { defaultEmailLabels, type EmailMessage } from "./email-types.js";
 import type { ParsedScreenshot } from "./multipart.js";
 
@@ -50,7 +52,7 @@ function table(
 
 export function renderEmail(
   config: EmailConfig,
-  log: SupportLogSubmission,
+  log: DeliveredLog,
   screenshot?: ParsedScreenshot,
 ): EmailMessage {
   const labels = { ...defaultEmailLabels, ...config.labels };
@@ -73,6 +75,14 @@ export function renderEmail(
     `<p style="white-space:pre-wrap;overflow-wrap:anywhere;margin:0">${escapeHtml(log.description)}</p>`,
   ];
   const text: string[] = [subject, `${labels.description}\n${log.description}`];
+  if (log.recording) {
+    const duration = formatDuration(log.recording.durationMs);
+    html.push(
+      heading(labels.recording),
+      `<p style="margin:0"><a href="${escapeHtml(log.recording.url)}" style="display:inline-block;padding:10px 16px;border-radius:6px;background:#111827;color:#ffffff;font-weight:bold;text-decoration:none">&#9654;&nbsp; ${escapeHtml(labels.watchRecording)} · ${duration}</a></p>`,
+    );
+    text.push(`${labels.recording} (${duration})\n${log.recording.url}`);
+  }
   if (screenshot) {
     html.push(
       heading(labels.screenshot),

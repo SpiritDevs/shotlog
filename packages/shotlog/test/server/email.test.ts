@@ -189,3 +189,26 @@ test("generic 500 responses prefer email when both channels are configured", asy
   });
   expect(logged).toHaveBeenCalledOnce();
 });
+
+test("links a Screen Recording with its duration, escaping the URL", () => {
+  const message = renderEmail(config, {
+    ...submission(),
+    recording: {
+      url: "https://files.example.com/r.webm?a=1&b=<2>",
+      key: "r.webm",
+      width: 1280,
+      height: 800,
+      durationMs: 83_400,
+      size: 1000,
+      mimeType: "video/webm",
+    },
+  });
+  expect(message.html).toContain(
+    'href="https://files.example.com/r.webm?a=1&amp;b=&lt;2&gt;"',
+  );
+  expect(message.html).toContain("Watch recording · 1:23");
+  expect(message.text).toContain(
+    "Screen recording (1:23)\nhttps://files.example.com/r.webm?a=1&b=<2>",
+  );
+  expect(message.attachments).toEqual([]);
+});

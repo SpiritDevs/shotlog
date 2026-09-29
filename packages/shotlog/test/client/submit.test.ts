@@ -148,3 +148,81 @@ test("the 60-second request budget includes reading the response and clears its 
   await submitReport("/api/support", log);
   expect(vi.getTimerCount()).toBe(0);
 });
+
+test("reads what the Relay Endpoint offers, including Screen Recording limits", async () => {
+  const { loadRelayOptions } = await import("../../src/client/submit.js");
+  const reply = (body: unknown, status = 200) =>
+    vi.stubGlobal(
+      "fetch",
+      vi.fn(async () => Response.json(body, { status })),
+    );
+  reply({ recording: { maxSeconds: 300, maxBytes: 1000 } });
+  expect(await loadRelayOptions("/api/support")).toEqual({
+    slack: null,
+    recording: { maxSeconds: 300, maxBytes: 1000 },
+  });
+  reply({});
+  expect(await loadRelayOptions("/api/support")).toEqual({
+    slack: null,
+    recording: null,
+  });
+  reply(null, 405);
+  expect(await loadRelayOptions("/api/support")).toEqual({
+    slack: null,
+    recording: null,
+  });
+  reply({ recording: { maxSeconds: "300" } });
+  await expect(loadRelayOptions("/api/support")).rejects.toThrow();
+});
+
+test("asks for a recording upload and sends its ticket with the report", async () => {
+  vi.stubGlobal("navigator", { onLine: true });
+  const { requestRecordingUpload } = await import("../../src/client/submit.js");
+  const target = { _tag: "Put", url: "https://bucket.example.com/r" };
+  const request = vi.fn(async (_url: string, _init: RequestInit) =>
+    Response.json({ ok: true, target, ticket: "t" }),
+  );
+  vi.stubGlobal("fetch", request);
+  const upload = { id: log.id, size: 10, mimeType: "video/webm" };
+  expect(await requestRecordingUpload("/api/support", upload)).toEqual({
+    ok: true,
+    target,
+    ticket: "t",
+  });
+  expect(JSON.parse(String(request.mock.calls[0]?.[1]?.body))).toEqual({
+    recordingUpload: upload,
+  });
+  vi.stubGlobal(
+    "fetch",
+    vi.fn(async () =>
+      Response.json(
+        { ok: false, error: { _tag: "UploadFailed", message: "x" } },
+        { status: 502 },
+      ),
+    ),
+  );
+  await expect(
+    requestRecordingUpload("/api/support", upload),
+  ).rejects.toBeInstanceOf(UploadFailed);
+
+  const part = {
+    ticket: "t",
+    width: 10,
+    height: 10,
+    durationMs: 1000,
+    size: 10,
+    mimeType: "video/webm",
+  };
+  const submitted = vi.fn(async (_url: string, _init: RequestInit) =>
+    Response.json({
+      ok: true,
+      id: log.id,
+      shortId: log.shortId,
+      duplicate: false,
+    }),
+  );
+  vi.stubGlobal("fetch", submitted);
+  await submitReport("/api/support", log, undefined, undefined, part);
+  const form = submitted.mock.calls[0]?.[1]?.body as FormData;
+  expect(JSON.parse(String(form.get(Field.recording)))).toEqual(part);
+});

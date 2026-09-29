@@ -85,6 +85,10 @@ export interface EmailLabels {
   readonly type: (value: string) => string;
   readonly description: string;
   readonly screenshot: string;
+  /** Screen Recording heading. */
+  readonly recording: string;
+  /** Link to the Screen Recording, followed by its duration. */
+  readonly watchRecording: string;
   readonly reporter: string;
   readonly metadata: string;
   readonly environment: string;
@@ -136,6 +140,8 @@ export const defaultEmailLabels: EmailLabels = {
   type: (value) => value,
   description: "Description",
   screenshot: "Screenshot",
+  recording: "Screen recording",
+  watchRecording: "Watch recording",
   reporter: "Reporter",
   metadata: "Metadata",
   environment: "Environment",

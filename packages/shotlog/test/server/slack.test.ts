@@ -176,3 +176,25 @@ test("routes mapped Types to their own channel and lets Reporters choose for the
   const question = await relay(request({ ...submission(2), type: "Question" }));
   expect(question.status).toBe(400);
 });
+
+test("links a Screen Recording in the report", async () => {
+  const { slackMessage } = await import("../../src/server/slack.js");
+  const { blocks } = slackMessage(
+    {
+      ...submission(),
+      recording: {
+        url: "https://files.example.com/r.webm?a=1&b=2",
+        key: "r.webm",
+        width: 1280,
+        height: 800,
+        durationMs: 5_000,
+        size: 1000,
+        mimeType: "video/webm",
+      },
+    },
+    false,
+  );
+  expect(JSON.stringify(blocks)).toContain(
+    ":movie_camera: *<https://files.example.com/r.webm?a=1&amp;b=2|Screen recording>* · 0:05",
+  );
+});

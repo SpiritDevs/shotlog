@@ -132,6 +132,7 @@ export interface EmailLabels {
     readonly online: string;
     // (undocumented)
     readonly os: string;
+    readonly recording: string;
     // (undocumented)
     readonly referrer: string;
     // (undocumented)
@@ -163,6 +164,7 @@ export interface EmailLabels {
     readonly userAgent: string;
     // (undocumented)
     readonly viewport: string;
+    readonly watchRecording: string;
 }
 
 // @public
@@ -291,6 +293,63 @@ export class RateLimited extends Error {
 }
 
 // @public
+export interface Recording {
+    // (undocumented)
+    readonly durationMs: number;
+    // (undocumented)
+    readonly height: number;
+    readonly key: string;
+    readonly mimeType: string;
+    readonly size: number;
+    // (undocumented)
+    readonly url: string;
+    readonly width: number;
+}
+
+// @public
+export interface RecordingConfig {
+    readonly maxBytes?: number;
+    readonly maxSeconds?: number;
+    readonly storage: RecordingStorage;
+}
+
+// @public
+export interface RecordingStorage {
+    createUpload(info: {
+        id: string;
+        filename: string;
+        size: number;
+        mimeType: string;
+        signal: AbortSignal;
+    }): Promise<{
+        target: RecordingUploadTarget;
+        ticket: string;
+    }>;
+    readonly name: string;
+    resolveUpload(ticket: string, info: {
+        signal: AbortSignal;
+    }): Promise<{
+        url: string;
+        key: string;
+    }>;
+}
+
+// @public
+export type RecordingUploadTarget = {
+    readonly _tag: "Put";
+    readonly url: string; /** Headers the presigned URL requires, such as `content-type`. */
+    readonly headers?: {
+        readonly [name: string]: string;
+    };
+} | {
+    readonly _tag: "UploadFile";
+    readonly url: string;
+    readonly uploadToken: string;
+    readonly partSize: number;
+    readonly partCount: number;
+};
+
+// @public
 export type Reporter = {
     readonly id?: string; /** Used as the email Reply-To when present. */
     readonly email?: string;
@@ -372,6 +431,7 @@ export interface SlackLabels {
     readonly network: string;
     // (undocumented)
     readonly page: string;
+    readonly recording: string;
     // (undocumented)
     readonly reporter: string;
     readonly screenshot: string;
@@ -403,6 +463,7 @@ export interface SupportHandlerConfig {
     readonly ipHeader?: string;
     readonly limits?: SupportHandlerLimits;
     readonly rateLimit?: false | RateLimitConfig;
+    readonly recording?: RecordingConfig;
     readonly store?: ShotlogStore;
 }
 
@@ -424,9 +485,10 @@ export interface SupportLog {
     readonly metadata?: {
         readonly [key: string]: JsonValue;
     };
+    readonly recording?: Recording;
     // (undocumented)
     readonly reporter?: Reporter;
-    readonly schemaVersion: 1;
+    readonly schemaVersion: 2;
     // (undocumented)
     readonly screenshot?: Screenshot;
     readonly shortId: string;
@@ -434,7 +496,7 @@ export interface SupportLog {
 }
 
 // @public
-export type SupportLogSubmission = Omit<SupportLog, "screenshot">;
+export type SupportLogSubmission = Omit<SupportLog, "screenshot" | "recording">;
 
 // @public
 export class Unauthorized extends Error {

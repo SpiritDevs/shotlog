@@ -98,6 +98,26 @@ export const defaultLabels: ShotlogLabels = {
   editorUndo: "Undo (⌘/Ctrl+Z)",
   editorRedo: "Redo (⇧⌘/Ctrl+Shift+Z)",
   editorToolSelected: (tool) => `${tool} selected`,
+  recordScreen: "Record screen",
+  recordingLimit: (seconds) =>
+    seconds % 60 ? `Up to ${seconds} s` : `Up to ${seconds / 60} min`,
+  recording: "Screen recording",
+  removeRecording: "Remove",
+  recordingFailed: "Couldn't record your screen. Try again.",
+  recordingTooLarge: "That recording is too large. Try a shorter one.",
+  recordingTools: "Recording controls",
+  recordingMove: "Move toolbar",
+  recordingElapsed: (time) => `Recording, ${time}`,
+  recordingPointer: "Use the page",
+  recordingPen: "Draw",
+  recordingClear: "Clear drawings",
+  recordingMute: "Mute microphone",
+  recordingUnmute: "Unmute microphone",
+  recordingNoMicrophone: "No microphone",
+  recordingFinish: "Finish",
+  recordingDiscard: "Discard recording",
+  recordingConfirmDiscard: "Discard?",
+  uploadingRecording: (percent) => `Uploading recording… ${percent}%`,
   includedDetails: (consoleCount, networkCount) =>
     `Included details · ${consoleCount} console · ${networkCount} network`,
   detailsSummary: "Included details",
@@ -132,6 +152,8 @@ export const defaultLabels: ShotlogLabels = {
     "We couldn't process this report. Check the details and try again.",
   deliveryFailed: "Your report couldn't be delivered. Please try again.",
   uploadFailed: "Your screenshot couldn't be uploaded. Please try again.",
+  recordingUploadFailed:
+    "Your screen recording couldn't be uploaded. Please try again.",
   offline:
     "You're offline or couldn't connect. Check your connection and retry.",
   providerNotInstalled:

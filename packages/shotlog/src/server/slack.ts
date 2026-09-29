@@ -1,9 +1,9 @@
 import { Data, Effect, Layer, Schedule } from "effect";
+import { formatDuration } from "../internal/duration.js";
 import { DeliveryFailed } from "../internal/errors.js";
 import type { SlackChannelOption } from "../internal/wire.js";
-import type { SupportLogSubmission } from "../types.js";
 import type { SlackConfig } from "./config.js";
-import { Delivery } from "./delivery.js";
+import { type DeliveredLog, Delivery } from "./delivery.js";
 import type { ParsedScreenshot } from "./multipart.js";
 import { defaultSlackLabels, type SlackLabels } from "./slack-types.js";
 
@@ -189,7 +189,7 @@ const typeEmoji: Record<string, string> = {
 };
 
 export function slackMessage(
-  log: SupportLogSubmission,
+  log: DeliveredLog,
   hasScreenshot: boolean,
   labels: SlackLabels = defaultSlackLabels,
 ) {
@@ -244,6 +244,17 @@ export function slackMessage(
       type: "section",
       text: { type: "mrkdwn", text: mrkdwn(clip(log.description, 2900)) },
     },
+    ...(log.recording
+      ? [
+          {
+            type: "section",
+            text: {
+              type: "mrkdwn",
+              text: `:movie_camera: *<${mrkdwn(log.recording.url)}|${mrkdwn(labels.recording)}>* · ${formatDuration(log.recording.durationMs)}`,
+            },
+          },
+        ]
+      : []),
     {
       type: "section",
       fields: fields.map((text) => ({ type: "mrkdwn", text })),
@@ -282,7 +293,7 @@ export function slackLayer(config: SlackConfig) {
   const labels = { ...defaultSlackLabels, ...config.labels };
   return Layer.succeed(Delivery, {
     deliver: Effect.fn("deliverSlack")(function* (
-      log: SupportLogSubmission,
+      log: DeliveredLog,
       screenshot?: ParsedScreenshot,
       target?: { readonly slackChannel?: string },
     ) {

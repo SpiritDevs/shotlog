@@ -126,6 +126,20 @@ export class RateLimited extends Error {
 }
 
 // @public
+export interface Recording {
+    // (undocumented)
+    readonly durationMs: number;
+    // (undocumented)
+    readonly height: number;
+    readonly key: string;
+    readonly mimeType: string;
+    readonly size: number;
+    // (undocumented)
+    readonly url: string;
+    readonly width: number;
+}
+
+// @public
 export type Reporter = {
     readonly id?: string; /** Used as the email Reply-To when present. */
     readonly email?: string;
@@ -260,6 +274,27 @@ export interface ShotlogLabels {
     readonly providerNotInstalled: string;
     readonly question: string;
     readonly rateLimited: (minutes: number) => string;
+    readonly recording: string;
+    readonly recordingClear: string;
+    readonly recordingConfirmDiscard: string;
+    readonly recordingDiscard: string;
+    readonly recordingElapsed: (time: string) => string;
+    readonly recordingFailed: string;
+    readonly recordingFinish: string;
+    readonly recordingLimit: (seconds: number) => string;
+    readonly recordingMove: string;
+    // (undocumented)
+    readonly recordingMute: string;
+    readonly recordingNoMicrophone: string;
+    readonly recordingPen: string;
+    readonly recordingPointer: string;
+    readonly recordingTooLarge: string;
+    readonly recordingTools: string;
+    // (undocumented)
+    readonly recordingUnmute: string;
+    readonly recordingUploadFailed: string;
+    readonly recordScreen: string;
+    readonly removeRecording: string;
     readonly removeScreenshot: string;
     readonly reporter: string;
     readonly resizeCard: string;
@@ -280,6 +315,7 @@ export interface ShotlogLabels {
     readonly unsupportedRuntime: string;
     readonly uploadFailed: string;
     readonly uploadImage: string;
+    readonly uploadingRecording: (percent: number) => string;
     readonly validationFailed: string;
 }
 
@@ -367,9 +403,10 @@ export interface SupportLog {
     readonly metadata?: {
         readonly [key: string]: JsonValue;
     };
+    readonly recording?: Recording;
     // (undocumented)
     readonly reporter?: Reporter;
-    readonly schemaVersion: 1;
+    readonly schemaVersion: 2;
     // (undocumented)
     readonly screenshot?: Screenshot;
     readonly shortId: string;
@@ -377,7 +414,7 @@ export interface SupportLog {
 }
 
 // @public
-export type SupportLogSubmission = Omit<SupportLog, "screenshot">;
+export type SupportLogSubmission = Omit<SupportLog, "screenshot" | "recording">;
 
 // @public
 export class Unauthorized extends Error {

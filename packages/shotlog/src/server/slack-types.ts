@@ -22,6 +22,8 @@ export interface SlackLabels {
   /** Title and alt text of the uploaded file, followed by the Reference. */
   readonly screenshot: string;
   readonly screenshotInThread: string;
+  /** Link text for the Screen Recording, followed by its duration. */
+  readonly recording: string;
 }
 
 /**
@@ -45,4 +47,5 @@ export const defaultSlackLabels: SlackLabels = {
   failed: "failed",
   screenshot: "Screenshot",
   screenshotInThread: "Screenshot in thread",
+  recording: "Screen recording",
 };

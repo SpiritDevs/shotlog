@@ -153,6 +153,42 @@ export interface ShotlogLabels {
   readonly editorRedo: string;
   /** Selected tool announcement. */
   readonly editorToolSelected: (tool: string) => string;
+  /** Starts a Screen Recording; shown when the Relay Endpoint has recording on. */
+  readonly recordScreen: string;
+  /** The recording length limit in seconds, beside Record screen. */
+  readonly recordingLimit: (seconds: number) => string;
+  /** An attached Screen Recording's title. */
+  readonly recording: string;
+  /** Remove the attached Screen Recording. */
+  readonly removeRecording: string;
+  /** Recording couldn't start or finish (declining to share is silent). */
+  readonly recordingFailed: string;
+  /** The recording went over the Relay Endpoint's size limit. */
+  readonly recordingTooLarge: string;
+  /** Accessible name of the floating toolbar shown while recording. */
+  readonly recordingTools: string;
+  /** Drag handle for the recording toolbar. */
+  readonly recordingMove: string;
+  /** Elapsed time's accessible name. */
+  readonly recordingElapsed: (time: string) => string;
+  /** No drawing tool: click and scroll the page as usual. */
+  readonly recordingPointer: string;
+  /** Freehand drawing while recording. */
+  readonly recordingPen: string;
+  /** Removes every drawing; drawings also fade 10 seconds after the last one. */
+  readonly recordingClear: string;
+  readonly recordingMute: string;
+  readonly recordingUnmute: string;
+  /** No microphone, or permission was refused; the recording has no voice. */
+  readonly recordingNoMicrophone: string;
+  /** Stops recording and attaches the video. */
+  readonly recordingFinish: string;
+  /** Stops recording without keeping it. */
+  readonly recordingDiscard: string;
+  /** Second click to confirm discarding. */
+  readonly recordingConfirmDiscard: string;
+  /** Submission progress while the video uploads. */
+  readonly uploadingRecording: (percent: number) => string;
   /** Accessible name of the expanded Included Details region, including Diagnostic Trail counts. */
   readonly includedDetails: (
     consoleCount: number,
@@ -214,6 +250,8 @@ export interface ShotlogLabels {
   readonly deliveryFailed: string;
   /** Screenshot upload failed. */
   readonly uploadFailed: string;
+  /** Screen Recording upload failed. */
+  readonly recordingUploadFailed: string;
   /** Offline or network failure. */
   readonly offline: string;
   /** Delivery provider is unavailable. */
@@ -446,7 +484,7 @@ export interface ShotlogControls {
   readonly open: () => void;
   /** Closes the card, keeping its draft and any running request. */
   readonly close: () => void;
-  /** Clears the current scope's stored and in-memory draft, identity, and Screenshot. Call on sign-out. */
+  /** Clears the current scope's stored and in-memory draft, identity, Screenshot and Screen Recording. Call on sign-out. */
   readonly clearDraft: () => void;
   /** Whether the Report Card is visible. */
   readonly isOpen: boolean;

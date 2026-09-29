@@ -5,6 +5,27 @@
 ```ts
 
 // @public
+export interface RecordingStorage {
+    createUpload(info: {
+        id: string;
+        filename: string;
+        size: number;
+        mimeType: string;
+        signal: AbortSignal;
+    }): Promise<{
+        target: RecordingUploadTarget;
+        ticket: string;
+    }>;
+    readonly name: string;
+    resolveUpload(ticket: string, info: {
+        signal: AbortSignal;
+    }): Promise<{
+        url: string;
+        key: string;
+    }>;
+}
+
+// @public
 export interface StorageAdapter {
     readonly name: string;
     upload(png: Uint8Array, info: {
@@ -18,7 +39,7 @@ export interface StorageAdapter {
 }
 
 // @public
-export function uploadfile(options?: UploadfileOptions): StorageAdapter;
+export function uploadfile(options?: UploadfileOptions): StorageAdapter & RecordingStorage;
 
 // @public
 export interface UploadfileOptions {

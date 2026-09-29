@@ -8,8 +8,8 @@ import type {
   PayloadTooLarge,
   ProviderNotInstalled,
   RateLimited,
-  Reporter,
   Recording,
+  Reporter,
   Screenshot,
   ShotlogError,
   SupportLog,
@@ -114,7 +114,7 @@ test("Support Log exposes the complete plain JSON contract", () => {
     readonly diagnostics?: Diagnostics;
   }>();
   expectTypeOf<SupportLogSubmission>().toEqualTypeOf<
-    Omit<SupportLog, "screenshot">
+    Omit<SupportLog, "screenshot" | "recording">
   >();
   expectTypeOf<SupportLog>().toEqualTypeOf<
     import("../src/types.js").SupportLog

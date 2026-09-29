@@ -129,6 +129,20 @@ export class RateLimited extends Error {
 }
 
 // @public
+export interface Recording {
+    // (undocumented)
+    readonly durationMs: number;
+    // (undocumented)
+    readonly height: number;
+    readonly key: string;
+    readonly mimeType: string;
+    readonly size: number;
+    // (undocumented)
+    readonly url: string;
+    readonly width: number;
+}
+
+// @public
 export type Reporter = {
     readonly id?: string; /** Used as the email Reply-To when present. */
     readonly email?: string;
@@ -182,9 +196,10 @@ export interface SupportLog {
     readonly metadata?: {
         readonly [key: string]: JsonValue;
     };
+    readonly recording?: Recording;
     // (undocumented)
     readonly reporter?: Reporter;
-    readonly schemaVersion: 1;
+    readonly schemaVersion: 2;
     // (undocumented)
     readonly screenshot?: Screenshot;
     readonly shortId: string;
@@ -192,7 +207,7 @@ export interface SupportLog {
 }
 
 // @public
-export type SupportLogSubmission = Omit<SupportLog, "screenshot">;
+export type SupportLogSubmission = Omit<SupportLog, "screenshot" | "recording">;
 
 // @public
 export function toNodeHandler(handler: (request: Request) => Promise<Response>): (req: IncomingMessage, res: ServerResponse) => void;

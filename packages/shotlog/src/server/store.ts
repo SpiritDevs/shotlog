@@ -76,7 +76,7 @@ export function storeLayer(external?: ShotlogStore) {
 }
 
 export const checkRateLimit = Effect.fn("checkRateLimit")(function* (
-  kind: "ip" | "reporter",
+  kind: "ip" | "reporter" | "recording-ip" | "recording-reporter",
   identity: string,
   config: RateLimitConfig,
 ) {

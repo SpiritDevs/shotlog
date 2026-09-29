@@ -127,6 +127,26 @@ export const labels: ShotlogLabels = {
   editorUndo: "Desfazer (⌘/Ctrl+Z)",
   editorRedo: "Refazer (⇧⌘/Ctrl+Shift+Z)",
   editorToolSelected: (tool) => `Ferramenta ${tool} selecionada`,
+  recordScreen: "Gravar tela",
+  recordingLimit: (seconds) =>
+    seconds % 60 ? `Até ${seconds} s` : `Até ${seconds / 60} min`,
+  recording: "Gravação de tela",
+  removeRecording: "Remover",
+  recordingFailed: "Não foi possível gravar sua tela. Tente de novo.",
+  recordingTooLarge: "Essa gravação ficou grande demais. Tente uma mais curta.",
+  recordingTools: "Controles da gravação",
+  recordingMove: "Mover barra de ferramentas",
+  recordingElapsed: (time) => `Gravando, ${time}`,
+  recordingPointer: "Usar a página",
+  recordingPen: "Desenhar",
+  recordingClear: "Limpar desenhos",
+  recordingMute: "Desativar microfone",
+  recordingUnmute: "Ativar microfone",
+  recordingNoMicrophone: "Sem microfone",
+  recordingFinish: "Concluir",
+  recordingDiscard: "Descartar gravação",
+  recordingConfirmDiscard: "Descartar?",
+  uploadingRecording: (percent) => `Enviando gravação… ${percent}%`,
   includedDetails: (consoleCount, networkCount) =>
     `Detalhes incluídos · ${consoleCount} console · ${networkCount} rede`,
   detailsSummary: "Detalhes incluídos",
@@ -162,6 +182,8 @@ export const labels: ShotlogLabels = {
     "Não conseguimos processar este relato. Confira os detalhes e tente de novo.",
   deliveryFailed: "Não foi possível entregar seu relato. Tente de novo.",
   uploadFailed: "Não foi possível enviar sua captura de tela. Tente de novo.",
+  recordingUploadFailed:
+    "Não foi possível enviar sua gravação de tela. Tente de novo.",
   offline:
     "Você está sem conexão ou não foi possível conectar. Verifique sua conexão e tente de novo.",
   providerNotInstalled:
@@ -184,6 +206,8 @@ export const emailLabels: EmailLabels = {
   type,
   description: "Descrição",
   screenshot: "Captura de tela",
+  recording: "Gravação de tela",
+  watchRecording: "Assistir à gravação",
   reporter: "Autor",
   metadata: "Metadados",
   environment: "Ambiente",
@@ -243,4 +267,5 @@ export const slackLabels: SlackLabels = {
   failed: "falhou",
   screenshot: "Captura de tela",
   screenshotInThread: "Captura de tela na conversa",
+  recording: "Gravação de tela",
 };

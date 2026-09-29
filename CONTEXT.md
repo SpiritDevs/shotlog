@@ -5,7 +5,7 @@
 ## Glossary
 
 - **Host App**: The React application that installs this library. It owns auth, users, and deciding who gets to see the widget.
-- **Support Log**: One submitted report. It holds a written description of what the reporter was trying to do and, optionally, an annotated screenshot. It also carries Environment, Host Context, and the Diagnostic Trail.
+- **Support Log**: One submitted report. It holds a written description of what the reporter was trying to do and, optionally, an annotated screenshot and a Screen Recording. It also carries Environment, Host Context, and the Diagnostic Trail.
 - **Reporter**: The person filling in a Support Log. Often an admin, but it could be an end user if the Host App allows it.
 - **Launcher**: The floating button the library renders in a bottom corner of the screen in Standalone Mode.
 - **Report Card**: The pop-up card where the Reporter writes and submits a Support Log.
@@ -16,6 +16,8 @@
 - **Description**: The Reporter's free-text account of what they were trying to do. The only required field.
 - **Screenshot**: The single image attached to a Support Log. It can be annotated before submitting.
 - **Capture Method**: How the Screenshot is obtained. One of **Page Render** (rebuilds the page from the DOM; the default), **Screen Capture** (the browser's `getDisplayMedia` API), or **Paste / Upload**.
+- **Screen Recording**: An optional video of the Reporter's tab, with their microphone unless muted and anything they drew during it. It is offered only when the Relay Endpoint has recording storage, and uploads from the browser straight to that storage.
+- **Recording Drawing**: A mark (Draw, Arrow, Rectangle or Oval) the Reporter makes over the page while recording. It is part of the video, not an Annotation. All of them fade together 10 seconds after the last one is drawn.
 - **Annotation Editor**: The full-viewport, Shottr-style editor where the Reporter marks up the Screenshot.
 - **Annotation**: One editable mark in the Annotation Editor: Arrow, Rectangle, Oval, Text, Freehand, Highlighter, Step Counter, Spotlight, or Pixelate/Redact.
 - **Step Counter**: An auto-incrementing numbered marker (①②③) for showing steps in order.
@@ -32,7 +34,7 @@
 - **Delivery Channel**: Where a Support Log ends up: **Email** (the default), **Slack**, or **Webhook**. Any combination can be configured.
 - **Email Provider**: The service used to send Email. One of Resend, Amazon SES, or generic SMTP.
 - **Screenshot Mode**: How a Webhook carries the Screenshot: `base64` (embedded in the JSON; the default) or `upload` (a link from a Storage Adapter).
-- **Storage Adapter**: A server-side component that uploads the Screenshot and returns a URL. One is built in for **UploadFile** (the in-house service, `@uploadfile/core`), and the interface is open for others (S3, R2, ...).
+- **Storage Adapter**: A server-side component that uploads the Screenshot and returns a URL. **Recording Storage** is its counterpart for Screen Recordings: it authorizes a direct browser upload and later turns the upload's ticket into a URL. `uploadfile()` is both. One is built in for **UploadFile** (the in-house service, `@uploadfile/core`), and the interface is open for others (S3, R2, ...).
 - **Webhook**: A URL configured by the Host App that receives the Support Log as JSON in a POST request. This is how the widget reaches Pathway.
 
 ## Decisions
@@ -53,6 +55,8 @@
 - [ADR-0014](docs/adr/0014-monorepo-and-playground.md): Monorepo layout and Playground contents
 - [ADR-0015](docs/adr/0015-submission-lifecycle.md): What happens after Submit: IDs, safe retries, drafts, success and failure, opt-in shortcut
 - [ADR-0016](docs/adr/0016-accessibility-and-labels.md): Accessibility and translation baseline
+- [ADR-0017](docs/adr/0017-slack-delivery.md): Slack delivery, with an optional Reporter-chosen channel
+- [ADR-0018](docs/adr/0018-screen-recording.md): Screen Recording, uploaded straight from the browser
 
 ## Build order
 

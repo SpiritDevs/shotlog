@@ -141,7 +141,8 @@ function App() {
                 Capture the page now or after a 5-second countdown, use exact
                 screen capture where supported, or paste an image. Solid
                 redaction covers sensitive pixels before the final PNG is
-                flattened.
+                flattened. With UploadFile, reporters can also record the tab,
+                talking and drawing as they go.
               </p>
               <a
                 className="text-link"

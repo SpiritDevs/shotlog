@@ -260,3 +260,117 @@ test("the handler deadline also aborts the private URL signing request", async (
   expect(sdk.uploadFiles).toHaveBeenCalledOnce();
   expect(sdk.uploadFiles.mock.calls[0]?.[1].signal.aborted).toBe(true);
 });
+
+const recordingToken = btoa(
+  JSON.stringify({
+    apiKey: "sk_test_key",
+    appId: "app",
+    regions: ["sea1"],
+    url: "https://uf.example.com",
+  }),
+);
+const session = {
+  url: "https://uf.example.com/api/v1/uploads/session-1",
+  key: "video-key",
+  ufsUrl: "https://files.example.com/f/video-key",
+  uploadToken: "session-only-token",
+  sessionId: "session-1",
+  size: 5000,
+  partSize: 4096,
+  partCount: 2,
+};
+const recordingInfo = () => ({
+  id: submission().id,
+  filename: `support-log-${submission().id}.webm`,
+  size: 5000,
+  mimeType: "video/webm;codecs=vp9,opus",
+  signal: new AbortController().signal,
+});
+
+test("reserves a recording upload with the token, handing the browser only the session", async () => {
+  const fetchStub = vi.fn<typeof fetch>(async () =>
+    Response.json({ uploads: [session] }),
+  );
+  vi.stubGlobal("fetch", fetchStub);
+  const upload = await uploadfile({ token: recordingToken }).createUpload(
+    recordingInfo(),
+  );
+  const [url, init] = fetchStub.mock.calls[0] ?? [];
+  expect(url).toBe("https://uf.example.com/api/v1/uploads");
+  expect(new Headers(init?.headers).get("authorization")).toBe(
+    "Bearer sk_test_key",
+  );
+  expect(JSON.parse(String(init?.body))).toMatchObject({
+    files: [
+      {
+        name: `support-log-${submission().id}.webm`,
+        size: 5000,
+        type: "video/webm",
+        acl: "public-read",
+      },
+    ],
+  });
+  expect(upload.target).toEqual({
+    _tag: "UploadFile",
+    url: session.url,
+    uploadToken: "session-only-token",
+    partSize: 4096,
+    partCount: 2,
+  });
+  expect(JSON.stringify(upload)).not.toContain("sk_test_key");
+  expect(
+    await uploadfile({ token: recordingToken }).resolveUpload(upload.ticket, {
+      signal: new AbortController().signal,
+    }),
+  ).toEqual({ url: session.ufsUrl, key: "video-key" });
+});
+
+test("only resolves tickets it signed, and signs private recordings on resolve", async () => {
+  vi.stubGlobal(
+    "fetch",
+    vi.fn(async () => Response.json({ uploads: [session] })),
+  );
+  const { ticket } = await uploadfile({ token: recordingToken }).createUpload(
+    recordingInfo(),
+  );
+  const signal = new AbortController().signal;
+  const [payload = "", signature = ""] = ticket.split(".");
+  const forged = `${btoa(JSON.stringify({ key: "payroll.pdf", url: "https://files.example.com/f/payroll.pdf" })).replace(/=+$/, "")}.${signature}`;
+  for (const bad of [forged, `${payload}.x${signature.slice(1)}`, "nonsense"])
+    await expect(
+      uploadfile({ token: recordingToken }).resolveUpload(bad, { signal }),
+    ).rejects.toBeInstanceOf(UploadFailed);
+  const otherToken = btoa(
+    JSON.stringify({ apiKey: "sk_other", appId: "a", regions: ["r"] }),
+  );
+  await expect(
+    uploadfile({ token: otherToken }).resolveUpload(ticket, { signal }),
+  ).rejects.toBeInstanceOf(UploadFailed);
+  const sdk = mockSdk();
+  const { uploadfile: fresh } = await import("../../src/uploadfile.js");
+  expect(
+    await fresh({ token: recordingToken, acl: "private" }).resolveUpload(
+      ticket,
+      { signal },
+    ),
+  ).toEqual({ url: signedUrl, key: "video-key" });
+  expect(sdk.getSignedURL).toHaveBeenCalledWith("video-key", {
+    expiresIn: 604800,
+  });
+});
+
+test("fails a recording upload without a usable token or session", async () => {
+  vi.stubGlobal(
+    "fetch",
+    vi.fn(async () => Response.json({ uploads: [{ ...session, size: 1 }] })),
+  );
+  await expect(
+    uploadfile({ token: "" }).createUpload(recordingInfo()),
+  ).rejects.toBeInstanceOf(UploadFailed);
+  await expect(
+    uploadfile({ token: "not-base64-json" }).createUpload(recordingInfo()),
+  ).rejects.toBeInstanceOf(UploadFailed);
+  await expect(
+    uploadfile({ token: recordingToken }).createUpload(recordingInfo()),
+  ).rejects.toBeInstanceOf(UploadFailed);
+});

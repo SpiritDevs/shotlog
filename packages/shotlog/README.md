@@ -425,7 +425,7 @@ export const storage: StorageAdapter = {
    ```
 
    Keep it server-side only: don't prefix it with `NEXT_PUBLIC_` or `VITE_`, and don't commit it.
-5. **Install the SDK** with `npm i @uploadfile/core`, then set `screenshotMode: "upload"` and `storage: uploadfile()` as shown above.
+5. **Install the SDK** with `npm i @uploadfile/core`, then set `screenshotMode: "upload"` and `storage: uploadfile()` as shown above. The same token also turns on [Screen Recording](#screen-recording) with `recording: { storage: uploadfile() }`.
 
 New applications start on the Free plan. When you need more storage, files, or downloads, compare plans on the [pricing page](https://www.uploadfile.dev/pricing), then choose one for the application on the [Billing](https://www.uploadfile.dev/dashboard/billing) page. Each paid application has its own subscription, and new capacity starts once the payment succeeds. See UploadFile's [getting started](https://www.uploadfile.dev/docs/introduction) and [billing](https://www.uploadfile.dev/docs/billing) guides for more.
 
@@ -636,21 +636,77 @@ The widget hides during Page Render and Screen Capture. Large captures and expor
 
 Tool keys do not replace normal text input. **Solid is the strongest redaction option:** cover secrets fully before submitting. Pixelation hides detail but retains coarse visual information; Highlighter and Spotlight are not redaction. Redactions are baked into the PNG; the editable original is kept in the browser and never submitted.
 
+## Screen Recording
+
+Reporters can record the tab while they show the problem, narrating over the microphone and drawing on the page as they go. It's off until the Relay Endpoint has somewhere to put the videos:
+
+```ts
+import { createSupportHandler } from "shotlog/server";
+import { uploadfile } from "shotlog/uploadfile";
+
+const handler = createSupportHandler({
+  delivery: { email },
+  authorize,
+  recording: { storage: uploadfile() }, // reads UPLOADFILE_TOKEN
+});
+// The Report Card asks with GET whether recording is on, so route both methods.
+export { handler as GET, handler as POST };
+```
+
+The Report Card then shows **Record screen** below the Screenshot, in browsers that can share a tab and record it (desktop Chrome, Edge, Firefox and Safari; not mobile). The browser asks which tab to share, preferring the current one, then a toolbar floats over the page:
+
+| Control | What it does |
+| --- | --- |
+| Use the page | The default: click, type and scroll the page as usual |
+| Draw, Arrow, Rectangle, Oval | Draw over the page. Everything drawn fades together 10 seconds after the last stroke; drawing again before then keeps it all and restarts the wait, so a bigger sketch can be built up. Esc goes back to using the page |
+| Clear drawings | Removes every drawing at once |
+| Mute | Turns the microphone off and on. Recordings start with it on when the Reporter allows it, and silent otherwise |
+| Discard | Ends without keeping anything, after a second click to confirm |
+| Finish | Attaches the video to the report. Stopping sharing from the browser's own bar does the same |
+
+The drawings and the toolbar are part of the page, so they're in the video. The recording stops by itself at `maxSeconds` (default 300) or near `maxBytes` (default 200 MiB). Videos are WebM (or MP4 in Safari) at up to 1080p and 30 fps, about 20 MB a minute.
+
+**The video never passes through the Relay Endpoint.** On Submit, the browser asks the Relay Endpoint for an upload, which runs the Authorize Hook and rate limits (in their own buckets, so a recording doesn't cost its report a request), and the storage adapter reserves the file. The browser uploads straight to storage with a token that only works for that file, showing its progress, then submits the report with a signed ticket for the upload. The Relay Endpoint checks the ticket and adds a `recording` with a link to the Support Log. Email shows a **Watch recording** button, Slack a link, and webhooks get the `recording` object. A failed report retry reuses the finished upload.
+
+`uploadfile()` follows the same `acl` and `signedUrlExpiresIn` options as Screenshots: private recording links expire, so keep `recording.key` to re-sign them. For other storage, implement `RecordingStorage`. Its tickets pass through the browser, so only accept ones you issued. This example hands out presigned S3 PUT URLs; the bucket must allow `PUT` from your app's origin with CORS:
+
+```ts
+import type { RecordingStorage } from "shotlog/server";
+
+declare function presignPut(key: string, contentType: string): Promise<string>;
+
+export const storage: RecordingStorage = {
+  name: "s3",
+  async createUpload({ mimeType }) {
+    const key = `recordings/${crypto.randomUUID()}.webm`;
+    const url = await presignPut(key, mimeType);
+    return { target: { _tag: "Put", url, headers: { "content-type": mimeType } }, ticket: key };
+  },
+  async resolveUpload(ticket) {
+    if (!/^recordings\/[0-9a-f-]{36}\.webm$/.test(ticket)) throw new Error("Unknown ticket");
+    return { url: `https://files.example.com/${ticket}`, key: ticket };
+  },
+};
+```
+
+Screen Recording needs a Relay Endpoint; a custom `onSubmit` doesn't offer it.
+
 ## The Support Log payload
 
 `SupportLog` is exported as a TypeScript type from `shotlog`, `shotlog/server`, and `shotlog/node`. Webhooks receive it directly, without an envelope:
 
 | Field | Meaning |
 | --- | --- |
-| `schemaVersion` | Currently `1` |
+| `schemaVersion` | Currently `2`, which added `recording`. `shotlog/schema.v1.json` describes version 1 |
 | `id`, `shortId`, `createdAt` | Full UUID, readable `SL-` ID, and ISO timestamp for the report identity |
 | `type`, `description` | Reporter-selected Type and Description |
 | `environment` | Page, browser, OS/device, locale/timezone, screen/viewport, online status, and library version |
 | `reporter?`, `metadata?` | Host Context containing JSON values |
 | `diagnostics?` | Console warnings/errors and failed network requests |
 | `screenshot?` | `Inline` base64 or `Uploaded` URL/key, with PNG dimensions, byte size, and optional upload error |
+| `recording?` | A Screen Recording's URL and storage key, with its video dimensions, `durationMs`, byte size and `mimeType` |
 
-The browser sends `SupportLogSubmission` (the same shape without `screenshot`) plus the PNG as a separate multipart part. Use the **published JSON Schema at `shotlog/schema.json`** for receiver validation. Its `x-maxSerializedBytes` extension and short-ID derivation comment describe additional runtime checks that generic JSON Schema validators do not automatically enforce. `getShortId(id)` from `shotlog/server` or `shotlog/node` derives the short ID; dedupe on the full UUID because short IDs can collide.
+The browser sends `SupportLogSubmission` (the same shape without `screenshot` and `recording`) plus the PNG as a separate multipart part, and a Screen Recording's upload ticket as another. The Relay Endpoint still accepts version 1 submissions from widgets built before version 2, and delivers them as version 2. Use the **published JSON Schema at `shotlog/schema.json`** for receiver validation. Its `x-maxSerializedBytes` extension and short-ID derivation comment describe additional runtime checks that generic JSON Schema validators do not automatically enforce. `getShortId(id)` from `shotlog/server` or `shotlog/node` derives the short ID; dedupe on the full UUID because short IDs can collide.
 
 Example webhook body, **truncated** (Environment fields and PNG data omitted):
 
@@ -708,12 +764,12 @@ export function retryDelay(error: unknown): number | undefined {
 ## Privacy
 
 - **Automatic:** Environment and, while enabled, a Diagnostic Trail of up to 50 console warnings/errors and 50 failed fetch/XHR requests. Console `Error` arguments can include stack traces. Older diagnostics may be trimmed to fit the payload budget.
-- **Not collected by the network recorder:** request/response bodies, headers, cookies, or successful requests. It excludes the configured Relay Endpoint. No continuous screen recording, audio, or keystroke log is collected. A Screenshot is captured only when the Reporter chooses it.
+- **Not collected by the network recorder:** request/response bodies, headers, cookies, or successful requests. It excludes the configured Relay Endpoint. No keystroke log is collected, and nothing is recorded in the background. A Screenshot is captured, and a Screen Recording (with the microphone, unless muted) is made, only when the Reporter chooses it; the browser shows that the tab and microphone are shared for as long as it lasts.
 - **URL stripping:** Environment URLs/referrers remove query strings and embedded username/password credentials; their fragments remain. Network URLs additionally remove fragments. Console messages/stacks, Description, Host Context, URL paths, and Screenshot pixels are not automatically scrubbed for secrets.
 - **Host Context:** shotlog does not infer a user from your auth system. Only supply Reporter/metadata fields you intend to send. Included Details previews context and diagnostics; submit resolves current values again.
-- **Retention:** Type, Description, and pending ID use tab-scoped `sessionStorage`, scoped by `draftScope` when supplied. Pass the signed-in user's ID so accounts never share drafts; switching scope drops in-memory state and loads that scope's draft. `persistDraft={false}` disables storage reads and writes. Screenshots and editable originals are always memory-only. Your Email Provider, Webhook receiver, and Storage Adapter determine retention after delivery.
+- **Retention:** Type, Description, and pending ID use tab-scoped `sessionStorage`, scoped by `draftScope` when supplied. Pass the signed-in user's ID so accounts never share drafts; switching scope drops in-memory state and loads that scope's draft. `persistDraft={false}` disables storage reads and writes. Screenshots, editable originals and Screen Recordings are memory-only until submitted. Your Email Provider, Webhook receiver, and Storage Adapter determine retention after delivery.
 
-Call `clearDraft()` from `useShotlog()` **before signing out** to clear the current scope's stored draft, pending ID, and in-memory Screenshot. It also discards updates from pending capture/submission work; a request already sent to the backend can still be delivered.
+Call `clearDraft()` from `useShotlog()` **before signing out** to clear the current scope's stored draft, pending ID, in-memory Screenshot and Screen Recording, including a recording in progress. It also discards updates from pending capture/submission work; a request already sent to the backend can still be delivered.
 
 ```tsx
 import { useShotlog } from "shotlog";

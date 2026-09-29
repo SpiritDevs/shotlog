@@ -3,10 +3,11 @@ import { PayloadTooLarge, ValidationFailed } from "../internal/errors.js";
 import { SupportLogSubmissionSchema } from "../internal/schema/support-log.js";
 import { Field } from "../internal/wire.js";
 import type { Screenshot } from "../types.js";
+import { parseRecordingPart, recordingPartLimit } from "./recording.js";
 
 const jsonLimit = 256 * 1024;
 export const totalBodyLimit = (screenshotBytes: number) =>
-  screenshotBytes + jsonLimit + 16 * 1024;
+  screenshotBytes + jsonLimit + recordingPartLimit + 16 * 1024;
 const invalid = (issue: string) => new ValidationFailed({ issues: [issue] });
 
 export const checkRequest = Effect.fn("checkSupportRequest")(function* (
@@ -134,7 +135,8 @@ export const parseSubmission = Effect.fn("parseSupportSubmission")(function* (
     if (
       key !== Field.supportLog &&
       key !== Field.screenshot &&
-      key !== Field.slackChannel
+      key !== Field.slackChannel &&
+      key !== Field.recording
     )
       unexpected = true;
   });
@@ -142,12 +144,20 @@ export const parseSubmission = Effect.fn("parseSupportSubmission")(function* (
     unexpected ||
     form.getAll(Field.supportLog).length !== 1 ||
     form.getAll(Field.screenshot).length > 1 ||
-    form.getAll(Field.slackChannel).length > 1
+    form.getAll(Field.slackChannel).length > 1 ||
+    form.getAll(Field.recording).length > 1
   ) {
     return yield* invalid(
-      "Expected one supportLog part and at most one screenshot and slackChannel part",
+      "Expected one supportLog part and at most one screenshot, slackChannel and recording part",
     );
   }
+  const recordingField = form.get(Field.recording);
+  if (recordingField !== null && typeof recordingField !== "string")
+    return yield* invalid("recording must be a text field");
+  const recording =
+    recordingField === null
+      ? undefined
+      : yield* parseRecordingPart(recordingField);
   const channel = form.get(Field.slackChannel);
   if (channel !== null && (typeof channel !== "string" || channel.length > 100))
     return yield* invalid("slackChannel must be a channel ID");
@@ -189,5 +199,6 @@ export const parseSubmission = Effect.fn("parseSupportSubmission")(function* (
     submission,
     screenshot,
     slackChannel: channel === null ? undefined : channel,
+    recording,
   };
 });

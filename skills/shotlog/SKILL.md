@@ -1,6 +1,6 @@
 ---
 name: shotlog
-description: Add shotlog to a React app. Covers the report widget, the server endpoint, email, Slack and webhook delivery, screenshot storage, receiving signed webhooks, and the Support Log payload. Use when a user wants in-app bug reports or support requests with an annotated screenshot and debugging context.
+description: Add shotlog to a React app. Covers the report widget, the server endpoint, email, Slack and webhook delivery, screenshot storage, screen recording, receiving signed webhooks, and the Support Log payload. Use when a user wants in-app bug reports or support requests with an annotated screenshot and debugging context.
 ---
 
 # shotlog
@@ -171,6 +171,7 @@ Hono, Bun, Deno and Cloudflare Workers take the handler as it is. It has the sig
 | `ipHeader` | socket address | Header holding the client IP. Vercel: `x-real-ip`. Cloudflare: `cf-connecting-ip`. Behind nginx: `x-forwarded-for` (the last entry is used) |
 | `getClientIp` | none | Custom IP lookup. Overrides `ipHeader` |
 | `store` | in memory | `{ get, increment }` backed by Redis or similar. Use it when running more than one server instance |
+| `recording` | off | `{ storage, maxSeconds?, maxBytes? }` turns on Screen Recording. See below |
 
 Without `ipHeader`, `getClientIp` or `toNodeHandler`, the server skips per-IP limits and warns once.
 
@@ -252,6 +253,18 @@ If the user has no UploadFile account, point them to https://www.uploadfile.dev/
 
 `acl: "private"` returns a signed URL that expires within 7 days. Store `screenshot.key` if you need to re-sign later. If an upload fails or takes over 10 s, shotlog falls back to base64 and sets `screenshot.uploadError`. For S3, R2 or similar, pass any object with `name` and `upload(png, { id, filename, signal }) => Promise<{ url, key }>`.
 
+### Screen recording
+
+With UploadFile set up (the same `UPLOADFILE_TOKEN`), one option lets users record their tab, with their voice and quick drawings, instead of or as well as a screenshot:
+
+```ts
+import { uploadfile } from "shotlog/uploadfile";
+
+createSupportHandler({ delivery, authorize, recording: { storage: uploadfile() } });
+```
+
+The card then offers "Record screen" in desktop browsers. The video uploads from the browser straight to storage, never through the endpoint, so serverless body limits don't matter. Reports gain a `recording` with a link: a button in email, a link in Slack, an object in the webhook. Defaults: 300 seconds, 200 MiB. For S3 or R2, implement `RecordingStorage` (`createUpload` returning a presigned `Put` target and a ticket, `resolveUpload(ticket)` returning `{ url, key }` for tickets it issued), and allow `PUT` from the app's origin with CORS.
+
 ## Step 4: receive the webhook
 
 Verify the signature against the raw body before parsing it.
@@ -323,7 +336,7 @@ Delivery is at least once. Always dedupe on `log.id` or `x-shotlog-id`. The sign
 }
 ```
 
-`screenshot` is optional. In upload mode it is `{ "_tag": "Uploaded", "url", "key", ... }`. Validate payloads with `shotlog/schema.json`.
+`screenshot` is optional. In upload mode it is `{ "_tag": "Uploaded", "url", "key", ... }`. `recording` is optional too: `{ "url", "key", "width", "height", "durationMs", "size", "mimeType" }`. Validate payloads with `shotlog/schema.json`; version 1 payloads (before `recording`) match `shotlog/schema.v1.json`.
 
 shotlog collects `environment` and `diagnostics` automatically. It strips query strings, fragments and credentials from URLs. Diagnostics keep the last 50 console errors and warnings and the last 50 failed requests. They never include request bodies or headers.
 
@@ -362,6 +375,7 @@ Every error is a plain `Error` subclass with a `_tag`. Narrow on `_tag` or use `
 
 - Pick a type and write a description. The description is required, up to 10,000 characters.
 - Attach one screenshot. Options are capture the page, capture the page after a 5-second countdown (so an open menu or hover state shows), capture the exact screen (desktop browsers that support screen sharing), or paste or upload an image.
+- Record the tab when the endpoint has `recording` on: narrate over the microphone (with a mute button) and draw arrows, rectangles, ovals and freehand lines on the page. Drawings fade 10 seconds after the last stroke, and drawing again keeps them all. There's also a clear button.
 - Annotate in a full-screen editor. Tools and shortcuts: select V, arrow A, rectangle R, oval O, text T, freehand P, highlighter H, numbered step N, spotlight S, pixelate or solid redact X, crop C. It has undo, redo, colours and three sizes.
 - Review everything that will be sent under "Included details" before submitting.
 - Resize the card by dragging its free corner.

@@ -1,16 +1,15 @@
 import { Effect, Layer } from "effect";
 import * as Public from "../errors.js";
 import { DeliveryFailed } from "../internal/errors.js";
-import type { SupportLogSubmission } from "../types.js";
 import type { EmailConfig } from "./config.js";
-import { Delivery } from "./delivery.js";
+import { type DeliveredLog, Delivery } from "./delivery.js";
 import { renderEmail } from "./email-template.js";
 import type { ParsedScreenshot } from "./multipart.js";
 
 export function emailLayer(config: EmailConfig) {
   return Layer.succeed(Delivery, {
     deliver: Effect.fn("deliverEmail")(function* (
-      log: SupportLogSubmission,
+      log: DeliveredLog,
       screenshot?: ParsedScreenshot,
     ) {
       const message = renderEmail(config, log, screenshot);

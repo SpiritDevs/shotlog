@@ -2,6 +2,10 @@ import { Offline, ValidationFailed } from "../errors.js";
 import {
   Field,
   fromWire,
+  type RecordingLimits,
+  type RecordingPart,
+  type RecordingUploadBody,
+  type RecordingUploadRequest,
   type SlackChannelOption,
   type SubmitErrorBody,
   type SubmitSuccessBody,
@@ -20,6 +24,7 @@ export async function submitReport(
   log: SupportLogSubmission,
   screenshot?: Blob,
   slackChannel?: string,
+  recording?: RecordingPart,
 ): Promise<ShotlogSubmitResult> {
   if (typeof navigator !== "undefined" && navigator.onLine === false)
     throw new Offline();
@@ -38,6 +43,7 @@ export async function submitReport(
   }
   if (screenshot) form.append(Field.screenshot, screenshot, "screenshot.png");
   if (slackChannel !== undefined) form.append(Field.slackChannel, slackChannel);
+  if (recording) form.append(Field.recording, JSON.stringify(recording));
   const controller = new AbortController();
   const { signal } = controller;
   const timer = setTimeout(() => controller.abort(), deadlineMs);
@@ -83,22 +89,51 @@ export interface SlackChoice {
   readonly fixedTypes: readonly string[];
 }
 
+export interface RelayOptions {
+  /** Null when there are no Slack channels to choose. */
+  readonly slack: SlackChoice | null;
+  /** Null when Screen Recording is off. */
+  readonly recording: RecordingLimits | null;
+}
+
 /**
- * Asks the Relay Endpoint which Slack channels to offer. Null means none to choose, including
- * from Relay Endpoints that predate the GET route; a throw means ask again next time.
+ * Asks the Relay Endpoint what to offer. Relay Endpoints that predate the GET route offer
+ * nothing; a throw means ask again next time.
  */
-export async function loadSlackChoice(
+export async function loadRelayOptions(
   endpoint: string,
-): Promise<SlackChoice | null> {
+): Promise<RelayOptions> {
   const response = await fetch(endpoint, {
     headers: { accept: "application/json" },
     signal: AbortSignal.timeout(15_000),
   });
-  if (response.status === 405) return null;
+  if (response.status === 405) return { slack: null, recording: null };
   if (!response.ok) throw new Error(`Relay options failed: ${response.status}`);
   const body: unknown = await response.json();
-  if (typeof body !== "object" || body === null || !("slackChannels" in body))
-    return null;
+  if (typeof body !== "object" || body === null)
+    throw new Error("Relay options are invalid");
+  return {
+    slack: "slackChannels" in body ? slackChoice(body) : null,
+    recording: "recording" in body ? recordingLimits(body.recording) : null,
+  };
+}
+
+function recordingLimits(value: unknown): RecordingLimits {
+  if (
+    typeof value === "object" &&
+    value !== null &&
+    "maxSeconds" in value &&
+    typeof value.maxSeconds === "number" &&
+    value.maxSeconds > 0 &&
+    "maxBytes" in value &&
+    typeof value.maxBytes === "number" &&
+    value.maxBytes > 0
+  )
+    return { maxSeconds: value.maxSeconds, maxBytes: value.maxBytes };
+  throw new Error("Relay options are invalid");
+}
+
+function slackChoice(body: object & { slackChannels: unknown }): SlackChoice {
   const channels = body.slackChannels;
   const fixedTypes =
     "slackFixedTypes" in body ? body.slackFixedTypes : ([] as unknown[]);
@@ -121,6 +156,47 @@ export async function loadSlackChoice(
     channels: channels as readonly SlackChannelOption[],
     fixedTypes: fixedTypes as readonly string[],
   };
+}
+
+/** Asks the Relay Endpoint where to upload a Screen Recording. */
+export async function requestRecordingUpload(
+  endpoint: string,
+  upload: RecordingUploadRequest["recordingUpload"],
+): Promise<RecordingUploadBody> {
+  if (typeof navigator !== "undefined" && navigator.onLine === false)
+    throw new Offline();
+  let response: Response;
+  let body: unknown;
+  try {
+    response = await fetch(endpoint, {
+      method: "POST",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify({ recordingUpload: upload }),
+      signal: AbortSignal.timeout(30_000),
+    });
+    body = await response.json();
+  } catch (cause) {
+    throw new Offline(undefined, { cause });
+  }
+  if (isErrorBody(body)) throw fromWire(body.error);
+  if (
+    response.ok &&
+    typeof body === "object" &&
+    body !== null &&
+    "ok" in body &&
+    body.ok === true &&
+    "ticket" in body &&
+    typeof body.ticket === "string" &&
+    "target" in body &&
+    typeof body.target === "object" &&
+    body.target !== null &&
+    "_tag" in body.target &&
+    (body.target._tag === "Put" || body.target._tag === "UploadFile")
+  )
+    return body as RecordingUploadBody;
+  throw new ValidationFailed([
+    "Relay Endpoint returned an invalid recording upload",
+  ]);
 }
 
 function isSuccessBody(body: unknown): body is SubmitSuccessBody {
