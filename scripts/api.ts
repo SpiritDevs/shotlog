@@ -5,7 +5,15 @@ const packageFolder = fileURLToPath(
   new URL("../packages/shotlog", import.meta.url),
 );
 let succeeded = true;
-for (const entry of ["index", "server", "node", "ses", "smtp", "uploadfile"]) {
+for (const entry of [
+  "index",
+  "server",
+  "node",
+  "ses",
+  "smtp",
+  "uploadfile",
+  "locales/pt-BR",
+]) {
   const config = ExtractorConfig.prepare({
     configObject: {
       projectFolder: packageFolder,
@@ -15,7 +23,7 @@ for (const entry of ["index", "server", "node", "ses", "smtp", "uploadfile"]) {
         enabled: true,
         reportFolder: "<projectFolder>/api",
         reportTempFolder: "<projectFolder>/temp",
-        reportFileName: `${entry}.api.md`,
+        reportFileName: `${entry.replace("/", "-")}.api.md`,
       },
       docModel: { enabled: false },
       dtsRollup: { enabled: false },

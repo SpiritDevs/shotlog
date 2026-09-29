@@ -39,6 +39,7 @@ Optional peer packages, installed only when used:
 | `shotlog/ses` | server | `ses` |
 | `shotlog/smtp` | Node | `smtp` |
 | `shotlog/uploadfile` | server | `uploadfile` |
+| `shotlog/locales/pt-BR` | anywhere | `labels`, `emailLabels`, `slackLabels` in Brazilian Portuguese |
 | `shotlog/schema.json` | anywhere | JSON Schema for the Support Log |
 
 Never import `shotlog/server` or the provider entries into client code.
@@ -102,12 +103,23 @@ Pass exactly one of `endpoint` or `onSubmit`. TypeScript rejects both or neither
 | `diagnostics` | both on | `{ console, network }` or `false` |
 | `draftScope` | none | Pass the signed-in user id so drafts never cross accounts |
 | `persistDraft` | `true` | `false` keeps drafts in memory only |
-| `labels` | English | Override any UI text, for example `{ submit: "Envoyer" }` |
+| `labels` | English | A locale's labels, like `ptBR.labels`, or overrides for any UI text, like `{ submit: "Envoyer" }` |
 | `shortcut` | none | Keyboard shortcut to open, for example `"Mod+Shift+."` |
 | `onSubmitted` | none | Called with `{ id, shortId, duplicate }` after delivery |
 | `onError` | none | Called with a shotlog error on failure |
 
 `reporter` and `metadata` accept an object or a function, sync or async. Functions run at submit time.
+
+### Languages
+
+The widget, emails and Slack messages are English by default. For Brazilian Portuguese, import the locale module and pass its labels:
+
+```tsx
+import * as ptBR from "shotlog/locales/pt-BR";
+<ShotlogProvider endpoint="/api/support" labels={ptBR.labels} />
+```
+
+The team reads emails and Slack, so set their language on the server on its own: `email: { ..., labels: ptBR.emailLabels }` and `slack: { ..., labels: ptBR.slackLabels }`. Type chips are translated, but delivered Type values stay `Bug`, `Question` and `Idea`, so routing like `channel: { Bug: "#bugs" }` keeps working. Spread to change one string: `{ ...ptBR.labels, launcher: "Ajuda" }`.
 
 ## Step 2: add the server endpoint
 

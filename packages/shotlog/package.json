@@ -39,6 +39,10 @@
     "./uploadfile": {
       "types": "./dist/uploadfile.d.ts",
       "default": "./dist/uploadfile.js"
+    },
+    "./locales/pt-BR": {
+      "types": "./dist/locales/pt-BR.d.ts",
+      "default": "./dist/locales/pt-BR.js"
     }
   },
   "publishConfig": {

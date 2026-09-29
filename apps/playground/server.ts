@@ -7,6 +7,7 @@ import {
 import { text } from "node:stream/consumers";
 import { simpleParser } from "mailparser";
 import type { SupportLog } from "shotlog";
+import * as ptBR from "shotlog/locales/pt-BR";
 import { toNodeHandler } from "shotlog/node";
 import {
   createSupportHandler,
@@ -36,7 +37,12 @@ const origin = `http://${host}:${port}`;
 const webhookSecret = "shotlog-playground-dev-secret";
 const inbox: InboxEntry[] = [];
 const subscribers = new Set<ServerResponse>();
-let settings: Settings = { authorize: "allow", rateLimit: true, slack: "off" };
+let settings: Settings = {
+  authorize: "allow",
+  rateLimit: true,
+  slack: "off",
+  teamLanguage: "en",
+};
 // A local stand-in for the Slack Web API. Set SLACK_BOT_TOKEN (and SLACK_CHANNEL for the
 // fixed mode) to post to a real workspace instead.
 const slackToken = process.env.SLACK_BOT_TOKEN ?? "xoxb-playground";
@@ -55,6 +61,9 @@ function createRelay() {
           from: "reports@playground.test",
           to: "support@playground.test",
           provider: smtp({ host, port: smtpPort }),
+          ...(settings.teamLanguage === "pt-BR"
+            ? { labels: ptBR.emailLabels }
+            : {}),
         },
         webhook: {
           url: `${origin}/_inbox/webhook`,
@@ -69,6 +78,9 @@ function createRelay() {
           : {
               slack: {
                 token: slackToken,
+                ...(settings.teamLanguage === "pt-BR"
+                  ? { labels: ptBR.slackLabels }
+                  : {}),
                 ...(process.env.SLACK_BOT_TOKEN
                   ? {}
                   : { apiUrl: `${origin}/_slack/api` }),
@@ -231,15 +243,18 @@ async function route(req: IncomingMessage, res: ServerResponse) {
     const next: unknown = JSON.parse(await text(req));
     if (!isSettings(next)) return json(res, { error: "Invalid settings" }, 400);
     const slack = next.slack ?? "off";
+    const teamLanguage = next.teamLanguage ?? "en";
     if (
       settings.authorize !== next.authorize ||
       settings.rateLimit !== next.rateLimit ||
-      settings.slack !== slack
+      settings.slack !== slack ||
+      settings.teamLanguage !== teamLanguage
     ) {
       settings = {
         authorize: next.authorize,
         rateLimit: next.rateLimit,
         slack,
+        teamLanguage,
       };
       relay = createRelay();
     }

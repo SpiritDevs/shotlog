@@ -27,6 +27,9 @@ export function createSupportHandler(config: SupportHandlerConfig): (request: Re
 export const defaultEmailLabels: EmailLabels;
 
 // @public
+export const defaultSlackLabels: SlackLabels;
+
+// @public
 export type DeliveryConfig = {
     readonly email: EmailConfig;
     readonly webhook?: WebhookConfig;
@@ -106,6 +109,7 @@ export interface EmailLabels {
     readonly environment: string;
     // (undocumented)
     readonly id: string;
+    readonly lang: string;
     // (undocumented)
     readonly language: string;
     // (undocumented)
@@ -152,6 +156,7 @@ export interface EmailLabels {
     readonly timezone: string;
     // (undocumented)
     readonly title: string;
+    readonly type: (value: string) => string;
     // (undocumented)
     readonly url: string;
     // (undocumented)
@@ -349,8 +354,32 @@ export interface SlackConfig {
         readonly [type: string]: string;
     };
     readonly channels?: readonly string[];
+    readonly labels?: Partial<SlackLabels>;
     readonly timeoutMs?: number;
     readonly token: string;
+}
+
+// @public
+export interface SlackLabels {
+    // (undocumented)
+    readonly browser: string;
+    // (undocumented)
+    readonly console: string;
+    // (undocumented)
+    readonly diagnosticTrail: string;
+    readonly failed: string;
+    // (undocumented)
+    readonly network: string;
+    // (undocumented)
+    readonly page: string;
+    // (undocumented)
+    readonly reporter: string;
+    readonly screenshot: string;
+    // (undocumented)
+    readonly screenshotInThread: string;
+    readonly type: (value: string) => string;
+    // (undocumented)
+    readonly viewport: string;
 }
 
 // @public

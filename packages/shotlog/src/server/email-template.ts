@@ -60,7 +60,8 @@ export function renderEmail(
     characters.length > 80
       ? `${characters.slice(0, 79).join("").trimEnd()}…`
       : firstLine;
-  const subject = `[${log.type}] ${log.shortId} · ${preview}`.replace(
+  const type = labels.type(log.type);
+  const subject = `[${type}] ${log.shortId} · ${preview}`.replace(
     /[\r\n]+/g,
     " ",
   );
@@ -142,7 +143,7 @@ export function renderEmail(
     to: typeof config.to === "string" ? [config.to] : [...config.to],
     ...(replyTo ? { replyTo } : {}),
     subject,
-    html: `<!doctype html><html><head><meta charset="utf-8"><title>${escapeHtml(subject)}</title></head><body style="margin:0;padding:24px 12px;background:#f3f4f6;color:#374151;font:14px/1.5 Arial,sans-serif"><table role="presentation" width="100%" cellpadding="0" cellspacing="0"><tr><td align="center"><table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="max-width:640px;background:#ffffff;border:1px solid #e5e7eb"><tr><td style="padding:24px"><h1 style="margin:0;font-size:22px;color:#111827">${escapeHtml(`[${log.type}] ${log.shortId}`)}</h1>${html.join("")}<p style="margin:24px 0 0;padding-top:16px;border-top:1px solid #e5e7eb;color:#6b7280;font-size:12px;white-space:pre-wrap">${escapeHtml(footer)}</p></td></tr></table></td></tr></table></body></html>`,
+    html: `<!doctype html><html lang="${escapeHtml(labels.lang)}"><head><meta charset="utf-8"><title>${escapeHtml(subject)}</title></head><body style="margin:0;padding:24px 12px;background:#f3f4f6;color:#374151;font:14px/1.5 Arial,sans-serif"><table role="presentation" width="100%" cellpadding="0" cellspacing="0"><tr><td align="center"><table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="max-width:640px;background:#ffffff;border:1px solid #e5e7eb"><tr><td style="padding:24px"><h1 style="margin:0;font-size:22px;color:#111827">${escapeHtml(`[${type}] ${log.shortId}`)}</h1>${html.join("")}<p style="margin:24px 0 0;padding-top:16px;border-top:1px solid #e5e7eb;color:#6b7280;font-size:12px;white-space:pre-wrap">${escapeHtml(footer)}</p></td></tr></table></td></tr></table></body></html>`,
     text: text.join("\n\n"),
     attachments: screenshot
       ? [

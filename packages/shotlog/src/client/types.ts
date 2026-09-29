@@ -17,6 +17,8 @@ import type { JsonValue, Reporter, SupportLogSubmission } from "../types.js";
  * @public
  */
 export interface ShotlogLabels {
+  /** BCP 47 language of these labels, e.g. `pt-BR`; set as the widget's `lang` for screen readers. */
+  readonly lang: string;
   /** Launcher's visible text and accessible name. */
   readonly launcher: string;
   /** Dialog heading. */

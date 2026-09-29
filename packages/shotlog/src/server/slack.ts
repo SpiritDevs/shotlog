@@ -5,6 +5,7 @@ import type { SupportLogSubmission } from "../types.js";
 import type { SlackConfig } from "./config.js";
 import { Delivery } from "./delivery.js";
 import type { ParsedScreenshot } from "./multipart.js";
+import { defaultSlackLabels, type SlackLabels } from "./slack-types.js";
 
 class SlackFailure extends Data.TaggedError("SlackFailure")<{
   readonly method: string;
@@ -190,13 +191,15 @@ const typeEmoji: Record<string, string> = {
 export function slackMessage(
   log: SupportLogSubmission,
   hasScreenshot: boolean,
+  labels: SlackLabels = defaultSlackLabels,
 ) {
   const firstLine = (log.description.split(/[\r\n]/, 1)[0] ?? "").trim();
-  const title = `${log.type} · ${log.shortId}`;
+  const type = labels.type(log.type);
+  const title = `${type} · ${log.shortId}`;
   const { environment: env, reporter } = log;
   const fields = [
     reporter &&
-      `*Reporter*\n${
+      `*${mrkdwn(labels.reporter)}*\n${
         [
           reporter.name && mrkdwn(reporter.name),
           reporter.email &&
@@ -208,9 +211,9 @@ export function slackMessage(
           .filter(Boolean)
           .join(" · ") || "—"
       }`,
-    `*Page*\n<${mrkdwn(env.url)}|${mrkdwn(clip(env.title || env.route, 80))}>`,
-    `*Browser*\n${mrkdwn(`${env.browser} · ${env.os} · ${env.deviceType}`)}`,
-    `*Viewport*\n${env.viewport.width}×${env.viewport.height} @${env.devicePixelRatio}x`,
+    `*${mrkdwn(labels.page)}*\n<${mrkdwn(env.url)}|${mrkdwn(clip(env.title || env.route, 80))}>`,
+    `*${mrkdwn(labels.browser)}*\n${mrkdwn(`${env.browser} · ${env.os} · ${env.deviceType}`)}`,
+    `*${mrkdwn(labels.viewport)}*\n${env.viewport.width}×${env.viewport.height} @${env.devicePixelRatio}x`,
   ].filter((field): field is string => Boolean(field));
   const consoleEntries = log.diagnostics?.console ?? [];
   const networkEntries = log.diagnostics?.network ?? [];
@@ -221,7 +224,8 @@ export function slackMessage(
     ...networkEntries
       .slice(-5)
       .map(
-        (entry) => `${entry.method} ${entry.status || "failed"} ${entry.url}`,
+        (entry) =>
+          `${entry.method} ${entry.status || labels.failed} ${entry.url}`,
       ),
   ].map((line) => clip(line.replace(/\s+/g, " "), 200));
   const metadata = Object.entries(log.metadata ?? {}).map(
@@ -255,7 +259,7 @@ export function slackMessage(
       type: "section",
       text: {
         type: "mrkdwn",
-        text: `*Diagnostic Trail* · ${consoleEntries.length} console · ${networkEntries.length} network\n\`\`\`${mrkdwn(clip(trail.join("\n"), 2800))}\`\`\``,
+        text: `*${mrkdwn(labels.diagnosticTrail)}* · ${consoleEntries.length} ${mrkdwn(labels.console)} · ${networkEntries.length} ${mrkdwn(labels.network)}\n\`\`\`${mrkdwn(clip(trail.join("\n"), 2800))}\`\`\``,
       },
     });
   blocks.push({
@@ -263,18 +267,19 @@ export function slackMessage(
     elements: [
       {
         type: "mrkdwn",
-        text: `${hasScreenshot ? ":paperclip: Screenshot in thread · " : ""}${log.id} · <!date^${Math.floor(Date.parse(log.createdAt) / 1000)}^{date_short_pretty} {time}|${log.createdAt}>`,
+        text: `${hasScreenshot ? `:paperclip: ${mrkdwn(labels.screenshotInThread)} · ` : ""}${log.id} · <!date^${Math.floor(Date.parse(log.createdAt) / 1000)}^{date_short_pretty} {time}|${log.createdAt}>`,
       },
     ],
   });
   return {
-    text: clip(`[${log.type}] ${log.shortId} · ${firstLine}`, 300),
+    text: clip(`[${type}] ${log.shortId} · ${firstLine}`, 300),
     blocks,
   };
 }
 
 export function slackLayer(config: SlackConfig) {
   const { call, upload } = slackClient(config);
+  const labels = { ...defaultSlackLabels, ...config.labels };
   return Layer.succeed(Delivery, {
     deliver: Effect.fn("deliverSlack")(function* (
       log: SupportLogSubmission,
@@ -295,14 +300,14 @@ export function slackLayer(config: SlackConfig) {
           ? yield* call("files.getUploadURLExternal", {
               filename: `support-log-${log.id}.png`,
               length: String(screenshot.bytes.byteLength),
-              alt_txt: `Screenshot for ${log.shortId}`,
+              alt_txt: `${labels.screenshot} ${log.shortId}`,
             }).pipe(
               Effect.tap((body) =>
                 upload(String(body.upload_url), screenshot.bytes),
               ),
             )
           : undefined;
-        const message = slackMessage(log, file !== undefined);
+        const message = slackMessage(log, file !== undefined, labels);
         const posted = yield* call("chat.postMessage", {
           channel,
           text: message.text,
@@ -314,7 +319,10 @@ export function slackLayer(config: SlackConfig) {
         // The report is already visible. Resending it for a failed share would post it twice.
         yield* call("files.completeUploadExternal", {
           files: JSON.stringify([
-            { id: String(file.file_id), title: `${log.shortId} screenshot` },
+            {
+              id: String(file.file_id),
+              title: `${labels.screenshot} ${log.shortId}`,
+            },
           ]),
           channel_id: String(posted.channel),
           thread_ts: String(posted.ts),

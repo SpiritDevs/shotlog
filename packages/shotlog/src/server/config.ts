@@ -1,4 +1,5 @@
 import type { EmailLabels, EmailProvider } from "./email-types.js";
+import type { SlackLabels } from "./slack-types.js";
 import type { StorageAdapter } from "./storage-types.js";
 
 /**
@@ -92,6 +93,8 @@ export interface SlackConfig {
   readonly timeoutMs?: number;
   /** Slack Web API base URL, for proxies and tests. Defaults to `https://slack.com/api`. */
   readonly apiUrl?: string;
+  /** Message text, e.g. a locale's `slackLabels`. Defaults to English. */
+  readonly labels?: Partial<SlackLabels>;
 }
 
 /**

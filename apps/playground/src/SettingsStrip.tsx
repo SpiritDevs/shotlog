@@ -124,6 +124,20 @@ export function SettingsStrip() {
             <option value="byType">By type · Bug, Idea fixed</option>
           </select>
         </label>
+        <label className="select-label">
+          Team language
+          <select
+            value={settings?.teamLanguage ?? "en"}
+            disabled={disabled}
+            onChange={(event) => {
+              const next = { ...settings, teamLanguage: event.target.value };
+              if (isSettings(next)) void save(next);
+            }}
+          >
+            <option value="en">English</option>
+            <option value="pt-BR">Português (Brasil)</option>
+          </select>
+        </label>
         <label className="checkbox-label">
           <input
             type="checkbox"

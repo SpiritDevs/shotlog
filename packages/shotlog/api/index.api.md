@@ -248,6 +248,7 @@ export interface ShotlogLabels {
     readonly idea: string;
     readonly imageFailed: string;
     readonly includedDetails: (consoleCount: number, networkCount: number) => string;
+    readonly lang: string;
     readonly launcher: string;
     readonly metadata: string;
     readonly networkCount: (count: number) => string;

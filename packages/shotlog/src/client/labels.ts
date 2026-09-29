@@ -25,6 +25,7 @@ export function typeLabel(
 }
 
 export const defaultLabels: ShotlogLabels = {
+  lang: "en",
   launcher: "Report an issue",
   title: "Send a report",
   close: "Close report",

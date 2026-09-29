@@ -476,6 +476,7 @@ export function ShotlogProvider({
         createPortal(
           <div
             className="shotlog"
+            lang={labels.lang}
             data-theme={theme}
             data-position={position}
             data-mode={launcher ? "standalone" : "programmatic"}

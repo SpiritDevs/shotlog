@@ -5,6 +5,8 @@ export { defaultEmailLabels } from "./server/email-types.js";
 export { createSupportHandler } from "./server/handler.js";
 export type { ResendOptions } from "./server/providers.js";
 export { resend } from "./server/providers.js";
+export type * from "./server/slack-types.js";
+export { defaultSlackLabels } from "./server/slack-types.js";
 export type { StorageAdapter } from "./server/storage-types.js";
 export { verifyWebhookSignature } from "./server/verify.js";
 export { getShortId } from "./short-id.js";

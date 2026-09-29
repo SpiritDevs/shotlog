@@ -94,7 +94,7 @@ test("uploads first, posts the escaped report, then shares the Screenshot in its
   expect(share.get("channel_id")).toBe("C9");
   expect(share.get("thread_ts")).toBe("1700000000.000100");
   expect(JSON.parse(share.get("files") ?? "")).toEqual([
-    { id: "F1", title: `${submission().shortId} screenshot` },
+    { id: "F1", title: `Screenshot ${submission().shortId}` },
   ]);
 });
 

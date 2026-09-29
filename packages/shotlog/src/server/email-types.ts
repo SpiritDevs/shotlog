@@ -79,6 +79,10 @@ export interface EmailProvider {
  * @public
  */
 export interface EmailLabels {
+  /** BCP 47 language of these labels, set on the email's `<html lang>`. */
+  readonly lang: string;
+  /** Display name for a delivered Type value, used in the subject and heading. */
+  readonly type: (value: string) => string;
   readonly description: string;
   readonly screenshot: string;
   readonly reporter: string;
@@ -128,6 +132,8 @@ export interface EmailLabels {
  * @public
  */
 export const defaultEmailLabels: EmailLabels = {
+  lang: "en",
+  type: (value) => value,
   description: "Description",
   screenshot: "Screenshot",
   reporter: "Reporter",

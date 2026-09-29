@@ -1,5 +1,6 @@
 import { useState } from "react";
 import type { ShotlogProviderProps } from "shotlog";
+import * as ptBR from "shotlog/locales/pt-BR";
 
 interface Settings {
   readonly enabled: boolean;
@@ -11,6 +12,7 @@ interface Settings {
   readonly console: boolean;
   readonly network: boolean;
   readonly types: "default" | "custom" | "empty";
+  readonly language: "en" | "pt-BR";
 }
 
 const storageKey = "shotlog:playground:provider";
@@ -24,6 +26,7 @@ const defaults: Settings = {
   console: true,
   network: true,
   types: "default",
+  language: "en",
 };
 const positions: readonly [
   NonNullable<ShotlogProviderProps["position"]>,
@@ -69,7 +72,9 @@ function isSettings(value: unknown): value is Settings {
     "types" in value &&
     (value.types === "default" ||
       value.types === "custom" ||
-      value.types === "empty")
+      value.types === "empty") &&
+    "language" in value &&
+    (value.language === "en" || value.language === "pt-BR")
   );
 }
 
@@ -107,6 +112,7 @@ export function useProviderSettings() {
     theme: settings.theme,
     accent: settings.accent,
     diagnostics: { console: settings.console, network: settings.network },
+    ...(settings.language === "pt-BR" ? { labels: ptBR.labels } : {}),
     ...(settings.types === "default"
       ? {}
       : { types: settings.types === "custom" ? customTypes : emptyTypes }),
@@ -187,6 +193,20 @@ export function ProviderSettings({
                 {label}
               </option>
             ))}
+          </select>
+        </label>
+        <label className="select-label">
+          Language
+          <select
+            value={settings.language}
+            onChange={(event) => {
+              const language = event.currentTarget.value;
+              if (language === "en" || language === "pt-BR")
+                onChange({ ...settings, language });
+            }}
+          >
+            <option value="en">English</option>
+            <option value="pt-BR">Português (Brasil)</option>
           </select>
         </label>
         <label className="select-label">

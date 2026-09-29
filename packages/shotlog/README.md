@@ -255,7 +255,7 @@ export const smtpProvider = smtp({
 
 SES uses the SDK's credential chain unless you supply `credentials` (an object or async function). Resend uses REST directly. Import only the provider you use.
 
-Email includes HTML tables, a plain-text alternative, and the PNG inline and as an attachment. `reporter.email`, when supplied, is used for Reply-To. Customize template text with `delivery.email.labels` (`Partial<EmailLabels>`); `defaultEmailLabels` exports the English defaults.
+Email includes HTML tables, a plain-text alternative, and the PNG inline and as an attachment. `reporter.email`, when supplied, is used for Reply-To. Customize template text with `delivery.email.labels` (`Partial<EmailLabels>`); `defaultEmailLabels` exports the English defaults. For a translated email, see [Languages](#languages).
 
 Resend and SES abort sends after 15 seconds. SMTP has 15-second connection, greeting, and socket inactivity timeouts, with no total deadline. Email sends have no automatic retries. Custom `EmailProvider.send` implementations must bound their own duration; the Relay Endpoint waits for them to settle.
 
@@ -340,6 +340,8 @@ Keys are Type values, so custom Types work too. The dropdown only appears for Ty
 Each report is one message: the Type and Reference, the Description, the Reporter, page, browser and viewport, Metadata, and the last few Diagnostic Trail entries. The Screenshot is uploaded first and shared as a reply in the message's thread. Reporter text is escaped, so `<!channel>` and similar mentions never ping anyone.
 
 Without `channel`, the Report Card asks the Relay Endpoint (`GET`, behind your Authorize Hook) which channels to offer, and shows them in a dropdown. The list is `channels` when set, otherwise every channel the app is a member of; listing needs the `channels:read` and `groups:read` scopes. The Relay Endpoint rejects any channel it did not offer, so a Reporter can't post anywhere else. The list is cached for a minute. Any Reporter who passes `authorize` can see the offered channel names, so prefer setting `channels` to exactly the ones you want offered.
+
+Customize message text with `delivery.slack.labels` (`Partial<SlackLabels>`); `defaultSlackLabels` exports the English defaults.
 
 Each Slack API call times out after 5 seconds (`timeoutMs`) and retries twice on network errors, timeouts, HTTP 429, and 5xx. Slack errors such as `not_in_channel` or `missing_scope` fail without retry and are logged on the server. If the message posts but sharing the Screenshot fails, the report still counts as delivered, so a retry can't post it twice; the failure is logged.
 
@@ -521,6 +523,36 @@ export function SupportOptions({ userId }: { userId: string }) {
 ```
 
 The UI lives in a Shadow DOM. Set inheritable CSS variables on `:root` or `[data-shotlog]` (the host is appended to `document.body`, outside your React wrapper): `--shotlog-accent`, `--shotlog-accent-text`, `--shotlog-radius`, `--shotlog-control-radius`, `--shotlog-font`, `--shotlog-font-size`, `--shotlog-surface`, `--shotlog-text`, `--shotlog-muted`, `--shotlog-border`, `--shotlog-field`, `--shotlog-focus`, `--shotlog-offset`, `--shotlog-card-width`, and `--shotlog-z-index`. The `accent` prop takes precedence over an inherited accent variable.
+
+### Languages
+
+The widget, emails, and Slack messages default to English. Translations ship as locale modules; import one and pass its labels. Available: `pt-BR` (Brazilian Portuguese).
+
+```tsx
+import * as ptBR from "shotlog/locales/pt-BR";
+
+<ShotlogProvider endpoint="/api/support" labels={ptBR.labels} />;
+```
+
+`labels.lang` becomes the widget's `lang` attribute, so screen readers pronounce it correctly. Chips translate Bug, Question, and Idea, but the delivered Type values stay the same, so your filters and routes keep working.
+
+Emails and Slack messages are read by your team, so choose their language separately on the server:
+
+```ts
+import * as ptBR from "shotlog/locales/pt-BR";
+import { resend, type DeliveryConfig } from "shotlog/server";
+
+export const delivery: DeliveryConfig = {
+  email: {
+    provider: resend({ apiKey: process.env.RESEND_API_KEY! }),
+    from: process.env.SUPPORT_FROM!, to: process.env.SUPPORT_TO!,
+    labels: ptBR.emailLabels,
+  },
+  slack: { token: process.env.SLACK_BOT_TOKEN!, channel: "C0123456789", labels: ptBR.slackLabels },
+};
+```
+
+Each locale is a small module of plain strings, so importing one adds only that language to your bundle. To follow the user's app language, pick labels at runtime, for example `labels={language === "pt-BR" ? ptBR.labels : undefined}`. Override single strings by spreading: `labels={{ ...ptBR.labels, launcher: "Ajuda" }}`. Both `EmailLabels` and `SlackLabels` include `type`, which names each Type value in subjects and headers.
 
 ### Custom delivery
 

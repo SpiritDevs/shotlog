@@ -263,8 +263,9 @@ function App() {
               </p>
               <p className="feature-detail">
                 Keep the PNG inline, or use UploadFile or a custom Storage
-                Adapter for a screenshot URL. Custom <code>onSubmit</code> gives
-                you control over the next step.
+                Adapter for a screenshot URL. The widget, emails, and Slack
+                messages also come in Brazilian Portuguese. Custom{" "}
+                <code>onSubmit</code> gives you control over the next step.
               </p>
               <a className="text-link" href="/docs/#delivery">
                 Choose a destination <Arrow />

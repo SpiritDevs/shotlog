@@ -5,6 +5,8 @@ export interface Settings {
   readonly rateLimit: boolean;
   /** Omitted means off, so older callers reset Slack too. */
   readonly slack?: "off" | "fixed" | "choose" | "byType";
+  /** Language of emails and Slack messages; omitted means English. */
+  readonly teamLanguage?: "en" | "pt-BR";
 }
 
 export function isSettings(value: unknown): value is Settings {
@@ -16,7 +18,10 @@ export function isSettings(value: unknown): value is Settings {
     "rateLimit" in value &&
     typeof value.rateLimit === "boolean" &&
     (!("slack" in value) ||
-      ["off", "fixed", "choose", "byType"].includes(String(value.slack)))
+      ["off", "fixed", "choose", "byType"].includes(String(value.slack))) &&
+    (!("teamLanguage" in value) ||
+      value.teamLanguage === "en" ||
+      value.teamLanguage === "pt-BR")
   );
 }
 
