@@ -352,6 +352,8 @@ Skip the server endpoint with `onSubmit`:
 />
 ```
 
+Add `recording` to the provider to offer screen recording here too; `onSubmit` then also gets `recording: { video, mimeType, durationMs, width, height }`, and the app stores the video itself.
+
 Throw a shotlog error class, such as `new RateLimited(60)`, to show that error's message. Any other throw shows as a delivery failure.
 
 ## Errors

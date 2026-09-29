@@ -689,7 +689,7 @@ export const storage: RecordingStorage = {
 };
 ```
 
-Screen Recording needs a Relay Endpoint; a custom `onSubmit` doesn't offer it.
+With a custom `onSubmit` there's no Relay Endpoint to upload through, so recording is opt-in on the provider and the video comes to you: `<ShotlogProvider onSubmit={send} recording />` (or `recording={{ maxSeconds: 60 }}`) hands `onSubmit` a `recording` with the `video` Blob, `mimeType`, `durationMs`, `width` and `height`. Store it wherever you keep files.
 
 ## The Support Log payload
 

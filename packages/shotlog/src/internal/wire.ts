@@ -29,6 +29,11 @@ export interface RecordingLimits {
   readonly maxBytes: number;
 }
 
+export const defaultRecordingLimits: RecordingLimits = {
+  maxSeconds: 300,
+  maxBytes: 200 * 1024 * 1024,
+};
+
 /** JSON POST body asking to upload a Screen Recording for a Support Log. */
 export interface RecordingUploadRequest {
   readonly recordingUpload: {

@@ -1114,6 +1114,18 @@ button:focus-visible .arrow {
   max-height: 100%;
   object-fit: contain;
 }
+.result-grid .result-recording {
+  grid-column: 1 / -1;
+}
+.result-video {
+  display: block;
+  width: 100%;
+  max-height: 440px;
+  background: #0d0d12;
+  border: 1px solid var(--line);
+  border-radius: 6px;
+  margin-bottom: 16px;
+}
 .result-bottom {
   display: flex;
   align-items: center;

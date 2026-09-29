@@ -181,10 +181,12 @@ export interface ShotlogControls {
 // @public
 export type ShotlogDelivery = {
     readonly endpoint: string;
-    readonly onSubmit?: never;
+    readonly onSubmit?: never; /** The Relay Endpoint's `recording` setting decides whether Reporters can record. */
+    readonly recording?: never;
 } | {
     readonly endpoint?: never;
     readonly onSubmit: (submission: ShotlogSubmission) => Promise<void>;
+    readonly recording?: boolean | ShotlogRecordingOptions;
 };
 
 // @public
@@ -364,9 +366,27 @@ export interface ShotlogProviderOptions {
 export type ShotlogProviderProps = ShotlogDelivery & ShotlogProviderOptions;
 
 // @public
+export interface ShotlogRecording {
+    // (undocumented)
+    readonly durationMs: number;
+    // (undocumented)
+    readonly height: number;
+    readonly mimeType: string;
+    readonly video: Blob;
+    readonly width: number;
+}
+
+// @public
+export interface ShotlogRecordingOptions {
+    readonly maxBytes?: number;
+    readonly maxSeconds?: number;
+}
+
+// @public
 export interface ShotlogSubmission {
     // (undocumented)
     readonly log: SupportLogSubmission;
+    readonly recording?: ShotlogRecording;
     readonly screenshot?: Blob;
 }
 

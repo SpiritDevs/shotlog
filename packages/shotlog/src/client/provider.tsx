@@ -18,7 +18,11 @@ import {
   UploadFailed,
   ValidationFailed,
 } from "../errors.js";
-import type { RecordingLimits, RecordingPart } from "../internal/wire.js";
+import {
+  defaultRecordingLimits,
+  type RecordingLimits,
+  type RecordingPart,
+} from "../internal/wire.js";
 import { getShortId } from "../short-id.js";
 import type { SupportLogSubmission } from "../types.js";
 import type { CardSize } from "./card-size.js";
@@ -100,6 +104,7 @@ export function ShotlogProvider({
   children,
   endpoint,
   onSubmit,
+  recording: recordingOption,
   enabled = true,
   draftScope,
   persistDraft = true,
@@ -356,7 +361,10 @@ export function ShotlogProvider({
     return () => session.recorder.cancel();
   }, [session]);
   // Loaded ahead so the recording toolbar appears as soon as sharing starts.
-  const canRecord = canRecordWith(relayOptions?.options);
+  const canRecord =
+    endpoint === undefined
+      ? Boolean(recordingOption) && supportsRecording()
+      : canRecordWith(relayOptions?.options);
   useEffect(() => {
     if (canRecord) import("./recording/session.js").catch(() => {});
   }, [canRecord]);
@@ -430,8 +438,27 @@ export function ShotlogProvider({
       ? relayOptions.options
       : undefined;
   const slackChoice = offered?.slack;
-  const recordingLimits =
-    offered?.recording && supportsRecording() ? offered.recording : null;
+  // A Relay Endpoint says whether Reporters can record; a custom onSubmit opts in with a prop.
+  const customMaxSeconds =
+    typeof recordingOption === "object"
+      ? recordingOption.maxSeconds
+      : undefined;
+  const customMaxBytes =
+    typeof recordingOption === "object" ? recordingOption.maxBytes : undefined;
+  const customLimits = useMemo(
+    () => ({
+      maxSeconds: customMaxSeconds ?? defaultRecordingLimits.maxSeconds,
+      maxBytes: customMaxBytes ?? defaultRecordingLimits.maxBytes,
+    }),
+    [customMaxSeconds, customMaxBytes],
+  );
+  const recordingLimits = !supportsRecording()
+    ? null
+    : endpoint === undefined
+      ? recordingOption
+        ? customLimits
+        : null
+      : (offered?.recording ?? null);
   const slackChannels =
     slackChoice && !slackChoice.fixedTypes.includes(selectedType)
       ? slackChoice.channels
@@ -549,7 +576,21 @@ export function ShotlogProvider({
           recordingPart,
         );
       else {
-        await onSubmit({ log, ...(screenshot ? { screenshot } : {}) });
+        await onSubmit({
+          log,
+          ...(screenshot ? { screenshot } : {}),
+          ...(recording
+            ? {
+                recording: {
+                  video: recording.blob,
+                  mimeType: recording.mimeType,
+                  durationMs: recording.durationMs,
+                  width: recording.width,
+                  height: recording.height,
+                },
+              }
+            : {}),
+        });
         result = { id: log.id, shortId: log.shortId, duplicate: false };
       }
     } catch (cause) {

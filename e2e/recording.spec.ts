@@ -9,6 +9,16 @@ import {
   test,
 } from "./helpers.js";
 
+declare global {
+  interface Window {
+    shotlogCustomRecordings: {
+      size: number;
+      type: string;
+      durationMs: number;
+    }[];
+  }
+}
+
 // Chromium alone can accept the tab-sharing picker without a person (see playwright.config.ts).
 test.skip(
   ({ browserName }) => browserName !== "chromium",
@@ -114,4 +124,24 @@ test("discarding asks twice and keeps nothing", async ({ page }) => {
   await expect(
     card(page).getByRole("button", { name: /^Record screen/ }),
   ).toBeFocused();
+});
+
+test("a custom onSubmit opts in and receives the video itself", async ({
+  page,
+}) => {
+  await page.goto("/#/custom");
+  await openReport(page, "Recorded without a Relay Endpoint");
+  await card(page)
+    .getByRole("button", { name: /^Record screen/ })
+    .click();
+  await expect(toolbar(page)).toBeVisible();
+  await page.waitForTimeout(1_500);
+  await toolbar(page).getByRole("button", { name: "Finish" }).click();
+  await expect(card(page).getByText("Screen recording")).toBeVisible();
+  await card(page).getByRole("button", { name: "Submit", exact: true }).click();
+  await expectSent(page);
+  const [recording] = await page.evaluate(() => window.shotlogCustomRecordings);
+  expect(recording?.type).toMatch(/^video\/webm/);
+  expect(recording?.size).toBeGreaterThan(0);
+  expect(recording?.durationMs).toBeGreaterThan(1_000);
 });

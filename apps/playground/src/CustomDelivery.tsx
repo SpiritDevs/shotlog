@@ -7,13 +7,27 @@ import {
 declare global {
   interface Window {
     shotlogCustomSubmissions: SupportLogSubmission[];
+    shotlogCustomRecordings: {
+      size: number;
+      type: string;
+      durationMs: number;
+    }[];
   }
 }
 
 export function CustomDelivery() {
   return (
     <ShotlogProvider
-      onSubmit={async ({ log }) => {
+      recording
+      onSubmit={async ({ log, recording }) => {
+        if (recording) {
+          window.shotlogCustomRecordings ??= [];
+          window.shotlogCustomRecordings.push({
+            size: recording.video.size,
+            type: recording.video.type,
+            durationMs: recording.durationMs,
+          });
+        }
         window.shotlogCustomSubmissions ??= [];
         const submissions = window.shotlogCustomSubmissions;
         submissions.push(log);

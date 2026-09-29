@@ -76,3 +76,16 @@ test("launcher accepts a boolean or icon/text options", () => {
   void text;
   void bad;
 });
+
+test("recording is a custom onSubmit option; a Relay Endpoint decides for itself", () => {
+  const custom: ShotlogProviderProps = {
+    onSubmit: async ({ recording }) => {
+      expectTypeOf(recording?.video).toEqualTypeOf<Blob | undefined>();
+    },
+    recording: { maxSeconds: 60 },
+  };
+  void custom;
+  // @ts-expect-error The Relay Endpoint's recording setting applies instead.
+  const relay: ShotlogProviderProps = { endpoint: "/x", recording: true };
+  void relay;
+});

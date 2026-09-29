@@ -5,10 +5,11 @@ import {
   ValidationFailed,
 } from "../internal/errors.js";
 import { RecordingSchema } from "../internal/schema/support-log.js";
-import type {
-  RecordingLimits,
-  RecordingPart,
-  RecordingUploadBody,
+import {
+  defaultRecordingLimits,
+  type RecordingLimits,
+  type RecordingPart,
+  type RecordingUploadBody,
 } from "../internal/wire.js";
 import type { Recording } from "../types.js";
 import type { RecordingConfig } from "./config.js";
@@ -18,8 +19,8 @@ export const recordingPartLimit = 8 * 1024;
 const storageTimeoutMs = 10_000;
 
 export const recordingLimits = (config: RecordingConfig): RecordingLimits => ({
-  maxSeconds: config.maxSeconds ?? 300,
-  maxBytes: config.maxBytes ?? 200 * 1024 * 1024,
+  maxSeconds: config.maxSeconds ?? defaultRecordingLimits.maxSeconds,
+  maxBytes: config.maxBytes ?? defaultRecordingLimits.maxBytes,
 });
 
 const MimeType = Schema.String.pipe(

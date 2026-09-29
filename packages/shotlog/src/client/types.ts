@@ -297,6 +297,45 @@ export interface ShotlogSubmission {
   readonly log: SupportLogSubmission;
   /** The flattened, annotated PNG, when the Reporter attached one. */
   readonly screenshot?: Blob;
+  /** The Screen Recording, when `recording` is on and the Reporter made one. */
+  readonly recording?: ShotlogRecording;
+}
+
+/**
+ * A Screen Recording handed to a custom `onSubmit`: the video file and what the browser measured.
+ * @example
+ * ```ts
+ * import type { ShotlogRecording } from "shotlog";
+ * const describe = (recording: ShotlogRecording) =>
+ *   `${recording.width}×${recording.height}, ${Math.round(recording.durationMs / 1000)} s`;
+ * ```
+ * @public
+ */
+export interface ShotlogRecording {
+  /** WebM, or MP4 where the browser can't record WebM. */
+  readonly video: Blob;
+  /** The recorder's format, including codecs, e.g. `video/webm;codecs=vp9,opus`. */
+  readonly mimeType: string;
+  readonly durationMs: number;
+  /** Video dimensions in pixels. */
+  readonly width: number;
+  readonly height: number;
+}
+
+/**
+ * Screen Recording limits for a custom `onSubmit`. With a Relay Endpoint, the server sets them.
+ * @example
+ * ```ts
+ * import type { ShotlogRecordingOptions } from "shotlog";
+ * const recording: ShotlogRecordingOptions = { maxSeconds: 60 };
+ * ```
+ * @public
+ */
+export interface ShotlogRecordingOptions {
+  /** Longest recording in seconds; the recorder stops itself there. Defaults to 300. */
+  readonly maxSeconds?: number;
+  /** Largest video in bytes. Defaults to 200 MiB. */
+  readonly maxBytes?: number;
 }
 
 /**
@@ -318,6 +357,8 @@ export type ShotlogDelivery =
        */
       readonly endpoint: string;
       readonly onSubmit?: never;
+      /** The Relay Endpoint's `recording` setting decides whether Reporters can record. */
+      readonly recording?: never;
     }
   | {
       readonly endpoint?: never;
@@ -326,6 +367,11 @@ export type ShotlogDelivery =
        * error class to select its translated label; any other throw shows as a delivery failure.
        */
       readonly onSubmit: (submission: ShotlogSubmission) => Promise<void>;
+      /**
+       * Lets Reporters make a Screen Recording, handed to `onSubmit` as `recording`.
+       * Off by default; `true` uses the default limits.
+       */
+      readonly recording?: boolean | ShotlogRecordingOptions;
     };
 
 /**

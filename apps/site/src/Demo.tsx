@@ -1,8 +1,22 @@
 import { useEffect, useRef, useState } from "react";
-import { ShotlogProvider, type ShotlogSubmission, useShotlog } from "shotlog";
+import {
+  ShotlogProvider,
+  type ShotlogRecording,
+  type ShotlogSubmission,
+  useShotlog,
+} from "shotlog";
 import { Arrow, CopyButton, type Theme } from "./ui";
 
-type Result = { json: string; screenshot?: Blob };
+type Result = {
+  json: string;
+  screenshot?: Blob;
+  recording?: ShotlogRecording;
+};
+
+const duration = (ms: number) => {
+  const seconds = Math.round(ms / 1000);
+  return `${Math.floor(seconds / 60)}:${String(seconds % 60).padStart(2, "0")}`;
+};
 
 function ResultPanel({
   result,
@@ -17,10 +31,15 @@ function ResultPanel({
   const { close } = useShotlog();
   const [image, setImage] = useState<string>();
   const [jsonFile, setJsonFile] = useState<string>();
+  const [video, setVideo] = useState<string>();
   useEffect(() => {
     const screenshotUrl = result.screenshot
       ? URL.createObjectURL(result.screenshot)
       : undefined;
+    const videoUrl = result.recording
+      ? URL.createObjectURL(result.recording.video)
+      : undefined;
+    setVideo(videoUrl);
     const jsonUrl = URL.createObjectURL(
       new Blob([result.json], { type: "application/json" }),
     );
@@ -28,6 +47,7 @@ function ResultPanel({
     setJsonFile(jsonUrl);
     return () => {
       if (screenshotUrl) URL.revokeObjectURL(screenshotUrl);
+      if (videoUrl) URL.revokeObjectURL(videoUrl);
       URL.revokeObjectURL(jsonUrl);
     };
   }, [result]);
@@ -61,7 +81,8 @@ function ResultPanel({
       </div>
       <p>
         This is the exact JSON received by <code>onSubmit</code>. The annotated
-        PNG arrives separately. Both stay in this browser.
+        PNG and the screen recording arrive separately. Everything stays in this
+        browser.
       </p>
       <div className="result-grid">
         <section aria-labelledby="json-title">
@@ -114,6 +135,33 @@ function ResultPanel({
             </div>
           )}
         </section>
+        {result.recording && video && (
+          <section className="result-recording" aria-labelledby="video-title">
+            <div className="result-section-heading">
+              <h3 id="video-title">Screen recording</h3>
+              <span className="mono">
+                {duration(result.recording.durationMs)} ·{" "}
+                {(result.recording.video.size / 1024 / 1024).toFixed(1)} MB ·{" "}
+                {result.recording.video.type.split("/")[1]?.toUpperCase()}
+              </span>
+            </div>
+            {/* biome-ignore lint/a11y/useMediaCaption: The Reporter's own recording has no captions. */}
+            <video
+              className="result-video"
+              src={video}
+              controls
+              playsInline
+              preload="metadata"
+            />
+            <a
+              className="text-link"
+              href={video}
+              download={`shotlog-recording.${result.recording.video.type.includes("mp4") ? "mp4" : "webm"}`}
+            >
+              Download video ↓
+            </a>
+          </section>
+        )}
       </div>
       <div className="result-bottom">
         <span>Built with the real shotlog package. No demo API.</span>
@@ -251,14 +299,14 @@ function Playground({
                 <span>②</span>
                 <div>
                   <strong>Capture & annotate</strong>
-                  <small>Open shotlog. Add a screenshot.</small>
+                  <small>Add a screenshot, or record your screen.</small>
                 </div>
               </li>
               <li className={step === 2 ? "active" : ""}>
                 <span>③</span>
                 <div>
                   <strong>Inspect your report</strong>
-                  <small>See the JSON and the final PNG.</small>
+                  <small>See the JSON, the PNG and the video.</small>
                 </div>
               </li>
             </ol>
@@ -299,10 +347,11 @@ export default function Demo({ theme }: { theme: Theme }) {
   const pending = useRef<Result | null>(null);
   const [result, setResult] = useState<Result | null>(null);
   const [showResult, setShowResult] = useState(false);
-  const receive = async ({ log, screenshot }: ShotlogSubmission) => {
+  const receive = async ({ log, screenshot, recording }: ShotlogSubmission) => {
     pending.current = {
       json: JSON.stringify(log, null, 2),
       ...(screenshot ? { screenshot } : {}),
+      ...(recording ? { recording } : {}),
     };
   };
   return (
@@ -310,6 +359,7 @@ export default function Demo({ theme }: { theme: Theme }) {
       theme={theme}
       accent={theme === "light" ? "#A92F24" : "#FF8475"}
       onSubmit={receive}
+      recording={{ maxSeconds: 120 }}
       onSubmitted={() => {
         setResult(pending.current);
         setShowResult(true);

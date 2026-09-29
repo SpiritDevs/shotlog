@@ -56,4 +56,4 @@ Videos are far larger than Screenshots: about 20 MB a minute. They can't take th
 - Videos go to storage when the Reporter submits, not when they finish recording: a discarded recording costs nothing. The trade-off is a wait on Submit, shown as upload progress.
 - The UploadFile session protocol is duplicated in shotlog until `@uploadfile/core` exposes it.
 - Only Chromium can record without a person in Playwright (`--auto-accept-this-tab-capture`), so the end-to-end test runs there. Firefox and Safari share the code path but are checked by hand.
-- A custom `onSubmit` doesn't offer recording: it has no Relay Endpoint to issue uploads.
+- A custom `onSubmit` opts in with the provider's `recording` prop and receives the video Blob as `ShotlogSubmission.recording`; with a Relay Endpoint the prop is not allowed, since the server decides. shotlog.dev's demo uses this, so its recordings never leave the visitor's browser.
